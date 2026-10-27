@@ -1,0 +1,32 @@
+{
+  "name": "meta-hackathon-ai-finance",
+  "version": "1.0.0",
+  "description": "Backend Supabase y flujos de automatización n8n con AI Agents para gestión financiera vía WhatsApp/Telegram",
+  "scripts": {
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:diff": "supabase db diff -f",
+    "db:push": "supabase db push",
+    "db:types": "supabase gen types typescript --local > types/database.types.ts",
+    "n8n:up": "docker compose up -d",
+    "n8n:down": "docker compose down",
+    "n8n:logs": "docker compose logs -f n8n",
+    "n8n:export": "bash n8n/scripts/export-workflows.sh",
+    "n8n:import": "bash n8n/scripts/import-workflows.sh"
+  },
+  "keywords": [
+    "supabase",
+    "n8n",
+    "ai-agent",
+    "whatsapp-bot",
+    "telegram-bot",
+    "family-budget",
+    "hackathon"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "supabase": "^2.15.8"
+  }
+}

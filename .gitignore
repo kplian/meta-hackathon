@@ -1,0 +1,29 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Supabase
+supabase/.branches
+supabase/.temp
+.supabase
+
+# n8n local data (if running via docker volume mounted locally)
+n8n_data/
+.n8n/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log

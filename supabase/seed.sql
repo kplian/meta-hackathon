@@ -1,0 +1,4 @@
+-- ==============================================================================
+-- SEED DATA (Datos semilla para desarrollo local)
+-- ==============================================================================
+-- Agrega aquí tus datos de prueba iniciales cuando definas tu diseño.
