@@ -9,11 +9,14 @@ Asistente inteligente de finanzas familiares impulsado por **Agentes de IA en n8
 El repositorio está estructurado siguiendo las mejores prácticas para el versionamiento independiente de la base de datos (Supabase) y la lógica de orquestación del agente de IA (n8n):
 
 ```text
-META_HACKATHON/
+META_HACKATHON/                  # Monorepo (npm workspaces: apps/*, packages/*)
+├── apps/
+│   └── mobile/                   # App móvil Expo + React Native + TypeScript
+├── packages/
+│   └── database-types/           # Tipos Supabase generados (compartidos)
 ├── supabase/                     # Versionamiento de Base de Datos y Backend
 │   ├── config.toml               # Configuración local de Supabase CLI
 │   ├── migrations/               # Migraciones SQL versionadas (timestamped)
-│   │   └── 20261026000001_initial_schema.sql
 │   └── seed.sql                  # Datos semilla para pruebas rápidas
 ├── n8n/                          # Automatización, Agentes IA y Flujos
 │   ├── workflows/                # Workflows exportados en JSON listos para Git
@@ -25,9 +28,10 @@ META_HACKATHON/
 │       └── import-workflows.sh
 ├── docs/                         # Documentación técnica y guías
 │   ├── architecture.md           # Diagrama de arquitectura y flujo
-│   └── setup-bots.md             # Guía paso a paso WhatsApp y Telegram
+│   ├── setup-bots.md             # Guía paso a paso WhatsApp y Telegram
+│   └── mobile-app.md             # Guía de la app móvil (Expo)
 ├── docker-compose.yml             # Despliegue local de n8n con persistencia
-├── package.json                  # Scripts de automatización npm
+├── package.json                  # Root del monorepo + scripts de automatización
 └── .env.example                  # Plantilla de variables de entorno
 ```
 
@@ -72,6 +76,18 @@ npm run n8n:import
 
 ---
 
+## 📱 App Móvil (Expo)
+
+```bash
+npm install
+cp apps/mobile/.env.example apps/mobile/.env  # set your Supabase URL + anon key
+npm run mobile:start
+```
+
+Ver [Guía de la App Móvil](docs/mobile-app.md).
+
+---
+
 ## 🤖 Canales de Frontend (WhatsApp & Telegram)
 
 Los usuarios interactúan directamente a través de mensajes de texto o notas de voz:
@@ -106,3 +122,5 @@ Esto guardará los archivos `.json` en `n8n/workflows/` listos para hacer `git c
 | `npm run n8n:logs` | Muestra logs en vivo de n8n |
 | `npm run n8n:export`| Exporta workflows de n8n a archivos JSON |
 | `npm run n8n:import`| Importa workflows JSON hacia n8n |
+| `npm run mobile:start` | Inicia la app móvil (Expo dev server) |
+| `npm run mobile:typecheck` | Type-check de la app móvil |

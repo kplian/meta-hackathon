@@ -4,14 +4,18 @@ project_id = "meta_hackathon"
 [api]
 enabled = true
 port = 54321
-schemas = ["public", "storage", "graphql_public"]
-extra_search_path = ["public", "extensions"]
+schemas = ["public", "storage", "graphql_public", "budget"]
+extra_search_path = ["public", "extensions", "budget"]
 max_rows = 1000
 
 [db]
 port = 54322
 shadow_port = 54320
 major_version = 15
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
 
 [studio]
 enabled = true
@@ -27,8 +31,8 @@ file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["https://localhost:3000"]
+site_url = "env(SITE_URL)"
+additional_redirect_urls = ["env(SITE_URL)", "http://localhost:8090", "http://127.0.0.1:8090", "http://localhost:3000", "https://localhost:3000", "aifamilybudget://"]
 jwt_expiry = 3600
 enable_signup = true
 
@@ -41,3 +45,9 @@ enable_confirmations = false
 enabled = true
 port = 54326
 inspector_port = 8083
+
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+skip_nonce_check = true

@@ -1,0 +1,11 @@
+{
+  "name": "@meta-hackathon/database-types",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Generated Supabase TypeScript types shared across apps",
+  "main": "src/database.types.ts",
+  "types": "src/database.types.ts",
+  "files": [
+    "src"
+  ]
+}
