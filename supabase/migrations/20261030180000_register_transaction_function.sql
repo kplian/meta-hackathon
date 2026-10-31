@@ -13,7 +13,7 @@ DECLARE
 BEGIN
     SELECT id INTO v_default_template_id 
     FROM budget.ttemplate_transaction 
-    WHERE code = 'purchase' 
+    WHERE code = 'expense_paid' 
     LIMIT 1;
 
     IF v_default_template_id IS NOT NULL THEN
@@ -269,7 +269,7 @@ BEGIN
         v_resolved_template_id := COALESCE(
             (v_item->>'template_transaction_id')::uuid,
             v_item_template_id,
-            (SELECT id FROM budget.ttemplate_transaction WHERE code = 'purchase' LIMIT 1),
+            (SELECT id FROM budget.ttemplate_transaction WHERE code = 'expense_paid' LIMIT 1),
             (SELECT id FROM budget.ttemplate_transaction WHERE status = 'active' LIMIT 1)
         );
 
