@@ -1139,6 +1139,21 @@ isOneToOne: false
               }
               Returns: Json
             }
+            "f_create_report_link": {
+              Args: {
+                p_household_id: string
+                p_month?: string | null
+                p_ttl_minutes?: number | null
+                p_user_id?: string | null
+              }
+              Returns: Json
+            }
+            "f_get_report": {
+              Args: {
+                p_token: string
+              }
+              Returns: Json
+            }
             "f_register_transaction": {
               Args: {
                 p_household_id: string
