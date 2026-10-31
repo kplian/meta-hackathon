@@ -414,3 +414,22 @@ export const AUXILIARS_CONSTANTS = {
   CREATE_BTN: 'auxiliars.createBtn',
   DELETE_TITLE: 'auxiliars.deleteTitle',
 } as const;
+
+export const REPORT_CONSTANTS = {
+  TITLE: 'report.title',
+  LOADING: 'report.loading',
+  INVALID_TITLE: 'report.invalidTitle',
+  INVALID_DESC: 'report.invalidDesc',
+  EXPIRED_TITLE: 'report.expiredTitle',
+  EXPIRED_DESC: 'report.expiredDesc',
+  ERROR_TITLE: 'report.errorTitle',
+  INCOME: 'report.income',
+  EXPENSE: 'report.expense',
+  BALANCE: 'report.balance',
+  BY_CATEGORY: 'report.byCategory',
+  OF_BUDGET: 'report.ofBudget',
+  NO_BUDGET: 'report.noBudget',
+  RECENT: 'report.recent',
+  NO_DATA: 'report.noData',
+  EXPIRES_AT: 'report.expiresAt',
+} as const;
