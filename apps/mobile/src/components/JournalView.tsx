@@ -31,18 +31,15 @@ interface JournalViewProps {
   onSwitchHousehold: () => void;
 }
 
-interface DetailLineDraft {
+interface TransactionItemDraft {
   id: string;
+  category: string;
+  amount: string;
   description: string;
-  item_code: string;
-  unit_measure_code: string;
   quantity: string;
   unit_price: string;
-  debit_base: string;
-  credit_base: string;
-  account_id: string;
-  auxiliar_id: string;
-  budget_type_id: string;
+  unit_measure_code: string;
+  item_code: string;
 }
 
 interface DisplayTransactionItem {
@@ -213,23 +210,20 @@ function formatTimeFromIso(isoDate: string): string {
   return `${hh}:${mm}`;
 }
 
-function createEmptyDetailLine(
-  defaultAccountId = '',
-  defaultAuxiliarId = '',
-  defaultBudgetTypeId = '',
-): DetailLineDraft {
+function createEmptyItem(
+  defaultCategoryId = '',
+  initialAmount = '',
+  itemIndex = 1,
+): TransactionItemDraft {
   return {
     id: Math.random().toString(36).slice(2, 10),
+    category: defaultCategoryId,
+    amount: initialAmount,
     description: '',
-    item_code: '',
-    unit_measure_code: 'unit',
     quantity: '1',
-    unit_price: '0',
-    debit_base: '0',
-    credit_base: '0',
-    account_id: defaultAccountId,
-    auxiliar_id: defaultAuxiliarId,
-    budget_type_id: defaultBudgetTypeId,
+    unit_price: initialAmount,
+    unit_measure_code: 'unit',
+    item_code: `ITM-${String(itemIndex).padStart(3, '0')}`,
   };
 }
 
@@ -265,19 +259,17 @@ export default function JournalView({
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
-  // Header fields for budget.ttransaction
+  // Header fields for budget.f_register_transaction
   const [txType, setTxType] = useState<'expense' | 'income'>('expense');
   const [concept, setConcept] = useState('');
-  const [amount, setAmount] = useState('');
   const [operationCode, setOperationCode] = useState('');
   const [externalReference, setExternalReference] = useState('Débito Nido');
   const [recordedVia, setRecordedVia] = useState<'app' | 'whatsapp' | 'telegram'>('app');
   const [sourceText, setSourceText] = useState('');
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
-  const [memberTag, setMemberTag] = useState<string>('Valentina');
+  const [selectedAuxiliarId, setSelectedAuxiliarId] = useState<string>('');
 
-  // Detail lines for budget.ttransaction_detail
-  const [detailLines, setDetailLines] = useState<DetailLineDraft[]>([]);
+  // Items for budget.f_register_transaction (p_items)
+  const [items, setItems] = useState<TransactionItemDraft[]>([]);
 
   const loadJournalData = async () => {
     setLoading(true);
@@ -375,9 +367,6 @@ export default function JournalView({
           new Map(mappedMembers.map((u) => [u.id, u])).values(),
         );
         setUsers(uniqueMembers);
-        if (uniqueMembers.length > 0 && !memberTag) {
-          setMemberTag(uniqueMembers[0].full_name.split(' ')[0]);
-        }
       } else {
         setUsers([]);
       }
@@ -516,63 +505,67 @@ export default function JournalView({
 
   const totalCount = dbTransactions.length;
 
+  // Computed total amount from all items
+  const computedTotalAmount = useMemo(() => {
+    return items.reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+  }, [items]);
+
   // Open Modal & initialize form
   const handleOpenCreateModal = () => {
     setFormError(null);
     setFormSuccess(null);
     setTxType('expense');
     setConcept('');
-    setAmount('');
     setOperationCode(`OP-${Date.now().toString().slice(-5)}`);
     setExternalReference('Débito Nido');
     setRecordedVia('app');
     setSourceText('');
-    setSelectedTemplateId(templates[0]?.id ?? '');
-    setDetailLines([
-      createEmptyDetailLine(
-        accounts[0]?.id ?? '',
-        auxiliars[0]?.id ?? '',
+    setSelectedAuxiliarId(auxiliars[0]?.id ?? '');
+    setItems([
+      createEmptyItem(
         budgetTypes[0]?.id ?? '',
+        '',
+        1,
       ),
     ]);
     setIsModalOpen(true);
   };
 
-  const handleAddDetailLine = () => {
-    setDetailLines((prev) => [
+  const handleAddItem = () => {
+    setItems((prev) => [
       ...prev,
-      createEmptyDetailLine(
-        accounts[0]?.id ?? '',
-        auxiliars[0]?.id ?? '',
+      createEmptyItem(
         budgetTypes[0]?.id ?? '',
+        '',
+        prev.length + 1,
       ),
     ]);
   };
 
-  const handleRemoveDetailLine = (lineId: string) => {
-    setDetailLines((prev) => (prev.length > 1 ? prev.filter((l) => l.id !== lineId) : prev));
+  const handleRemoveItem = (itemId: string) => {
+    setItems((prev) => (prev.length > 1 ? prev.filter((i) => i.id !== itemId) : prev));
   };
 
-  const handleUpdateDetailLine = (
-    lineId: string,
-    field: keyof DetailLineDraft,
+  const handleUpdateItem = (
+    itemId: string,
+    field: keyof TransactionItemDraft,
     value: string,
   ) => {
-    setDetailLines((prev) =>
-      prev.map((line) => {
-        if (line.id !== lineId) return line;
-        const updated = { ...line, [field]: value };
-        // Auto-calculate debit/credit from quantity * unit_price when those change
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
+        const updated = { ...item, [field]: value };
         if (field === 'quantity' || field === 'unit_price') {
-          const qty = parseFloat(updated.quantity) || 0;
+          const qty = parseFloat(updated.quantity) || 1;
           const price = parseFloat(updated.unit_price) || 0;
-          const totalLine = (qty * price).toFixed(2);
-          if (txType === 'expense') {
-            updated.debit_base = totalLine;
-            updated.credit_base = '0';
-          } else {
-            updated.credit_base = totalLine;
-            updated.debit_base = '0';
+          if (qty > 0 && price > 0) {
+            updated.amount = (qty * price).toFixed(2);
+          }
+        } else if (field === 'amount') {
+          const amt = parseFloat(value) || 0;
+          const qty = parseFloat(updated.quantity) || 1;
+          if (qty > 0) {
+            updated.unit_price = (amt / qty).toFixed(2);
           }
         }
         return updated;
@@ -580,7 +573,7 @@ export default function JournalView({
     );
   };
 
-  // Save to budget.ttransaction and budget.ttransaction_detail
+  // Save transaction via budget.f_register_transaction RPC
   const handleSaveTransaction = async () => {
     setFormError(null);
     setFormSuccess(null);
@@ -590,9 +583,31 @@ export default function JournalView({
       return;
     }
 
-    const parsedAmount = parseFloat(amount.replace(/[^0-9.]/g, ''));
-    if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
-      setFormError(t(JOURNAL_CONSTANTS.ERR_AMOUNT_INVALID));
+    if (items.length === 0) {
+      setFormError(t(JOURNAL_CONSTANTS.ERR_ITEM_AMOUNT));
+      return;
+    }
+
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      const parsedItAmount = parseFloat(it.amount);
+      if (Number.isNaN(parsedItAmount) || parsedItAmount <= 0) {
+        setFormError(
+          `${t(JOURNAL_CONSTANTS.ITEM_NUMBER, { num: i + 1 })}: ${t(JOURNAL_CONSTANTS.ERR_ITEM_AMOUNT)}`,
+        );
+        return;
+      }
+      if (!it.category) {
+        setFormError(
+          `${t(JOURNAL_CONSTANTS.ITEM_NUMBER, { num: i + 1 })}: ${t(JOURNAL_CONSTANTS.ERR_ITEM_CATEGORY)}`,
+        );
+        return;
+      }
+    }
+
+    const targetHouseholdId = activeHousehold?.id;
+    if (!targetHouseholdId) {
+      setFormError(t(JOURNAL_CONSTANTS.EMPTY_NO_HOUSEHOLD_TITLE));
       return;
     }
 
@@ -601,70 +616,40 @@ export default function JournalView({
       const selectedMemberId =
         selectedFilter !== 'Todos' ? selectedFilter : userId;
 
-      // 1. Insert header into budget.ttransaction
-      const { data: insertedTx, error: txError } = await supabase
-        .schema('budget')
-        .from('ttransaction')
-        .insert({
-          household_id: activeHousehold?.id ?? null,
-          template_transaction_id: selectedTemplateId || null,
-          transaction_date: new Date().toISOString(),
-          operation_code: operationCode.trim() || null,
-          concept: concept.trim(),
-          type: txType,
-          amount: parsedAmount,
-          external_reference: externalReference.trim() || null,
-          source_text: sourceText.trim() || null,
-          recorded_via: recordedVia,
-          created_by: selectedMemberId,
-          input_data: {
-            member: memberTag,
-            details_count: detailLines.length,
-          },
-        })
-        .select('*')
-        .single();
+      const itemsPayload = items.map((it, idx) => ({
+        category: it.category,
+        amount: parseFloat(it.amount),
+        description: it.description.trim() || concept.trim(),
+        quantity: parseFloat(it.quantity) || 1,
+        unit_price:
+          parseFloat(it.unit_price) ||
+          parseFloat(it.amount) / (parseFloat(it.quantity) || 1),
+        unit_measure_code: it.unit_measure_code.trim() || 'unit',
+        item_code: it.item_code.trim() || `ITM-${String(idx + 1).padStart(3, '0')}`,
+      }));
 
-      if (txError || !insertedTx) {
-        throw new Error(txError?.message || 'No se pudo guardar en budget.ttransaction');
+      // Call database function budget.f_register_transaction
+      const { data, error: rpcError } = await supabase.rpc('f_register_transaction', {
+        p_household_id: targetHouseholdId,
+        p_concept: concept.trim(),
+        p_amount: computedTotalAmount,
+        p_type: txType,
+        p_operation_code: operationCode.trim() || null,
+        p_external_reference: externalReference.trim() || null,
+        p_source_text: sourceText.trim() || null,
+        p_recorded_via: recordedVia,
+        p_user_id: selectedMemberId,
+        p_auxiliar_id: selectedAuxiliarId || null,
+        p_items: itemsPayload,
+      });
+
+      if (rpcError) {
+        throw new Error(rpcError.message);
       }
 
-      // 2. Insert valid detail lines into budget.ttransaction_detail
-      const validDetails = detailLines.filter(
-        (line) =>
-          line.description.trim() &&
-          line.account_id &&
-          line.auxiliar_id &&
-          line.budget_type_id,
-      );
-
-      if (validDetails.length > 0) {
-        const detailPayload = validDetails.map((line) => ({
-          transaction_id: insertedTx.id,
-          account_id: line.account_id,
-          auxiliar_id: line.auxiliar_id,
-          budget_type_id: line.budget_type_id,
-          item_code: line.item_code.trim() || null,
-          description: line.description.trim(),
-          unit_measure_code: line.unit_measure_code.trim() || 'unit',
-          quantity: parseFloat(line.quantity) || 1,
-          unit_price: parseFloat(line.unit_price) || parsedAmount,
-          debit_base:
-            parseFloat(line.debit_base) || (txType === 'expense' ? parsedAmount : 0),
-          credit_base:
-            parseFloat(line.credit_base) || (txType === 'income' ? parsedAmount : 0),
-        }));
-
-        const { error: detailError } = await supabase
-          .schema('budget')
-          .from('ttransaction_detail')
-          .insert(detailPayload);
-
-        if (detailError) {
-          throw new Error(
-            `Transacción creada, pero falló budget.ttransaction_detail: ${detailError.message}`,
-          );
-        }
+      const res = data as { success?: boolean; message?: string; error?: string };
+      if (res && res.success === false) {
+        throw new Error(res.message || res.error || 'Failed to register transaction');
       }
 
       await loadJournalData();
@@ -1144,21 +1129,25 @@ export default function JournalView({
                   />
                 </View>
 
-                <View className="flex-row gap-3">
-                  <View className="flex-1">
-                    <Text className="text-[11px] font-bold text-sage mb-1">
-                      {t(JOURNAL_CONSTANTS.TOTAL_AMOUNT_LABEL)} *
+                {/* Total amount calculated banner */}
+                <View className="rounded-2xl bg-[#E8F5EE] p-3.5 border border-[#C5E6D4] flex-row items-center justify-between">
+                  <View>
+                    <Text className="text-[11px] font-bold text-sage">
+                      {t(JOURNAL_CONSTANTS.TOTAL_AMOUNT_LABEL)}
                     </Text>
-                    <TextInput
-                      value={amount}
-                      onChangeText={setAmount}
-                      keyboardType="numeric"
-                      placeholder="64200"
-                      placeholderTextColor="#9AA5A1"
-                      className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2.5 text-sm font-bold text-pine"
-                    />
+                    <Text className="text-xl font-extrabold text-pine">
+                      {activeHousehold?.currency ?? 'BOB'} {computedTotalAmount.toFixed(2)}
+                    </Text>
                   </View>
+                  <View className="rounded-full bg-pine/10 px-3 py-1">
+                    <Text className="text-xs font-bold text-pine">
+                      {items.length} {items.length === 1 ? 'ítem' : 'ítems'}
+                    </Text>
+                  </View>
+                </View>
 
+                {/* Operation Code & External reference */}
+                <View className="flex-row gap-3">
                   <View className="flex-1">
                     <Text className="text-[11px] font-bold text-sage mb-1">
                       {t(JOURNAL_CONSTANTS.OPERATION_CODE_LABEL)}
@@ -1171,10 +1160,7 @@ export default function JournalView({
                       className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2.5 text-sm text-pine"
                     />
                   </View>
-                </View>
 
-                {/* External reference & Member */}
-                <View className="flex-row gap-3">
                   <View className="flex-1">
                     <Text className="text-[11px] font-bold text-sage mb-1">
                       {t(JOURNAL_CONSTANTS.PAYMENT_METHOD_LABEL)}
@@ -1187,20 +1173,39 @@ export default function JournalView({
                       className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2.5 text-sm text-pine"
                     />
                   </View>
-
-                  <View className="flex-1">
-                    <Text className="text-[11px] font-bold text-sage mb-1">
-                      {t(JOURNAL_CONSTANTS.MEMBER_LABEL)}
-                    </Text>
-                    <TextInput
-                      value={memberTag}
-                      onChangeText={setMemberTag}
-                      placeholder="Valentina / Carlos"
-                      placeholderTextColor="#9AA5A1"
-                      className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2.5 text-sm text-pine"
-                    />
-                  </View>
                 </View>
+
+                {/* Auxiliar selector */}
+                {auxiliars.length > 0 ? (
+                  <View>
+                    <Text className="text-[11px] font-bold text-sage mb-1">
+                      {t(JOURNAL_CONSTANTS.AUXILIAR_LABEL)}
+                    </Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View className="flex-row gap-1.5">
+                        {auxiliars.map((aux) => (
+                          <Pressable
+                            key={aux.id}
+                            onPress={() => setSelectedAuxiliarId(aux.id)}
+                            className={`rounded-full px-3 py-1.5 border ${
+                              selectedAuxiliarId === aux.id
+                                ? 'bg-pine border-pine'
+                                : 'bg-[#F9FCFA] border-[#DCEBE2]'
+                            }`}
+                          >
+                            <Text
+                              className={`text-xs font-bold ${
+                                selectedAuxiliarId === aux.id ? 'text-white' : 'text-pine'
+                              }`}
+                            >
+                              {aux.name}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </ScrollView>
+                  </View>
+                ) : null}
 
                 {/* Recorded via selector */}
                 <View>
@@ -1239,165 +1244,64 @@ export default function JournalView({
                 </View>
               </View>
 
-              {/* Section 2: Ítems de Detalle budget.ttransaction_detail */}
+              {/* Section 2: Items & Categories (budget.f_register_transaction) */}
               <View className="rounded-3xl bg-white p-4 border border-[#E2EFE8] gap-3">
                 <View className="flex-row items-center justify-between">
                   <View>
                     <Text className="text-xs font-extrabold uppercase tracking-wider text-pine">
-                      {t(JOURNAL_CONSTANTS.DETAIL_SECTION_TITLE)}
+                      {t(JOURNAL_CONSTANTS.ITEMS_SECTION_TITLE)}
                     </Text>
                   </View>
                   <Pressable
-                    onPress={handleAddDetailLine}
+                    onPress={handleAddItem}
                     className="flex-row items-center rounded-full bg-[#D6F2E4] px-3 py-1.5"
                   >
                     <Ionicons name="add" size={15} color="#0B3D2E" />
                     <Text className="ml-1 text-xs font-bold text-pine">
-                      {t(JOURNAL_CONSTANTS.ADD_LINE)}
+                      {t(JOURNAL_CONSTANTS.ADD_ITEM)}
                     </Text>
                   </Pressable>
                 </View>
 
-                {detailLines.map((line, index) => (
+                {items.map((item, index) => (
                   <View
-                    key={line.id}
+                    key={item.id}
                     className="rounded-2xl bg-[#F4FAF6] p-3.5 border border-[#DCEBE2] gap-2.5"
                   >
                     <View className="flex-row items-center justify-between">
                       <Text className="text-xs font-extrabold text-pine">
-                        {t(JOURNAL_CONSTANTS.LINE_NUMBER, { num: index + 1 })}
+                        {t(JOURNAL_CONSTANTS.ITEM_NUMBER, { num: index + 1 })}
                       </Text>
-                      {detailLines.length > 1 ? (
-                        <Pressable onPress={() => handleRemoveDetailLine(line.id)}>
+                      {items.length > 1 ? (
+                        <Pressable onPress={() => handleRemoveItem(item.id)}>
                           <Ionicons name="trash-outline" size={16} color="#DC2626" />
                         </Pressable>
                       ) : null}
                     </View>
 
-                    {/* Description & Item code */}
-                    <View className="flex-row gap-2">
-                      <View className="flex-[2]">
-                        <Text className="text-[10px] font-bold text-sage mb-1">
-                          {t(COMMON_CONSTANTS.DESCRIPTION)} (description) *
-                        </Text>
-                        <TextInput
-                          value={line.description}
-                          onChangeText={(v) =>
-                            handleUpdateDetailLine(line.id, 'description', v)
-                          }
-                          placeholder={t(JOURNAL_CONSTANTS.DESCRIPTION_PLACEHOLDER)}
-                          placeholderTextColor="#9AA5A1"
-                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-2 text-xs text-pine"
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-[10px] font-bold text-sage mb-1">
-                          {t(COMMON_CONSTANTS.CODE)}
-                        </Text>
-                        <TextInput
-                          value={line.item_code}
-                          onChangeText={(v) => handleUpdateDetailLine(line.id, 'item_code', v)}
-                          placeholder="ITM-01"
-                          placeholderTextColor="#9AA5A1"
-                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-2 text-xs text-pine"
-                        />
-                      </View>
-                    </View>
-
-                    {/* Quantity, Unit Price, Unit Measure */}
-                    <View className="flex-row gap-2">
-                      <View className="flex-1">
-                        <Text className="text-[10px] font-bold text-sage mb-1">
-                          {t(JOURNAL_CONSTANTS.QTY_LABEL)}
-                        </Text>
-                        <TextInput
-                          value={line.quantity}
-                          onChangeText={(v) => handleUpdateDetailLine(line.id, 'quantity', v)}
-                          keyboardType="numeric"
-                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-2 text-xs text-pine"
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-[10px] font-bold text-sage mb-1">
-                          {t(JOURNAL_CONSTANTS.UNIT_PRICE_LABEL)}
-                        </Text>
-                        <TextInput
-                          value={line.unit_price}
-                          onChangeText={(v) =>
-                            handleUpdateDetailLine(line.id, 'unit_price', v)
-                          }
-                          keyboardType="numeric"
-                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-2 text-xs text-pine"
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-[10px] font-bold text-sage mb-1">
-                          {t(JOURNAL_CONSTANTS.UNIT_LABEL)}
-                        </Text>
-                        <TextInput
-                          value={line.unit_measure_code}
-                          onChangeText={(v) =>
-                            handleUpdateDetailLine(line.id, 'unit_measure_code', v)
-                          }
-                          placeholder="unit"
-                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-2 text-xs text-pine"
-                        />
-                      </View>
-                    </View>
-
-                    {/* Debit & Credit Base */}
-                    <View className="flex-row gap-2">
-                      <View className="flex-1">
-                        <Text className="text-[10px] font-bold text-sage mb-1">
-                          {t(JOURNAL_CONSTANTS.DEBIT_LABEL)} (debit_base)
-                        </Text>
-                        <TextInput
-                          value={line.debit_base}
-                          onChangeText={(v) =>
-                            handleUpdateDetailLine(line.id, 'debit_base', v)
-                          }
-                          keyboardType="numeric"
-                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-2 text-xs text-pine"
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-[10px] font-bold text-sage mb-1">
-                          {t(JOURNAL_CONSTANTS.CREDIT_LABEL)} (credit_base)
-                        </Text>
-                        <TextInput
-                          value={line.credit_base}
-                          onChangeText={(v) =>
-                            handleUpdateDetailLine(line.id, 'credit_base', v)
-                          }
-                          keyboardType="numeric"
-                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-2 text-xs text-pine"
-                        />
-                      </View>
-                    </View>
-
-                    {/* Foreign Key Selectors: Budget Type, Account, Auxiliar */}
+                    {/* Category Selection */}
                     {budgetTypes.length > 0 ? (
                       <View>
                         <Text className="text-[10px] font-bold text-sage mb-1">
-                          {t(JOURNAL_CONSTANTS.BUDGET_CATEGORY_LABEL)}
+                          {t(JOURNAL_CONSTANTS.ITEM_CATEGORY_LABEL)}
                         </Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                           <View className="flex-row gap-1.5">
                             {budgetTypes.map((bt) => (
                               <Pressable
                                 key={bt.id}
-                                onPress={() =>
-                                  handleUpdateDetailLine(line.id, 'budget_type_id', bt.id)
-                                }
+                                onPress={() => handleUpdateItem(item.id, 'category', bt.id)}
                                 className={`rounded-full px-3 py-1 border ${
-                                  line.budget_type_id === bt.id
+                                  item.category === bt.id || item.category === bt.category_key
                                     ? 'bg-pine border-pine'
                                     : 'bg-white border-[#DCEBE2]'
                                 }`}
                               >
                                 <Text
                                   className={`text-[11px] font-bold ${
-                                    line.budget_type_id === bt.id ? 'text-white' : 'text-pine'
+                                    item.category === bt.id || item.category === bt.category_key
+                                      ? 'text-white'
+                                      : 'text-pine'
                                   }`}
                                 >
                                   {bt.name}
@@ -1409,71 +1313,76 @@ export default function JournalView({
                       </View>
                     ) : null}
 
-                    {accounts.length > 0 ? (
-                      <View>
+                    {/* Amount & Description */}
+                    <View className="flex-row gap-2">
+                      <View className="flex-1">
                         <Text className="text-[10px] font-bold text-sage mb-1">
-                          {t(JOURNAL_CONSTANTS.ACCOUNT_LABEL)}
+                          {t(JOURNAL_CONSTANTS.ITEM_AMOUNT_LABEL)}
                         </Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                          <View className="flex-row gap-1.5">
-                            {accounts.map((acc) => (
-                              <Pressable
-                                key={acc.id}
-                                onPress={() =>
-                                  handleUpdateDetailLine(line.id, 'account_id', acc.id)
-                                }
-                                className={`rounded-full px-3 py-1 border ${
-                                  line.account_id === acc.id
-                                    ? 'bg-pine border-pine'
-                                    : 'bg-white border-[#DCEBE2]'
-                                }`}
-                              >
-                                <Text
-                                  className={`text-[11px] font-bold ${
-                                    line.account_id === acc.id ? 'text-white' : 'text-pine'
-                                  }`}
-                                >
-                                  {acc.code} - {acc.name}
-                                </Text>
-                              </Pressable>
-                            ))}
-                          </View>
-                        </ScrollView>
+                        <TextInput
+                          value={item.amount}
+                          onChangeText={(v) => handleUpdateItem(item.id, 'amount', v)}
+                          keyboardType="numeric"
+                          placeholder="50.00"
+                          placeholderTextColor="#9AA5A1"
+                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-2 text-xs font-bold text-pine"
+                        />
                       </View>
-                    ) : null}
+                      <View className="flex-[2]">
+                        <Text className="text-[10px] font-bold text-sage mb-1">
+                          {t(COMMON_CONSTANTS.DESCRIPTION)}
+                        </Text>
+                        <TextInput
+                          value={item.description}
+                          onChangeText={(v) => handleUpdateItem(item.id, 'description', v)}
+                          placeholder={t(JOURNAL_CONSTANTS.DESCRIPTION_PLACEHOLDER)}
+                          placeholderTextColor="#9AA5A1"
+                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-2 text-xs text-pine"
+                        />
+                      </View>
+                    </View>
 
-                    {auxiliars.length > 0 ? (
-                      <View>
+                    {/* Quantity, Unit Price, Item Code */}
+                    <View className="flex-row gap-2">
+                      <View className="flex-1">
                         <Text className="text-[10px] font-bold text-sage mb-1">
-                          {t(JOURNAL_CONSTANTS.AUXILIAR_LABEL)}
+                          {t(JOURNAL_CONSTANTS.QTY_LABEL)}
                         </Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                          <View className="flex-row gap-1.5">
-                            {auxiliars.map((aux) => (
-                              <Pressable
-                                key={aux.id}
-                                onPress={() =>
-                                  handleUpdateDetailLine(line.id, 'auxiliar_id', aux.id)
-                                }
-                                className={`rounded-full px-3 py-1 border ${
-                                  line.auxiliar_id === aux.id
-                                    ? 'bg-pine border-pine'
-                                    : 'bg-white border-[#DCEBE2]'
-                                }`}
-                              >
-                                <Text
-                                  className={`text-[11px] font-bold ${
-                                    line.auxiliar_id === aux.id ? 'text-white' : 'text-pine'
-                                  }`}
-                                >
-                                  {aux.name}
-                                </Text>
-                              </Pressable>
-                            ))}
-                          </View>
-                        </ScrollView>
+                        <TextInput
+                          value={item.quantity}
+                          onChangeText={(v) => handleUpdateItem(item.id, 'quantity', v)}
+                          keyboardType="numeric"
+                          placeholder="1"
+                          placeholderTextColor="#9AA5A1"
+                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-1.5 text-xs text-pine"
+                        />
                       </View>
-                    ) : null}
+                      <View className="flex-1">
+                        <Text className="text-[10px] font-bold text-sage mb-1">
+                          {t(JOURNAL_CONSTANTS.UNIT_PRICE_LABEL)}
+                        </Text>
+                        <TextInput
+                          value={item.unit_price}
+                          onChangeText={(v) => handleUpdateItem(item.id, 'unit_price', v)}
+                          keyboardType="numeric"
+                          placeholder="0"
+                          placeholderTextColor="#9AA5A1"
+                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-1.5 text-xs text-pine"
+                        />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-[10px] font-bold text-sage mb-1">
+                          {t(COMMON_CONSTANTS.CODE)}
+                        </Text>
+                        <TextInput
+                          value={item.item_code}
+                          onChangeText={(v) => handleUpdateItem(item.id, 'item_code', v)}
+                          placeholder="ITM-001"
+                          placeholderTextColor="#9AA5A1"
+                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-1.5 text-xs text-pine"
+                        />
+                      </View>
+                    </View>
                   </View>
                 ))}
               </View>

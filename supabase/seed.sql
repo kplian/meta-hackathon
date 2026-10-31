@@ -50,7 +50,19 @@ INSERT INTO budget.taccount (
     ('bc54a393-dcf2-4d08-a34b-cab17438af3b', null, '640c078c-2165-49b9-a815-8c38d0b25121', null, '4c49da40-62b2-4b44-9ba9-2e54d0bec78f', 'e1d42022-fca8-43f2-a37d-7823372fddb0', '130', 'Investments', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null), 
     ('d556c3ae-9a60-4c07-8010-234584ea5cf1', null, 'b53ee22b-376c-4391-ade5-9f933af44c19', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '510', 'Feeding', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null), 
     ('ee7fc903-bfb0-4332-8395-039fcaabbcd1', null, '640c078c-2165-49b9-a815-8c38d0b25121', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '110', 'Cash', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null), 
-    ('fce31321-7129-42dc-8e31-6ecda16b9f89', null, '2d28afba-68fe-4adc-ad2e-0a7525806799', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '310', 'Opening balances', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null)
+    ('fce31321-7129-42dc-8e31-6ecda16b9f89', null, '2d28afba-68fe-4adc-ad2e-0a7525806799', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '310', 'Opening balances', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('c5300000-0000-4000-8000-000000000530', null, 'b53ee22b-376c-4391-ade5-9f933af44c19', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '530', 'Transportation and Fuel', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('c5400000-0000-4000-8000-000000000540', null, 'b53ee22b-376c-4391-ade5-9f933af44c19', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '540', 'Utilities', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('c5500000-0000-4000-8000-000000000550', null, 'b53ee22b-376c-4391-ade5-9f933af44c19', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '550', 'Housing and Home', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('c5600000-0000-4000-8000-000000000560', null, 'b53ee22b-376c-4391-ade5-9f933af44c19', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '560', 'Health and Pharmacy', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('c5700000-0000-4000-8000-000000000570', null, 'b53ee22b-376c-4391-ade5-9f933af44c19', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '570', 'Education and School', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('c5800000-0000-4000-8000-000000000580', null, 'b53ee22b-376c-4391-ade5-9f933af44c19', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '580', 'Restaurants and Outings', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('c5900000-0000-4000-8000-000000000590', null, 'b53ee22b-376c-4391-ade5-9f933af44c19', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '590', 'Clothing and Personal Care', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('c6000000-0000-4000-8000-000000000600', null, 'b53ee22b-376c-4391-ade5-9f933af44c19', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '600', 'Pets', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('c6100000-0000-4000-8000-000000000610', null, 'b53ee22b-376c-4391-ade5-9f933af44c19', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '610', 'Insurance', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('c6200000-0000-4000-8000-000000000620', null, 'b53ee22b-376c-4391-ade5-9f933af44c19', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '620', 'Taxes and Fees', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('c6900000-0000-4000-8000-000000000690', null, 'b53ee22b-376c-4391-ade5-9f933af44c19', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '690', 'Other Expenses', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('c4100000-0000-4000-8000-000000000410', null, '6b241f01-36a5-4371-abaf-59f1d6a98fbc', null, null, 'e1d42022-fca8-43f2-a37d-7823372fddb0', '410', 'Income and Earnings', 'BOB', false, true, '2026-10-30 02:50:48.364056+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null)
 ON CONFLICT (id) DO NOTHING;
 
 -- 6. Budget Types
@@ -115,7 +127,21 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO budget.ttemplate_transaction (
     id, business_type_id, household_id, code, name, version, description, input_schema, created_at, created_by, updated_at, updated_by, status, deleted_at, deleted_by
 ) VALUES 
-    ('4b2e6d06-5c4e-415e-b889-b550ca35181b', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'purchase', 'Purchase', 1, 'Purchase of some stuff', '{}', '2026-10-30 04:43:24.099796+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null)
+    ('4b2e6d06-5c4e-415e-b889-b550ca35181b', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'purchase', 'Purchase', 1, 'Purchase of some stuff', '{}', '2026-10-30 04:43:24.099796+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('b0010000-0000-4000-8000-000000000001', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'tpl_transportation_fuel', 'Transportation and Fuel Template', 1, 'Fuel, transport, taxis', '{}', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('b0020000-0000-4000-8000-000000000002', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'tpl_debts_loans', 'Debts and Loans Template', 1, 'Debt and loan payments', '{}', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('b0030000-0000-4000-8000-000000000003', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'tpl_pets', 'Pets Template', 1, 'Pet food and vet expenses', '{}', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('b0040000-0000-4000-8000-000000000004', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'tpl_taxes_fees', 'Taxes and Fees Template', 1, 'Government taxes, fees, documents', '{}', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('b0050000-0000-4000-8000-000000000005', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'tpl_restaurants_leisure', 'Restaurants and Outings Template', 1, 'Restaurants, outings, leisure', '{}', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('b0060000-0000-4000-8000-000000000006', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'tpl_utilities', 'Utilities Template', 1, 'Electricity, water, gas, internet', '{}', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('b0070000-0000-4000-8000-000000000007', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'tpl_clothing_personal_care', 'Clothing and Personal Care Template', 1, 'Apparel, care, hygiene', '{}', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('b0080000-0000-4000-8000-000000000008', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'tpl_other', 'Other Expenses Template', 1, 'Miscellaneous and uncategorized', '{}', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('b0090000-0000-4000-8000-000000000009', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'tpl_children_education', 'Education and School Template', 1, 'School, college, courses, books', '{}', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('b0100000-0000-4000-8000-000000000010', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'tpl_insurance', 'Insurance Template', 1, 'Health, home, car insurance', '{}', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('b0110000-0000-4000-8000-000000000011', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'tpl_housing', 'Housing and Home Template', 1, 'Rent, mortgage, house maintenance', '{}', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('b0120000-0000-4000-8000-000000000012', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'tpl_health_pharmacy', 'Health and Pharmacy Template', 1, 'Pharmacy, doctors, clinics', '{}', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('b0140000-0000-4000-8000-000000000014', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'tpl_savings_investments', 'Savings and Investments Template', 1, 'Savings allocation, investment funds', '{}', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('b0150000-0000-4000-8000-000000000015', 'e1d42022-fca8-43f2-a37d-7823372fddb0', null, 'tpl_income_general', 'Income General Template', 1, 'Salary and earnings', '{}', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null)
 ON CONFLICT (id) DO NOTHING;
 
 -- 11. Template Transaction Details
@@ -123,8 +149,67 @@ INSERT INTO budget.ttemplate_transaction_det (
     id, template_transaction_id, line_number, account_id, account_input_key, side, amount_rule, auxiliar_input_key, item_input_key, repeat_input_key, quantity_input_key, unit_price_input_key, unit_input_key, description_template, created_at, created_by, updated_at, updated_by, status, deleted_at, deleted_by
 ) VALUES 
     ('765e2beb-1fad-4ce5-a999-6f077a091260', '4b2e6d06-5c4e-415e-b889-b550ca35181b', 1, 'd556c3ae-9a60-4c07-8010-234584ea5cf1', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Debit record', '2026-10-30 04:56:30.152622+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null), 
-    ('f7fdd01e-ece6-4421-997a-b0a5daac8005', '4b2e6d06-5c4e-415e-b889-b550ca35181b', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Credit record', '2026-10-30 04:56:30.152622+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null)
+    ('f7fdd01e-ece6-4421-997a-b0a5daac8005', '4b2e6d06-5c4e-415e-b889-b550ca35181b', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Credit record', '2026-10-30 04:56:30.152622+00', '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    -- Transportation
+    ('d0010001-0000-4000-8000-000000000001', 'b0010000-0000-4000-8000-000000000001', 1, 'c5300000-0000-4000-8000-000000000530', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Gasto Transporte', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('d0010002-0000-4000-8000-000000000002', 'b0010000-0000-4000-8000-000000000001', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Pago Efectivo', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    -- Debts
+    ('d0020001-0000-4000-8000-000000000001', 'b0020000-0000-4000-8000-000000000002', 1, '5ad35085-0238-4f37-b1fe-320b2106abea', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Pago Deudas/Préstamos', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('d0020002-0000-4000-8000-000000000002', 'b0020000-0000-4000-8000-000000000002', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Pago Efectivo', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    -- Pets
+    ('d0030001-0000-4000-8000-000000000001', 'b0030000-0000-4000-8000-000000000003', 1, 'c6000000-0000-4000-8000-000000000600', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Gasto Mascotas', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('d0030002-0000-4000-8000-000000000002', 'b0030000-0000-4000-8000-000000000003', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Pago Efectivo', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    -- Taxes
+    ('d0040001-0000-4000-8000-000000000001', 'b0040000-0000-4000-8000-000000000004', 1, 'c6200000-0000-4000-8000-000000000620', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Impuestos y Trámites', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('d0040002-0000-4000-8000-000000000002', 'b0040000-0000-4000-8000-000000000004', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Pago Efectivo', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    -- Restaurants
+    ('d0050001-0000-4000-8000-000000000001', 'b0050000-0000-4000-8000-000000000005', 1, 'c5800000-0000-4000-8000-000000000580', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Restaurantes y Salidas', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('d0050002-0000-4000-8000-000000000002', 'b0050000-0000-4000-8000-000000000005', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Pago Efectivo', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    -- Utilities
+    ('d0060001-0000-4000-8000-000000000001', 'b0060000-0000-4000-8000-000000000006', 1, 'c5400000-0000-4000-8000-000000000540', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Servicios Básicos', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('d0060002-0000-4000-8000-000000000002', 'b0060000-0000-4000-8000-000000000006', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Pago Efectivo', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    -- Clothing
+    ('d0070001-0000-4000-8000-000000000001', 'b0070000-0000-4000-8000-000000000007', 1, 'c5900000-0000-4000-8000-000000000590', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Ropa y Cuidado Personal', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('d0070002-0000-4000-8000-000000000002', 'b0070000-0000-4000-8000-000000000007', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Pago Efectivo', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    -- Other
+    ('d0080001-0000-4000-8000-000000000001', 'b0080000-0000-4000-8000-000000000008', 1, 'c6900000-0000-4000-8000-000000000690', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Otros Gastos', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('d0080002-0000-4000-8000-000000000002', 'b0080000-0000-4000-8000-000000000008', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Pago Efectivo', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    -- Education
+    ('d0090001-0000-4000-8000-000000000001', 'b0090000-0000-4000-8000-000000000009', 1, 'c5700000-0000-4000-8000-000000000570', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Educación y Colegio', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('d0090002-0000-4000-8000-000000000002', 'b0090000-0000-4000-8000-000000000009', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Pago Efectivo', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    -- Insurance
+    ('d0100001-0000-4000-8000-000000000010', 'b0100000-0000-4000-8000-000000000010', 1, 'c6100000-0000-4000-8000-000000000610', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Seguros', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('d0100002-0000-4000-8000-000000000010', 'b0100000-0000-4000-8000-000000000010', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Pago Efectivo', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    -- Housing
+    ('d0110001-0000-4000-8000-000000000011', 'b0110000-0000-4000-8000-000000000011', 1, 'c5500000-0000-4000-8000-000000000550', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Vivienda y Hogar', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('d0110002-0000-4000-8000-000000000011', 'b0110000-0000-4000-8000-000000000011', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Pago Efectivo', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    -- Health
+    ('d0120001-0000-4000-8000-000000000012', 'b0120000-0000-4000-8000-000000000012', 1, 'c5600000-0000-4000-8000-000000000560', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Salud y Farmacia', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('d0120002-0000-4000-8000-000000000012', 'b0120000-0000-4000-8000-000000000012', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Pago Efectivo', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    -- Savings
+    ('d0140001-0000-4000-8000-000000000014', 'b0140000-0000-4000-8000-000000000014', 1, 'bc54a393-dcf2-4d08-a34b-cab17438af3b', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Inversión y Ahorro', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('d0140002-0000-4000-8000-000000000014', 'b0140000-0000-4000-8000-000000000014', 2, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Pago Efectivo', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    -- Income
+    ('d0150001-0000-4000-8000-000000000015', 'b0150000-0000-4000-8000-000000000015', 1, 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '', 'debit', '{"var": "amount"}', null, '', '', '', '', '', 'Ingreso en Efectivo', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null),
+    ('d0150002-0000-4000-8000-000000000002', 'b0150000-0000-4000-8000-000000000015', 2, 'c4100000-0000-4000-8000-000000000410', '', 'credit', '{"var": "amount"}', null, '', '', '', '', '', 'Ingreso Salarial/Cobro', now(), '6f521862-f9dd-450a-ab69-79de338e2269', null, null, 'active', null, null)
 ON CONFLICT (id) DO NOTHING;
+
+-- Link budget types to their dedicated template transactions
+UPDATE budget.tbudget_type SET template_transaction_id = 'b0010000-0000-4000-8000-000000000001' WHERE category_key = 'transportation_fuel';
+UPDATE budget.tbudget_type SET template_transaction_id = 'b0020000-0000-4000-8000-000000000002' WHERE category_key = 'debts_loans';
+UPDATE budget.tbudget_type SET template_transaction_id = 'b0030000-0000-4000-8000-000000000003' WHERE category_key = 'pets';
+UPDATE budget.tbudget_type SET template_transaction_id = 'b0040000-0000-4000-8000-000000000004' WHERE category_key = 'taxes_fees';
+UPDATE budget.tbudget_type SET template_transaction_id = 'b0050000-0000-4000-8000-000000000005' WHERE category_key = 'restaurants_leisure';
+UPDATE budget.tbudget_type SET template_transaction_id = 'b0060000-0000-4000-8000-000000000006' WHERE category_key = 'utilities';
+UPDATE budget.tbudget_type SET template_transaction_id = 'b0070000-0000-4000-8000-000000000007' WHERE category_key = 'clothing_personal_care';
+UPDATE budget.tbudget_type SET template_transaction_id = 'b0080000-0000-4000-8000-000000000008' WHERE category_key = 'other';
+UPDATE budget.tbudget_type SET template_transaction_id = 'b0090000-0000-4000-8000-000000000009' WHERE category_key = 'children_education';
+UPDATE budget.tbudget_type SET template_transaction_id = 'b0100000-0000-4000-8000-000000000010' WHERE category_key = 'insurance';
+UPDATE budget.tbudget_type SET template_transaction_id = 'b0110000-0000-4000-8000-000000000011' WHERE category_key = 'housing';
+UPDATE budget.tbudget_type SET template_transaction_id = 'b0120000-0000-4000-8000-000000000012' WHERE category_key = 'health_pharmacy';
+UPDATE budget.tbudget_type SET template_transaction_id = '4b2e6d06-5c4e-415e-b889-b550ca35181b' WHERE category_key = 'supermarket_groceries';
+UPDATE budget.tbudget_type SET template_transaction_id = 'b0140000-0000-4000-8000-000000000014' WHERE category_key = 'savings_investments';
+UPDATE budget.tbudget_type SET template_transaction_id = '4b2e6d06-5c4e-415e-b889-b550ca35181b' WHERE template_transaction_id IS NULL;
 
 -- 12. Households, Auxiliars, Members, Transactions & Transaction Details for Local Testing
 INSERT INTO budget.thousehold (

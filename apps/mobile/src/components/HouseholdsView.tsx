@@ -903,7 +903,9 @@ export default function HouseholdsView({
                     <Text className="text-sm font-bold text-[#12211B]">
                       {selectedModalMemberAux
                         ? `${selectedModalMemberAux.code} — ${selectedModalMemberAux.name}`
-                        : t(COMMON_CONSTANTS.NONE)}
+                        : editingMember
+                          ? t(COMMON_CONSTANTS.NONE)
+                          : t(HOUSEHOLDS_CONSTANTS.AUTO_AUXILIAR_MEMBER)}
                     </Text>
                     <Ionicons
                       name={openMemberDropdown === 'auxiliar' ? 'chevron-up' : 'chevron-down'}
@@ -1379,7 +1381,9 @@ export default function HouseholdsView({
                   <Text className="text-sm font-bold text-[#12211B]">
                     {selectedModalAuxiliar
                       ? `${selectedModalAuxiliar.code} — ${selectedModalAuxiliar.name}`
-                      : t(COMMON_CONSTANTS.NONE)}
+                      : editingHousehold
+                        ? t(COMMON_CONSTANTS.NONE)
+                        : t(HOUSEHOLDS_CONSTANTS.AUTO_AUXILIAR_HOUSEHOLD)}
                   </Text>
                   <Ionicons
                     name={openHhDropdown === 'auxiliar' ? 'chevron-up' : 'chevron-down'}

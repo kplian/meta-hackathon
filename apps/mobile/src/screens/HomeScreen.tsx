@@ -593,7 +593,7 @@ export default function HomeScreen({ session }: { session: Session }) {
         )}
       </View>
 
-      {/* Bottom Navigation Bar (Members | Budget | Journal | Dashboard | Profile) */}
+      {/* Bottom Navigation Bar (Dashboard | Journal | Profile) */}
       <BottomNavBar activeView={activeView} onSelectTab={handleSelectBottomTab} />
     </SafeAreaView>
   );

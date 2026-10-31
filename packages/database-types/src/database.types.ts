@@ -227,14 +227,14 @@ isOneToOne: false
                   ]
                 },"tbudget_type": {
                   Row: {
-                    "business_type_id": string | null,"category_key": string,"created_at": string,"created_by": string | null,"deleted_at": string | null,"deleted_by": string | null,"description": string | null,"household_id": string | null,"id": string,"name": string,"status": string | null,"updated_at": string | null,"updated_by": string | null
+                    "business_type_id": string | null,"category_key": string,"created_at": string,"created_by": string | null,"deleted_at": string | null,"deleted_by": string | null,"description": string | null,"household_id": string | null,"id": string,"name": string,"status": string | null,"template_transaction_id": string | null,"updated_at": string | null,"updated_by": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "business_type_id"?: string | null,"category_key": string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"description"?: string | null,"household_id"?: string | null,"id"?: string,"name": string,"status"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null
+                    "business_type_id"?: string | null,"category_key": string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"description"?: string | null,"household_id"?: string | null,"id"?: string,"name": string,"status"?: string | null,"template_transaction_id"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null
                   }
                   Update: {
-                    "business_type_id"?: string | null,"category_key"?: string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"description"?: string | null,"household_id"?: string | null,"id"?: string,"name"?: string,"status"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null
+                    "business_type_id"?: string | null,"category_key"?: string,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"description"?: string | null,"household_id"?: string | null,"id"?: string,"name"?: string,"status"?: string | null,"template_transaction_id"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null
                   }
                   Relationships: [
                     {
@@ -1094,7 +1094,25 @@ isOneToOne: false
                            },
 "f_get_user_households":
 { Args: { "p_channel_code": string }; Returns: Json
-                           }
+                           },
+            "f_register_transaction": {
+              Args: {
+                p_household_id: string
+                p_concept: string
+                p_amount?: number | null
+                p_category?: string | null
+                p_type?: string
+                p_transaction_date?: string
+                p_operation_code?: string | null
+                p_external_reference?: string | null
+                p_source_text?: string | null
+                p_recorded_via?: string
+                p_user_id?: string | null
+                p_auxiliar_id?: string | null
+                p_items?: Json | null
+              }
+              Returns: Json
+            }
           }
           Enums: {
             [_ in never]: never
@@ -1110,7 +1128,35 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            [_ in never]: never
+            "f_create_household": {
+              Args: {
+                p_name: string
+                p_business_type_id?: string | null
+                p_currency?: string | null
+                p_auxiliar_id?: string | null
+                p_preferences?: Json
+                p_user_id?: string | null
+              }
+              Returns: Json
+            }
+            "f_register_transaction": {
+              Args: {
+                p_household_id: string
+                p_concept: string
+                p_amount?: number | null
+                p_category?: string | null
+                p_type?: string
+                p_transaction_date?: string
+                p_operation_code?: string | null
+                p_external_reference?: string | null
+                p_source_text?: string | null
+                p_recorded_via?: string
+                p_user_id?: string | null
+                p_auxiliar_id?: string | null
+                p_items?: Json | null
+              }
+              Returns: Json
+            }
           }
           Enums: {
             [_ in never]: never
