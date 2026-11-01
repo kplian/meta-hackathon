@@ -565,7 +565,7 @@ BEGIN
         v_item_price := COALESCE((v_item->>'unit_price')::numeric, CASE WHEN v_item_qty > 0 THEN v_item_amount / v_item_qty ELSE v_item_amount END);
         v_item_code := COALESCE(NULLIF(v_item->>'item_code', ''), 'ITM-' || lpad(v_item_idx::text, 3, '0'));
         v_item_unit := COALESCE(NULLIF(v_item->>'unit_measure_code', ''), 'unit');
-        
+
         -- Resolve item auxiliar
         v_item_auxiliar := COALESCE((v_item->>'auxiliar_id')::uuid, v_auxiliar_id);
         IF v_item_auxiliar IS NULL THEN
@@ -615,24 +615,24 @@ BEGIN
         -- Save primary template in header if not set yet
         IF v_header_template_id IS NULL THEN
             v_header_template_id := v_resolved_template_id;
-            UPDATE budget.ttransaction 
-            SET template_transaction_id = v_header_template_id 
+            UPDATE budget.ttransaction
+            SET template_transaction_id = v_header_template_id
             WHERE id = v_transaction_id;
         END IF;
 
         -- 10.3 Query template lines (ttemplate_transaction_det)
         IF NOT EXISTS (
-            SELECT 1 FROM budget.ttemplate_transaction_det 
-            WHERE template_transaction_id = v_resolved_template_id 
+            SELECT 1 FROM budget.ttemplate_transaction_det
+            WHERE template_transaction_id = v_resolved_template_id
               AND status = 'active'
         ) THEN
             RAISE EXCEPTION 'Template transaction % has no active detail lines configured', v_resolved_template_id;
         END IF;
 
-        FOR v_template_det IN 
-            SELECT * 
-            FROM budget.ttemplate_transaction_det 
-            WHERE template_transaction_id = v_resolved_template_id 
+        FOR v_template_det IN
+            SELECT *
+            FROM budget.ttemplate_transaction_det
+            WHERE template_transaction_id = v_resolved_template_id
               AND status = 'active'
             ORDER BY line_number ASC
         LOOP
@@ -665,8 +665,8 @@ BEGIN
             END IF;
 
             -- Construct description
-            v_line_desc := CASE 
-                WHEN v_template_det.description_template IS NOT NULL AND trim(v_template_det.description_template) <> '' 
+            v_line_desc := CASE
+                WHEN v_template_det.description_template IS NOT NULL AND trim(v_template_det.description_template) <> ''
                 THEN trim(v_template_det.description_template) || ' - ' || v_item_desc
                 ELSE v_item_desc
             END;
