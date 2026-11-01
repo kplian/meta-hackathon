@@ -126,13 +126,17 @@ export default function HomeScreen({ session }: { session: Session }) {
           setUsersCount(usersRes.count);
         }
 
-        let resolvedRole = userRecordRes.data?.role;
+        let resolvedRole =
+          userRecordRes.data?.role ??
+          (session.user.app_metadata?.role as string | undefined) ??
+          (session.user.user_metadata?.role as string | undefined);
+
         if (!resolvedRole && session.user.email) {
           const { data: userByEmail } = await supabase
             .schema('budget')
             .from('tuser')
             .select('role')
-            .eq('email_user', session.user.email)
+            .ilike('email_user', session.user.email.trim())
             .maybeSingle();
           resolvedRole = userByEmail?.role;
         }
