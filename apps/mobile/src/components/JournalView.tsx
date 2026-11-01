@@ -579,7 +579,7 @@ export default function JournalView({
         );
         return;
       }
-      if (!it.category) {
+      if (txType === 'expense' && !it.category) {
         setFormError(
           `${t(JOURNAL_CONSTANTS.ITEM_NUMBER, { num: i + 1 })}: ${t(JOURNAL_CONSTANTS.ERR_ITEM_CATEGORY)}`,
         );
@@ -599,7 +599,7 @@ export default function JournalView({
         const itemAmt = parseFloat(it.amount);
         const itemConcept = it.concept.trim() || trimmedConcept;
         return {
-          category: it.category,
+          category: txType === 'income' ? 'income_general' : it.category,
           concept: itemConcept,
           description: itemConcept,
           amount: itemAmt,
@@ -1177,7 +1177,7 @@ export default function JournalView({
                     </View>
 
                     {/* Category Selection */}
-                    {budgetTypes.length > 0 ? (
+                    {txType === 'expense' && budgetTypes.length > 0 ? (
                       <View>
                         <Text className="text-[10px] font-bold text-sage mb-1">
                           {t(JOURNAL_CONSTANTS.ITEM_CATEGORY_LABEL)}

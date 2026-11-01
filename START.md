@@ -46,3 +46,11 @@ Carga explícita del demo local (opcional):
 ```bash
 docker exec -i supabase_db_meta_hackathon psql -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/seed.demo.sql
 ```
+
+Desde `20261101020000`, el patrimonio del dashboard se calcula con las unidades actuales y las cotizaciones compartidas. Sin cotización, usa la última valoración individual o inicial, con aviso y fecha. Los movimientos antiguos sin unidades se conservan como importes separados y se señalan para revisión.
+
+La administración posterior al onboarding está en **Administración de ahorros e inversiones**. La migración `20261101030000_investment_movements.sql` agrega las operaciones atómicas y el reporte de disponible; requiere las dos migraciones anteriores de unidades/cotizaciones. Aplicar también estas migraciones en el entorno remoto antes de usar allí la pantalla. Prueba SQL reversible: `tests/investment-movements.sql`. No inicia un cron ni ejecuta operaciones en bancos/brokers.
+
+Las bóvedas se crean desde la misma pantalla. Aplicar `20261101040000_saving_vaults.sql` después de la migración de movimientos. Los saldos son mayores de cuentas y auxiliares en moneda del hogar o USD; los aportes y retiros no son ingresos ni gastos. Prueba reversible: `tests/saving-vaults.sql`.
+
+Aplicar también `20261101050000_income_receipt_posting.sql` (ingresos con plantilla de cobro) y `20261101060000_monthly_savings_and_allocations.sql` (ahorro generado vs transferencias, compartido por dashboard/inversiones). Pruebas reversibles: `tests/income-receipt-posting.sql` y `tests/monthly-savings-allocations.sql`.

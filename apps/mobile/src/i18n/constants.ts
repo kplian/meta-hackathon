@@ -96,6 +96,8 @@ export const NAV_CONSTANTS = {
   FINANCIAL_PYRAMID_SUBTITLE: 'nav.financialPyramidSubtitle',
   TEMPLATE_TRANSACTION_LABEL: 'nav.templateTransactionLabel',
   TEMPLATE_TRANSACTION_SUBTITLE: 'nav.templateTransactionSubtitle',
+  INVESTMENTS_LABEL: 'nav.investmentsLabel',
+  INVESTMENTS_SUBTITLE: 'nav.investmentsSubtitle',
   HOUSEHOLD_LABEL: 'nav.householdLabel',
   HOUSEHOLD_SUBTITLE: 'nav.householdSubtitle',
   AUXILIAR_LABEL: 'nav.auxiliarLabel',

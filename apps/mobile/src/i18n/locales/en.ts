@@ -92,6 +92,8 @@ export const en = {
     financialPyramidSubtitle: 'Levels and goals of the financial pyramid',
     templateTransactionLabel: 'Template transaction',
     templateTransactionSubtitle: 'Accounting templates and rules for automated transactions',
+    investmentsLabel: 'Savings and investment management',
+    investmentsSubtitle: 'Manage your household savings and investments here. This section is being prepared.',
     householdLabel: 'Household',
     householdSubtitle: 'Households and shared expense spaces',
     auxiliarLabel: 'Income / Expense Pot',
