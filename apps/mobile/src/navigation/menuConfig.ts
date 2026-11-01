@@ -23,6 +23,39 @@ export type ViewId =
 
 export type BottomTabId = 'dashboard' | 'journal' | 'profile';
 
+export type UserRole = 'admin' | 'advanced' | 'member';
+
+/**
+ * Filter drawer menu sections according to user role in budget.tuser:
+ * - 'admin': sees all sections (ADMIN, FOR BUSINESS, BUDGET)
+ * - 'advanced': hides ADMIN, sees FOR BUSINESS and BUDGET
+ * - 'member': sees only BUDGET
+ */
+export function getVisibleDrawerSections(role: string = 'member'): DrawerMenuSection[] {
+  const normalized = role.toLowerCase().trim();
+  if (normalized === 'admin') {
+    return DRAWER_SECTIONS;
+  }
+  if (normalized === 'advanced') {
+    return DRAWER_SECTIONS.filter((section) => section.title !== 'ADMIN');
+  }
+  // Default: 'member'
+  return DRAWER_SECTIONS.filter((section) => section.title === 'BUDGET');
+}
+
+/**
+ * Checks whether a given view is allowed for the specified user role.
+ */
+export function isViewAllowedForRole(viewId: ViewId, role: string = 'member'): boolean {
+  if (['dashboard', 'journal', 'profile', 'members'].includes(viewId)) {
+    return true;
+  }
+  const visibleSections = getVisibleDrawerSections(role);
+  return visibleSections.some((section) =>
+    section.items.some((item) => item.id === viewId)
+  );
+}
+
 export interface DrawerMenuItem {
   id: ViewId;
   label: string;

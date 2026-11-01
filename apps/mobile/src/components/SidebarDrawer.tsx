@@ -1,7 +1,11 @@
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { DRAWER_SECTIONS, type DrawerMenuItem, type ViewId } from '../navigation/menuConfig';
+import {
+  getVisibleDrawerSections,
+  type DrawerMenuItem,
+  type ViewId,
+} from '../navigation/menuConfig';
 import type { HouseholdRow } from '../lib/budget-schema';
 import { COMMON_CONSTANTS, NAV_CONSTANTS } from '../i18n/constants';
 
@@ -13,6 +17,7 @@ interface SidebarDrawerProps {
   activeHousehold: HouseholdRow | null;
   userEmail: string;
   userName: string;
+  userRole?: string;
   usersCount?: number;
   onSelectView: (view: ViewId) => void;
   onCloseMobile: () => void;
@@ -58,6 +63,7 @@ export default function SidebarDrawer({
   activeHousehold,
   userEmail,
   userName,
+  userRole = 'member',
   usersCount,
   onSelectView,
   onCloseMobile,
@@ -71,6 +77,7 @@ export default function SidebarDrawer({
     return null;
   }
 
+  const visibleSections = getVisibleDrawerSections(userRole);
   const householdTitle = activeHousehold?.name ?? t(NAV_CONSTANTS.NO_HOUSEHOLD_ASSIGNED);
   const householdSubtitle = activeHousehold
     ? `${t(NAV_CONSTANTS.HOUSEHOLD_PREFIX)} ${activeHousehold.name.toUpperCase()}`
@@ -101,7 +108,7 @@ export default function SidebarDrawer({
           </Pressable>
 
           <ScrollView className="mt-4 w-full" contentContainerClassName="items-center gap-2.5 pb-4">
-            {DRAWER_SECTIONS.flatMap((section) => section.items).map((item) => {
+            {visibleSections.flatMap((section) => section.items).map((item) => {
               const selected = activeView === item.id;
               return (
                 <Pressable
@@ -127,9 +134,16 @@ export default function SidebarDrawer({
           </ScrollView>
         </View>
 
-        <View className="items-center gap-3">
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-pine">
-            <Text className="text-xs font-extrabold text-white">{initials}</Text>
+        <View className="items-center gap-2">
+          <View className="items-center">
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-pine">
+              <Text className="text-xs font-extrabold text-white">{initials}</Text>
+            </View>
+            <View className="mt-1 rounded bg-[#D6EFE0] px-1 py-0.5">
+              <Text className="text-[8px] font-extrabold uppercase text-pine">
+                {userRole.slice(0, 3)}
+              </Text>
+            </View>
           </View>
           <Pressable
             onPress={onSignOut}
@@ -224,8 +238,8 @@ export default function SidebarDrawer({
           <Ionicons name="arrow-forward" size={18} color="#0B3D2E" />
         </Pressable>
 
-        {/* Menu Sections: ADMIN, FOR BUSINESS, BUDGET */}
-        {DRAWER_SECTIONS.map((section) => (
+        {/* Menu Sections: ADMIN, FOR BUSINESS, BUDGET filtered by role */}
+        {visibleSections.map((section) => (
           <View key={section.title} className="mt-5">
             <View className="mb-2 flex-row items-center justify-between px-1">
               <Text className="text-[11px] font-bold tracking-wider text-[#6E7F77]">
@@ -295,9 +309,16 @@ export default function SidebarDrawer({
               <Text className="text-sm font-extrabold text-white">{initials}</Text>
             </View>
             <View className="ml-3 flex-1">
-              <Text className="text-[13px] font-extrabold text-pine" numberOfLines={1}>
-                {userName || householdTitle}
-              </Text>
+              <View className="flex-row items-center gap-1.5">
+                <Text className="text-[13px] font-extrabold text-pine flex-1" numberOfLines={1}>
+                  {userName || householdTitle}
+                </Text>
+                <View className="rounded-md bg-[#D6EFE0] px-1.5 py-0.5">
+                  <Text className="text-[9px] font-extrabold uppercase text-pine">
+                    {userRole}
+                  </Text>
+                </View>
+              </View>
               <Text className="text-[11px] text-sage" numberOfLines={1}>
                 {userEmail}
               </Text>

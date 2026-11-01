@@ -1083,6 +1083,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"treport_link": {
+                  Row: {
+                    "created_at": string,"expires_at": string,"household_id": string,"last_opened_at": string | null,"open_count": number,"period_month": string,"token": string,"user_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"expires_at": string,"household_id": string,"last_opened_at"?: string | null,"open_count"?: number,"period_month": string,"token": string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"expires_at"?: string,"household_id"?: string,"last_opened_at"?: string | null,"open_count"?: number,"period_month"?: string,"token"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "treport_link_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "thousehold"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "treport_link_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "tuser"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"ttemplate_transaction": {
                   Row: {
                     "business_type_id": string | null,"code": string,"created_at": string | null,"created_by": string | null,"deleted_at": string | null,"deleted_by": string | null,"description": string | null,"household_id": string | null,"id": string,"input_schema": NonNullable<Json>,"name": string,"status": string | null,"updated_at": string | null,"updated_by": string | null,"version": number
@@ -1393,8 +1419,14 @@ isOneToOne: true
                            } |
 { Args: { "p_auxiliar_id"?: string,"p_business_type_id"?: string,"p_currency"?: string,"p_name": string,"p_preferences"?: Json,"p_user_id"?: string }; Returns: Json
                            },
+"f_create_report_link":
+{ Args: { "p_household_id": string,"p_month"?: string,"p_ttl_minutes"?: number,"p_user_id"?: string }; Returns: Json
+                           },
 "f_ensure_asset_chart":
 { Args: { "p_household_id": string }; Returns: undefined
+                           },
+"f_get_report":
+{ Args: { "p_token": string }; Returns: Json
                            },
 "f_get_user_households":
 { Args: { "p_channel_code": string }; Returns: Json
@@ -1437,6 +1469,12 @@ isOneToOne: true
                            },
 "f_create_household":
 { Args: { "p_auxiliar_id"?: string,"p_business_type_id"?: string,"p_currency"?: string,"p_name": string,"p_preferences"?: Json,"p_user_id"?: string }; Returns: Json
+                           },
+"f_create_report_link":
+{ Args: { "p_household_id": string,"p_month"?: string,"p_ttl_minutes"?: number,"p_user_id"?: string }; Returns: Json
+                           },
+"f_get_report":
+{ Args: { "p_token": string }; Returns: Json
                            },
 "f_household_wealth_report":
 { Args: { "p_household_id": string }; Returns: Json

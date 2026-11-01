@@ -16,6 +16,7 @@ import { signOut } from '../lib/auth';
 import type { HouseholdRow } from '../lib/budget-schema';
 import {
   VIEW_META,
+  isViewAllowedForRole,
   type BottomTabId,
   type ViewId,
 } from '../navigation/menuConfig';
@@ -69,6 +70,7 @@ export default function HomeScreen({ session }: { session: Session }) {
   const [households, setHouseholds] = useState<HouseholdRow[]>([]);
   const [activeHouseholdIndex, setActiveHouseholdIndex] = useState(0);
   const [usersCount, setUsersCount] = useState<number | undefined>(undefined);
+  const [userRole, setUserRole] = useState<string>('member');
 
   // Active view table records
   const [rows, setRows] = useState<GenericRow[]>([]);
@@ -92,7 +94,7 @@ export default function HomeScreen({ session }: { session: Session }) {
       setLoadingHouseholds(true);
       setHouseholdError(null);
       try {
-        const [hhMemberRes, usersRes] = await Promise.all([
+        const [hhMemberRes, usersRes, userRecordRes] = await Promise.all([
           supabase
             .schema('budget')
             .from('thousehold_member')
@@ -104,6 +106,12 @@ export default function HomeScreen({ session }: { session: Session }) {
             .from('tuser')
             .select('id', { count: 'exact', head: true })
             .is('deleted_at', null),
+          supabase
+            .schema('budget')
+            .from('tuser')
+            .select('role')
+            .eq('id', session.user.id)
+            .maybeSingle(),
         ]);
 
         if (cancelled) return;
@@ -116,6 +124,20 @@ export default function HomeScreen({ session }: { session: Session }) {
         }
         if (usersRes.count !== null && usersRes.count !== undefined) {
           setUsersCount(usersRes.count);
+        }
+
+        let resolvedRole = userRecordRes.data?.role;
+        if (!resolvedRole && session.user.email) {
+          const { data: userByEmail } = await supabase
+            .schema('budget')
+            .from('tuser')
+            .select('role')
+            .eq('email_user', session.user.email)
+            .maybeSingle();
+          resolvedRole = userByEmail?.role;
+        }
+        if (resolvedRole) {
+          setUserRole(resolvedRole);
         }
       } catch (error) {
         if (!cancelled) {
@@ -171,11 +193,22 @@ export default function HomeScreen({ session }: { session: Session }) {
   }, [activeView, refreshTick]);
 
   const handleSelectView = (view: ViewId) => {
+    if (!isViewAllowedForRole(view, userRole)) {
+      setActiveView('dashboard');
+      return;
+    }
     setActiveView(view);
     if (!isPermanentDesktop) {
       setIsDrawerOpen(false);
     }
   };
+
+  // If role changes or is loaded, ensure user is not stranded on an unauthorized view
+  useEffect(() => {
+    if (!isViewAllowedForRole(activeView, userRole)) {
+      setActiveView('dashboard');
+    }
+  }, [activeView, userRole]);
 
   const handleSelectBottomTab = (tab: BottomTabId) => {
     setActiveView(tab);
@@ -286,6 +319,7 @@ export default function HomeScreen({ session }: { session: Session }) {
           activeHousehold={activeHousehold}
           userEmail={email}
           userName={fullName}
+          userRole={userRole}
           usersCount={usersCount}
           onSelectView={handleSelectView}
           onCloseMobile={() => setIsDrawerOpen(false)}
@@ -393,72 +427,90 @@ export default function HomeScreen({ session }: { session: Session }) {
                   <Text className="text-lg font-extrabold text-white">
                     {fullName.slice(0, 2).toUpperCase()}
                   </Text>
-                  <View className="flex-row gap-2 mt-1">
-                    {SUPPORTED_LANGUAGES.map((lang) => {
-                      const active = currentLang === lang.code;
-                      return (
-                        <Pressable
-                          key={lang.code}
-                          onPress={() => void changeAppLanguage(lang.code)}
-                          className={`flex-1 items-center justify-center rounded-xl py-2.5 border ${active
-                              ? 'bg-pine border-pine'
-                              : 'bg-white border-[#D3E8DC] active:bg-[#E8F6EE]'
+                </View>
+                <View className="ml-4 flex-1">
+                  <Text className="text-lg font-extrabold text-pine">{fullName}</Text>
+                  <Text className="text-sm text-sage">{email}</Text>
+                </View>
+              </View>
+
+              {/* Language Preference Card */}
+              <View className="rounded-2xl bg-[#F4FAF6] p-4 gap-2.5">
+                <Text className="text-xs font-bold uppercase tracking-wider text-sage">
+                  {t(PROFILE_CONSTANTS.LANGUAGE_PREFERENCE)}
+                </Text>
+                <Text className="text-xs text-[#546A60]">
+                  {t(PROFILE_CONSTANTS.LANGUAGE_SUBTITLE)}
+                </Text>
+                <View className="flex-row gap-2 mt-1">
+                  {SUPPORTED_LANGUAGES.map((lang) => {
+                    const active = currentLang === lang.code;
+                    return (
+                      <Pressable
+                        key={lang.code}
+                        onPress={() => void changeAppLanguage(lang.code)}
+                        className={`flex-1 items-center justify-center rounded-xl py-2.5 border ${active
+                            ? 'bg-pine border-pine'
+                            : 'bg-white border-[#D3E8DC] active:bg-[#E8F6EE]'
+                          }`}
+                      >
+                        <Text
+                          className={`text-xs font-extrabold ${active ? 'text-white' : 'text-pine'
                             }`}
                         >
-                          <Text
-                            className={`text-xs font-extrabold ${active ? 'text-white' : 'text-pine'
-                              }`}
-                          >
-                            {lang.label} ({lang.shortLabel})
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                          {lang.label} ({lang.shortLabel})
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
-
-                <View className="rounded-2xl bg-[#F4FAF6] p-4 gap-2">
-                  <Text className="text-xs font-bold uppercase tracking-wider text-sage">
-                    {t(PROFILE_CONSTANTS.SESSION_DETAILS)}
-                  </Text>
-                  <Text className="text-xs text-[#263C33]">
-                    {t(PROFILE_CONSTANTS.USER_ID)}: {session.user.id}
-                  </Text>
-                  <Text className="text-xs text-[#263C33]">
-                    {t(PROFILE_CONSTANTS.PROVIDER)}: {session.user.app_metadata?.provider ?? 'email'}
-                  </Text>
-                </View>
-
-                {/* Backend Environment Card */}
-                <View className="rounded-2xl bg-[#F4FAF6] p-4 gap-2">
-                  <Text className="text-xs font-bold uppercase tracking-wider text-sage">
-                    Backend Environment
-                  </Text>
-                  <View className="flex-row items-center gap-2">
-                    <View
-                      className={`h-2.5 w-2.5 rounded-full ${isLocalBackend ? 'bg-amber-500' : 'bg-emerald-500'
-                        }`}
-                    />
-                    <Text className="text-sm font-extrabold text-pine">
-                      {isLocalBackend ? 'Local (Docker)' : 'Supabase Cloud'}
-                    </Text>
-                  </View>
-                  <Text className="text-[11px] text-[#546A60] font-mono" numberOfLines={1}>
-                    {currentSupabaseUrl}
-                  </Text>
-                </View>
-
-                <Pressable
-                  onPress={() => void signOut()}
-                  className="flex-row items-center justify-center rounded-2xl bg-pine py-3.5 active:opacity-85"
-                >
-                  <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
-                  <Text className="ml-2 text-sm font-bold text-white">
-                    {t(COMMON_CONSTANTS.SIGN_OUT)}
-                  </Text>
-                </Pressable>
               </View>
-            ) : (
+
+              <View className="rounded-2xl bg-[#F4FAF6] p-4 gap-2">
+                <Text className="text-xs font-bold uppercase tracking-wider text-sage">
+                  {t(PROFILE_CONSTANTS.SESSION_DETAILS)}
+                </Text>
+                <Text className="text-xs text-[#263C33]">
+                  {t(PROFILE_CONSTANTS.USER_ID)}: {session.user.id}
+                </Text>
+                <Text className="text-xs text-[#263C33]">
+                  {t(PROFILE_CONSTANTS.PROVIDER)}: {session.user.app_metadata?.provider ?? 'email'}
+                </Text>
+                <Text className="text-xs text-[#263C33]">
+                  Role: <Text className="font-bold uppercase text-pine">{userRole}</Text>
+                </Text>
+              </View>
+
+              {/* Backend Environment Card */}
+              <View className="rounded-2xl bg-[#F4FAF6] p-4 gap-2">
+                <Text className="text-xs font-bold uppercase tracking-wider text-sage">
+                  Backend Environment
+                </Text>
+                <View className="flex-row items-center gap-2">
+                  <View
+                    className={`h-2.5 w-2.5 rounded-full ${isLocalBackend ? 'bg-amber-500' : 'bg-emerald-500'
+                      }`}
+                  />
+                  <Text className="text-sm font-extrabold text-pine">
+                    {isLocalBackend ? 'Local (Docker)' : 'Supabase Cloud'}
+                  </Text>
+                </View>
+                <Text className="text-[11px] text-[#546A60] font-mono" numberOfLines={1}>
+                  {currentSupabaseUrl}
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={() => void signOut()}
+                className="flex-row items-center justify-center rounded-2xl bg-pine py-3.5 active:opacity-85"
+              >
+                <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
+                <Text className="ml-2 text-sm font-bold text-white">
+                  {t(COMMON_CONSTANTS.SIGN_OUT)}
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
               /* Table-Backed Module View (Admin / For Business / Budget / Members / Journal) */
               <View className="mt-5 rounded-3xl bg-white p-5 border border-[#E2EFE8]">
                 <View className="flex-row items-center justify-between mb-3">
