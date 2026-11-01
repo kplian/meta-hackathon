@@ -100,6 +100,8 @@ export const NAV_CONSTANTS = {
   HOUSEHOLD_SUBTITLE: 'nav.householdSubtitle',
   AUXILIAR_LABEL: 'nav.auxiliarLabel',
   AUXILIAR_SUBTITLE: 'nav.auxiliarSubtitle',
+  HEALTH_LABEL: 'nav.healthLabel',
+  HEALTH_SUBTITLE: 'nav.healthSubtitle',
 } as const;
 
 export const DASHBOARD_CONSTANTS = {

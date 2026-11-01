@@ -43,6 +43,7 @@ import BudgetsView from '../components/BudgetsView';
 import AuxiliarsView from '../components/AuxiliarsView';
 import MonthlyDashboard from '../features/dashboard/MonthlyDashboard';
 import OnboardingGate from '../features/onboarding/OnboardingGate';
+import HealthView from '../features/health/HealthView';
 
 type GenericRow = Record<string, unknown>;
 
@@ -298,6 +299,8 @@ export default function HomeScreen({ session }: { session: Session }) {
         {/* Active Interface Content */}
         {activeView === 'dashboard' && activeHousehold ? (
           <MonthlyDashboard householdId={activeHousehold.id} householdName={activeHousehold.name ?? ''} />
+        ) : activeView === 'health' && activeHousehold ? (
+          <HealthView householdId={activeHousehold.id} />
         ) : activeView === 'journal' ? (
           <JournalView
             userId={session.user.id}

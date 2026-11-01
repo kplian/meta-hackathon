@@ -28,7 +28,8 @@
     "market:serve": "supabase functions serve asset-market --env-file .env",
     "test:market": "node --experimental-strip-types --test tests/asset-market.test.mjs tests/asset-refresh.test.mjs",
     "assets:refresh": "node scripts/refresh-asset-valuations.mjs",
-    "test:pyramid": "node --experimental-strip-types --test tests/pyramid-calculations.test.mjs"
+    "test:pyramid": "node --experimental-strip-types --test tests/pyramid-calculations.test.mjs",
+    "test:health": "node --experimental-strip-types --test tests/meal-plan.test.mjs"
   },
   "keywords": [
     "supabase",
