@@ -11,7 +11,7 @@ Usuario: "mostrame mis gastos"
 
 ## Base de datos
 
-Migración `supabase/migrations/20261031150000_report_links.sql`:
+Migración `supabase/migrations/20261031330000_report_links.sql`:
 
 | Función | Quién la llama | Qué hace |
 | :--- | :--- | :--- |
