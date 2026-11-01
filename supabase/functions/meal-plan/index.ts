@@ -97,12 +97,12 @@ Deno.serve(async (request) => {
 
     const messages = buildMessages(context, { budget, days, request: userRequest, language });
     let { plan, model } = await askModel(messages);
-    let review = reviewPlan(plan, context.members, budget);
+    let review = reviewPlan(plan, context, budget, language);
     if (review.feedback) {
       // One correction round with the model's own answer as context.
       const retry = await askModel([...messages, { role: 'assistant', content: JSON.stringify(plan) }, { role: 'user', content: review.feedback }]);
       plan = retry.plan;
-      review = reviewPlan(plan, context.members, budget);
+      review = reviewPlan(plan, context, budget, language);
     }
     if (review.allergens.length) return json({ error: 'allergen_conflict', allergens: review.allergens }, 422);
 

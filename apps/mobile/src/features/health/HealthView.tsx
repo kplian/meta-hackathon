@@ -4,13 +4,15 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
+import { loadHealthCatalog } from './catalog';
 import MemberProfileCard from './MemberProfileCard';
 import MealPlanCard from './MealPlanCard';
-import type { HealthContext } from './types';
+import type { HealthContext, HealthOption } from './types';
 
 export default function HealthView({ householdId }: { householdId: string }) {
   const { t } = useTranslation('health');
   const [context, setContext] = useState<HealthContext | null>(null);
+  const [catalog, setCatalog] = useState<HealthOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -19,11 +21,17 @@ export default function HealthView({ householdId }: { householdId: string }) {
     let cancelled = false;
     setLoading(true);
     setError(false);
-    supabase.rpc('f_get_family_health_context', { p_household_id: householdId }).then(
-      (result) => {
+    Promise.all([
+      supabase.rpc('f_get_family_health_context', { p_household_id: householdId }),
+      loadHealthCatalog(),
+    ]).then(
+      ([result, options]) => {
         if (cancelled) return;
         if (result.error) setError(true);
-        else setContext(result.data as unknown as HealthContext);
+        else {
+          setContext(result.data as unknown as HealthContext);
+          setCatalog(options);
+        }
         setLoading(false);
       },
       () => { if (!cancelled) { setError(true); setLoading(false); } },
@@ -71,6 +79,7 @@ export default function HealthView({ householdId }: { householdId: string }) {
                   <MemberProfileCard
                     key={`${member.member_id}-${refresh}`}
                     member={member}
+                    catalog={catalog}
                     onSaved={() => setRefresh((value) => value + 1)}
                   />
                 ))}

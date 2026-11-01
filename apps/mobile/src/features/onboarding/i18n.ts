@@ -3,7 +3,7 @@ import i18n from '../../i18n';
 // Feature-owned translations avoid editing shared locale catalogs.
 const resources = {
   "es": {
-    "step": "Paso {{step}} de 5",
+    "step": "Paso {{step}} de {{total}}",
     "homeTitle": "Dale un nombre a tu hogar",
     "homeSubtitle": "Un espacio para organizar juntos lo que más importa. Puedes cambiar el nombre cuando quieras.",
     "homeName": "Nombre del hogar",
@@ -27,6 +27,28 @@ const resources = {
     "loadError": "No pudimos cargar los miembros. Vuelve al paso anterior e inténtalo de nuevo.",
     "saveError": "No pudimos guardar los cambios. Inténtalo de nuevo.",
     "signOut": "Cerrar sesión",
+    "healthAsk": {
+      "title": "¿Configuramos también la salud y la comida de la familia?",
+      "subtitle": "Alergias, condiciones y gustos de cada integrante. Con eso armamos menús semanales y actividades dentro de tu presupuesto.",
+      "yes": "Sí, configurar ahora",
+      "yesHelp": "Dos minutos tocando opciones. Al final verás tu primer menú de la semana.",
+      "no": "Ahora no",
+      "noHelp": "Seguimos con ingresos, activos y pirámide. Puedes hacerlo después desde «Salud y menú».",
+      "later": "Estos datos solo los ve tu hogar."
+    },
+    "health": {
+      "title": "¿Cómo come y se mueve tu familia?",
+      "subtitle": "Toca las opciones de cada integrante. Con esto armamos menús y actividades que entran en tu presupuesto.",
+      "note": "Primero lo que cambia el menú: alergias, condiciones y alimentación. Lo demás está en «Más detalles». Estos datos solo los ve tu hogar.",
+      "summaryTitle": "Resumen de la familia",
+      "summaryAllergies": "Alergias en casa: {{count}}",
+      "summaryConditions": "Condiciones de salud: {{count}}",
+      "summarySports": "Deportes: {{list}}",
+      "summaryEmpty": "Todavía no hay perfiles. Puedes completarlos ahora o después en «Salud y menú».",
+      "skip": "Omitir por ahora y continuar",
+      "unsaved": "Guarda o cancela el perfil que estás editando antes de continuar.",
+      "loadError": "No pudimos cargar los perfiles."
+    },
     "income": {
       "title": "¿Quieres configurar tus fuentes de ingreso?",
       "subtitle": "Cuéntanos cuánto estiman recibir. Puedes añadir ingresos para todo el hogar o asociarlos a un integrante.",
@@ -55,6 +77,23 @@ const resources = {
       "unsaved": "Guarda la fuente o cancela el formulario antes de continuar.",
       "loadError": "No pudimos cargar tus fuentes de ingreso.",
       "retry": "Reintentar"
+    },
+    "mealPlan": {
+      "title": "Tu primer menú de la semana",
+      "subtitle": "Con los perfiles y el presupuesto, Llama arma un menú, la lista de compras y actividades para la familia.",
+      "budgetTitle": "Presupuesto de supermercado",
+      "budgetHelp": "Tu pirámide asigna {{needs}} al mes a necesidades ({{pct}}%). Te sugerimos destinar el {{share}}% a supermercado. Puedes cambiarlo.",
+      "noIncome": "No hay ingresos estimados todavía. Indica cuánto gastan al mes en supermercado.",
+      "monthly": "Al mes",
+      "weekly": "Para la semana: {{amount}}",
+      "generate": "Guardar y generar menú",
+      "retry": "Intentar de nuevo",
+      "continueWithout": "Continuar sin menú",
+      "skip": "Omitir por ahora",
+      "saved": "Lo guardamos en «Salud y menú». Ahí puedes pedir otro cuando quieras.",
+      "start": "Empezar",
+      "invalid": "Escribe un monto válido.",
+      "loadError": "No pudimos calcular la sugerencia."
     },
     "homeCurrency": "Moneda del hogar",
     "currencyHelp": "Esta es la moneda actual de tu hogar. Puedes elegir otra o escribir su código de tres letras. Las nuevas fuentes de ingreso usarán esta moneda.",
@@ -235,7 +274,7 @@ const resources = {
     }
   },
   "en": {
-    "step": "Step {{step}} of 5",
+    "step": "Step {{step}} of {{total}}",
     "homeTitle": "Give your household a name",
     "homeSubtitle": "A space to organize what matters together. You can change the name any time.",
     "homeName": "Household name",
@@ -259,6 +298,28 @@ const resources = {
     "loadError": "We could not load members. Go back and try again.",
     "saveError": "We could not save your changes. Please try again.",
     "signOut": "Sign out",
+    "healthAsk": {
+      "title": "Shall we set up the family’s health and meals too?",
+      "subtitle": "Allergies, conditions and tastes of each member. We use them for weekly menus and activities within your budget.",
+      "yes": "Yes, set it up now",
+      "yesHelp": "Two minutes tapping options. You will see your first weekly menu at the end.",
+      "no": "Not now",
+      "noHelp": "We continue with income, assets and pyramid. You can do it later from “Health & meals”.",
+      "later": "Only your household sees this data."
+    },
+    "health": {
+      "title": "How does your family eat and move?",
+      "subtitle": "Tap the options for each member. We use them to build menus and activities that fit your budget.",
+      "note": "Start with what changes the menu: allergies, conditions and diet. The rest is under “More details”. Only your household sees this.",
+      "summaryTitle": "Family summary",
+      "summaryAllergies": "Allergies at home: {{count}}",
+      "summaryConditions": "Health conditions: {{count}}",
+      "summarySports": "Sports: {{list}}",
+      "summaryEmpty": "No profiles yet. Fill them now or later in “Health & meals”.",
+      "skip": "Skip for now and continue",
+      "unsaved": "Save or cancel the profile you are editing before continuing.",
+      "loadError": "We could not load the profiles."
+    },
     "income": {
       "title": "Would you like to set up income sources?",
       "subtitle": "Tell us what you expect to receive. Add shared household income or assign it to a member.",
@@ -287,6 +348,23 @@ const resources = {
       "unsaved": "Save the source or cancel the form before continuing.",
       "loadError": "We could not load your income sources.",
       "retry": "Retry"
+    },
+    "mealPlan": {
+      "title": "Your first weekly menu",
+      "subtitle": "With the profiles and the budget, Llama builds a menu, the shopping list and activities for the family.",
+      "budgetTitle": "Grocery budget",
+      "budgetHelp": "Your pyramid assigns {{needs}} a month to needs ({{pct}}%). We suggest {{share}}% of it for groceries. You can change it.",
+      "noIncome": "No estimated income yet. Tell us how much you spend on groceries a month.",
+      "monthly": "Per month",
+      "weekly": "For the week: {{amount}}",
+      "generate": "Save and generate menu",
+      "retry": "Try again",
+      "continueWithout": "Continue without a menu",
+      "skip": "Skip for now",
+      "saved": "Saved under “Health & meals”. You can ask for another one there any time.",
+      "start": "Get started",
+      "invalid": "Enter a valid amount.",
+      "loadError": "We could not compute the suggestion."
     },
     "homeCurrency": "Household currency",
     "currencyHelp": "This is your current household currency. Choose another or enter its three-letter code. New income sources will use this currency.",
@@ -467,7 +545,7 @@ const resources = {
     }
   },
   "pt": {
-    "step": "Etapa {{step}} de 5",
+    "step": "Etapa {{step}} de {{total}}",
     "homeTitle": "Dê um nome ao seu lar",
     "homeSubtitle": "Um espaço para organizar juntos o que importa. Você pode mudar o nome quando quiser.",
     "homeName": "Nome do lar",
@@ -491,6 +569,28 @@ const resources = {
     "loadError": "Não foi possível carregar os membros. Volte e tente novamente.",
     "saveError": "Não foi possível salvar. Tente novamente.",
     "signOut": "Sair",
+    "healthAsk": {
+      "title": "Vamos configurar também a saúde e a comida da família?",
+      "subtitle": "Alergias, condições e gostos de cada integrante. Com isso montamos cardápios semanais e atividades dentro do seu orçamento.",
+      "yes": "Sim, configurar agora",
+      "yesHelp": "Dois minutos tocando em opções. No final você verá seu primeiro cardápio da semana.",
+      "no": "Agora não",
+      "noHelp": "Seguimos com renda, patrimônio e pirâmide. Você pode fazer depois em “Saúde e cardápio”.",
+      "later": "Só a sua família vê esses dados."
+    },
+    "health": {
+      "title": "Como sua família come e se movimenta?",
+      "subtitle": "Toque nas opções de cada integrante. Com isso montamos cardápios e atividades que cabem no seu orçamento.",
+      "note": "Primeiro o que muda o cardápio: alergias, condições e alimentação. O resto fica em “Mais detalhes”. Só a sua família vê isso.",
+      "summaryTitle": "Resumo da família",
+      "summaryAllergies": "Alergias em casa: {{count}}",
+      "summaryConditions": "Condições de saúde: {{count}}",
+      "summarySports": "Esportes: {{list}}",
+      "summaryEmpty": "Ainda não há perfis. Preencha agora ou depois em “Saúde e cardápio”.",
+      "skip": "Pular por enquanto e continuar",
+      "unsaved": "Salve ou cancele o perfil que está editando antes de continuar.",
+      "loadError": "Não foi possível carregar os perfis."
+    },
     "income": {
       "title": "Quer configurar suas fontes de renda?",
       "subtitle": "Conte quanto esperam receber. Adicione renda para todo o lar ou associe a um integrante.",
@@ -519,6 +619,23 @@ const resources = {
       "unsaved": "Salve a fonte ou cancele o formulário antes de continuar.",
       "loadError": "Não foi possível carregar suas fontes de renda.",
       "retry": "Tentar novamente"
+    },
+    "mealPlan": {
+      "title": "Seu primeiro cardápio da semana",
+      "subtitle": "Com os perfis e o orçamento, o Llama monta um cardápio, a lista de compras e atividades para a família.",
+      "budgetTitle": "Orçamento de supermercado",
+      "budgetHelp": "Sua pirâmide destina {{needs}} por mês a necessidades ({{pct}}%). Sugerimos {{share}}% para supermercado. Você pode mudar.",
+      "noIncome": "Ainda não há renda estimada. Informe quanto gastam por mês no supermercado.",
+      "monthly": "Por mês",
+      "weekly": "Para a semana: {{amount}}",
+      "generate": "Salvar e gerar cardápio",
+      "retry": "Tentar de novo",
+      "continueWithout": "Continuar sem cardápio",
+      "skip": "Pular por enquanto",
+      "saved": "Salvamos em “Saúde e cardápio”. Lá você pode pedir outro quando quiser.",
+      "start": "Começar",
+      "invalid": "Digite um valor válido.",
+      "loadError": "Não foi possível calcular a sugestão."
     },
     "homeCurrency": "Moeda do lar",
     "currencyHelp": "Esta é a moeda atual do seu lar. Escolha outra ou digite o código de três letras. Novas fontes de renda usarão esta moeda.",

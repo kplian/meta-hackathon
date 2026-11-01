@@ -15,15 +15,60 @@ BEGIN
   r := public.f_get_family_health_context(home);
   IF jsonb_array_length(r->'members')<>2 OR (r->'members'->0->>'has_profile')::boolean THEN RAISE EXCEPTION 'Wrong members: %',r->'members'; END IF;
 
-  -- Profile upsert cleans tags and keeps untouched fields.
+  -- Profile upsert maps catalog codes and keeps untouched fields.
   r := public.f_upsert_member_health_profile(kid,'{"birth_year":2013,"allergies":[" Maní ","maní",""],"activities":["Fútbol"],"activity_level":"high"}');
-  IF r->'allergies'<>'["maní"]'::jsonb OR r->'activities'<>'["fútbol"]'::jsonb THEN RAISE EXCEPTION 'Tags not cleaned: %',r; END IF;
+  IF r->'allergies'<>'["peanuts"]'::jsonb OR r->'activities'<>'["football"]'::jsonb THEN RAISE EXCEPTION 'Tags not cleaned/mapped: %',r; END IF;
   r := public.f_upsert_member_health_profile(kid,'{"likes":["pasta"]}');
-  IF r->>'birth_year'<>'2013' OR r->'allergies'<>'["maní"]'::jsonb THEN RAISE EXCEPTION 'Partial update lost fields: %',r; END IF;
+  IF r->>'birth_year'<>'2013' OR r->'allergies'<>'["peanuts"]'::jsonb THEN RAISE EXCEPTION 'Partial update lost fields: %',r; END IF;
   BEGIN PERFORM public.f_upsert_member_health_profile(kid,'{"activity_level":"extreme"}'); RAISE EXCEPTION 'Expected check failure';
   EXCEPTION WHEN OTHERS THEN IF SQLERRM='Expected check failure' THEN RAISE; END IF; END;
   r := public.f_get_family_health_context(home);
   IF (SELECT (m->>'age')::int FROM jsonb_array_elements(r->'members') m WHERE m->>'member_id'=kid::text) <> extract(year FROM now())::int-2013 THEN RAISE EXCEPTION 'Age missing'; END IF;
+
+  -- Catalog codes, household rules and whole-word guard.
+  r := public.f_upsert_member_health_profile(kid,'{"allergies":["Maní","polen"],"conditions":["celiac"],"weight_kg":41.5,"height_cm":148}');
+  IF r->'allergies'<>'["peanuts","polen"]'::jsonb OR r->'conditions'<>'["celiac"]'::jsonb OR r->>'weight_kg'<>'41.5' THEN
+    RAISE EXCEPTION 'Catalog profile wrong: %', r;
+  END IF;
+  r := public.f_get_family_health_context(home);
+  IF (
+    SELECT COALESCE(jsonb_agg(x->>'code' ORDER BY x->>'code'), '[]'::jsonb)
+      FROM jsonb_array_elements(r->'rules'->'forbidden') x
+  ) <> '["gluten","peanuts","polen"]'::jsonb
+     OR r->'rules'->'labels'->'peanuts'->>'es' <> 'Maní' THEN
+    RAISE EXCEPTION 'Rules wrong: %', r->'rules';
+  END IF;
+  plan := '{"summary":"Guard","days":[{"day":"Lunes","meals":[{"type":"lunch","name":"Arroz","ingredients":["arroz"],"cost":1}]}],"shopping_list":[{"item":"Arroz","quantity":"1 kg","cost":1}],"activities":[]}';
+  BEGIN
+    PERFORM public.f_save_meal_plan(home,'2026-11-02',jsonb_set(plan,'{shopping_list,0,item}','"Mantequilla de maní"'));
+    RAISE EXCEPTION 'Expected peanuts conflict';
+  EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'allergen_conflict: peanuts' THEN RAISE; END IF; END;
+  BEGIN
+    PERFORM public.f_save_meal_plan(home,'2026-11-02',jsonb_set(plan,'{shopping_list,0,item}','"Pan integral"'));
+    RAISE EXCEPTION 'Expected gluten conflict';
+  EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'allergen_conflict: gluten' THEN RAISE; END IF; END;
+  BEGIN
+    PERFORM public.f_save_meal_plan(home,'2026-11-02',jsonb_set(plan,'{shopping_list,0,item}','"Polen de abeja"'));
+    RAISE EXCEPTION 'Expected polen conflict';
+  EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'allergen_conflict: polen' THEN RAISE; END IF; END;
+  r := public.f_save_meal_plan(home,'2026-11-02','{"summary":"Seguro","days":[{"day":"Lunes","meals":[{"type":"lunch","name":"Arroz","ingredients":["arroz"],"cost":1}]}],"shopping_list":[{"item":"Manitas de cerdo","quantity":"1 kg","cost":10},{"item":"Leche de coco","quantity":"1 l","cost":5},{"item":"Nuez moscada","quantity":"1","cost":2}],"activities":[]}',100,NULL);
+  IF r->>'id' IS NULL THEN RAISE EXCEPTION 'Safe plan was not saved'; END IF;
+  r := public.f_upsert_member_health_profile(kid,'{"allergies":["milk"],"conditions":[]}');
+  PERFORM public.f_save_meal_plan(home,'2026-11-02',jsonb_set(plan,'{shopping_list,0,item}','"Leche de coco"'));
+  BEGIN
+    PERFORM public.f_save_meal_plan(home,'2026-11-02',jsonb_set(plan,'{shopping_list,0,item}','"Huevos con queso"'));
+    RAISE EXCEPTION 'Expected milk conflict';
+  EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'allergen_conflict: milk' THEN RAISE; END IF; END;
+  IF budget.f_text_mentions('Pão de Queijo caseiro', ARRAY['pao de queijo'], '{}'::text[]) IS DISTINCT FROM 'pao de queijo' THEN
+    RAISE EXCEPTION 'Phrase mention failed: %', budget.f_text_mentions('Pão de Queijo caseiro', ARRAY['pao de queijo'], '{}'::text[]);
+  END IF;
+  IF budget.f_text_mentions('leche en polvo', ARRAY['polvo'], ARRAY['en polvo']) IS NOT NULL THEN
+    RAISE EXCEPTION 'Exclusion mention failed';
+  END IF;
+  BEGIN PERFORM public.f_upsert_member_health_profile(kid,'{"weight_kg":1}'); RAISE EXCEPTION 'Expected weight check';
+  EXCEPTION WHEN OTHERS THEN IF SQLERRM='Expected weight check' THEN RAISE; END IF; END;
+  -- The checks below still expect a peanut allergy on this week.
+  PERFORM public.f_upsert_member_health_profile(kid,'{"allergies":["maní"],"conditions":[]}');
 
   -- Valid plan: cost = sum of shopping list.
   plan := '{"summary":"Semana simple","days":[{"day":"Lunes","meals":[{"type":"lunch","name":"Arroz con pollo","ingredients":["arroz","pollo"],"cost":30}]}],
@@ -66,6 +111,6 @@ BEGIN
   BEGIN PERFORM public.f_upsert_member_health_profile(kid,'{}'); RAISE EXCEPTION 'Expected authorization failure';
   EXCEPTION WHEN OTHERS THEN IF SQLERRM='Expected authorization failure' THEN RAISE; END IF; END;
 
-  RAISE NOTICE 'PASS: profiles (clean, partial, checks), plan cost/replace/budget flag, allergen guard, shape, food budget (%), service role, access', CASE WHEN limited>0 THEN 'checked' ELSE 'no budget row' END;
+  RAISE NOTICE 'PASS: profiles (codes, partial, checks, weight), rules (peanuts/polen/gluten), whole-word guard, exclusions, plan cost/replace/budget flag, shape, food budget (%), service role, access', CASE WHEN limited>0 THEN 'checked' ELSE 'no budget row' END;
 END $$;
 ROLLBACK;

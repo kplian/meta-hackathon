@@ -13,6 +13,15 @@ export type Member = {
   activities?: string[];
   health_goal?: string | null;
   notes?: string | null;
+  conditions?: string[];
+  weight_kg?: number | null;
+  height_cm?: number | null;
+};
+
+export type HealthRules = {
+  forbidden: { code: string; keywords: string[]; exclusions: string[] }[];
+  prompt_rules: { kind: string; code: string; members: string[]; rule: string }[];
+  labels: Record<string, Record<string, string>>;
 };
 
 type CategoryStatus = {
@@ -28,6 +37,7 @@ export type HealthContext = {
   food: CategoryStatus;
   eating_out: CategoryStatus;
   health?: CategoryStatus;
+  rules?: HealthRules;
 };
 
 export type Meal = { type: string; name: string; ingredients: string[]; cost: number; for?: string };
@@ -96,6 +106,27 @@ export function weeklyBudget(context: HealthContext, explicit?: number | null): 
 
 const LANGUAGE_NAME: Record<Language, string> = { es: 'Spanish', en: 'English', pt: 'Portuguese' };
 
+const ACCENTS: Record<string, string> = Object.fromEntries(
+  [...'áéíóúàèìòùâêîôûãõäëïöüçñ'].map((c, i) => [c, 'aeiouaeiouaeiouaoaeioucn'[i]]),
+);
+
+export function normText(value: string): string {
+  return value.toLowerCase().replace(/[áéíóúàèìòùâêîôûãõäëïöüçñ]/g, (c) => ACCENTS[c])
+    .replace(/[^a-z0-9]+/g, ' ').replace(/ +/g, ' ').trim();
+}
+
+// First keyword mentioned as a whole word (optional s/es), after removing exclusion phrases. Null when none.
+export function mentions(text: string, keywords: string[], exclusions: string[]): string | null {
+  let v = ` ${normText(text)} `;
+  for (const e of exclusions) if (e) v = v.replace(new RegExp(` ${e}(s|es)?(?= )`, 'g'), ' ');
+  for (const k of keywords) if (k && new RegExp(` ${k}(s|es)?(?= )`).test(v)) return k;
+  return null;
+}
+
+export function labelOf(context: HealthContext, code: string, language: Language): string {
+  return context.rules?.labels?.[code]?.[language] ?? context.rules?.labels?.[code]?.es ?? code;
+}
+
 export function buildMessages(
   context: HealthContext,
   options: { budget: number | null; days: number; request?: string; language: Language; feedback?: string },
@@ -104,16 +135,21 @@ export function buildMessages(
     name: m.name,
     role: m.member_type,
     age: m.age ?? undefined,
-    allergies: m.allergies?.length ? m.allergies : undefined,
-    diet: m.diet?.length ? m.diet : undefined,
+    allergies: m.allergies?.length ? m.allergies.map((code) => labelOf(context, code, options.language)) : undefined,
+    diet: m.diet?.length ? m.diet.map((code) => labelOf(context, code, options.language)) : undefined,
+    conditions: m.conditions?.length ? m.conditions.map((code) => labelOf(context, code, options.language)) : undefined,
     likes: m.likes?.length ? m.likes : undefined,
     dislikes: m.dislikes?.length ? m.dislikes : undefined,
-    activity_level: m.activity_level ?? undefined,
-    activities: m.activities?.length ? m.activities : undefined,
-    health_goal: m.health_goal ?? undefined,
+    activity_level: m.activity_level ? labelOf(context, m.activity_level, options.language) : undefined,
+    activities: m.activities?.length ? m.activities.map((code) => labelOf(context, code, options.language)) : undefined,
+    health_goal: m.health_goal ? labelOf(context, m.health_goal, options.language) : undefined,
+    weight_kg: typeof m.weight_kg === 'number' ? m.weight_kg : undefined,
+    height_cm: typeof m.height_cm === 'number' ? m.height_cm : undefined,
     notes: m.notes ?? undefined,
   }));
-  const allergies = [...new Set(context.members.flatMap((m) => m.allergies ?? []))];
+  const allergies = context.rules?.forbidden
+    ? context.rules.forbidden.map((item) => labelOf(context, item.code, options.language))
+    : [...new Set(context.members.flatMap((m) => m.allergies ?? []))];
   const leisure = context.eating_out?.remaining_month;
   const system = [
     'You are a family nutrition and wellbeing assistant inside a household budget app.',
@@ -121,6 +157,14 @@ export function buildMessages(
     'Schema: {"summary": string (2 sentences max), "days": [{"day": string, "meals": [{"type": "breakfast"|"lunch"|"dinner"|"snack", "name": string, "ingredients": [string], "cost": number, "for": string (optional, a member name when the meal is only for that member)}]}], "shopping_list": [{"item": string, "quantity": string, "cost": number}], "activities": [{"name": string, "for": string, "cost": number, "why": string}]}.',
     'Rules:',
     '- Allergies are absolute: never use, mention or name an allergen anywhere, not even as "without X".',
+    ...(context.rules?.prompt_rules?.length
+      ? [
+          '- Health conditions and diets (follow strictly):',
+          ...context.rules.prompt_rules.map(
+            (r) => `  - ${labelOf(context, r.code, options.language)} (${r.members.join(', ')}): ${r.rule}`,
+          ),
+        ]
+      : []),
     '- Respect each diet and avoid dislikes; prefer likes. Adapt portions to ages.',
     '- Simple, cheap home cooking with local, seasonal ingredients; reuse ingredients across days to avoid waste.',
     `- Costs are realistic estimates in ${context.household.currency}. The shopping list covers every ingredient bought this week; the sum of shopping_list costs is the weekly food cost.`,
@@ -203,20 +247,24 @@ export function planCost(plan: Plan): number {
   return round2(plan.shopping_list.reduce((sum, s) => sum + s.cost, 0));
 }
 
-// Allergens mentioned anywhere in meals or shopping items (same rule as f_save_meal_plan).
-export function allergenConflicts(plan: Plan, members: Member[]): string[] {
-  const text = JSON.stringify({ days: plan.days, shopping_list: plan.shopping_list }).toLowerCase();
-  const allergens = [...new Set(members.flatMap((m) => m.allergies ?? []).map((a) => a.toLowerCase().trim()))];
-  return allergens.filter((a) => a.length >= 3 && text.includes(a));
+// Allergens mentioned as whole words in meals or shopping items (same rule as budget.f_text_mentions).
+export function allergenConflicts(plan: Plan, context: HealthContext): string[] {
+  const text = JSON.stringify({ days: plan.days, shopping_list: plan.shopping_list });
+  const forbidden = context.rules?.forbidden;
+  if (forbidden) {
+    return forbidden.filter((item) => mentions(text, item.keywords, item.exclusions) !== null).map((item) => item.code);
+  }
+  const allergens = [...new Set(context.members.flatMap((m) => m.allergies ?? []).map((a) => a.toLowerCase().trim()))];
+  return allergens.filter((a) => a.length >= 3 && mentions(text, [normText(a)], []) !== null);
 }
 
 // Issues worth one retry: allergens (blocking) or a plan clearly over budget.
-export function reviewPlan(plan: Plan, members: Member[], budget: number | null) {
-  const allergens = allergenConflicts(plan, members);
+export function reviewPlan(plan: Plan, context: HealthContext, budget: number | null, language: Language) {
+  const allergens = allergenConflicts(plan, context);
   const cost = planCost(plan);
   const overBudget = budget !== null && cost > budget * 1.05;
   const problems: string[] = [];
-  if (allergens.length) problems.push(`Remove every trace of these allergens, do not even name them: ${allergens.join(', ')}.`);
+  if (allergens.length) problems.push(`Remove every trace of these allergens, do not even name them: ${allergens.map((code) => labelOf(context, code, language)).join(', ')}.`);
   if (overBudget) problems.push(`The shopping list costs ${cost}, above the budget of ${budget}. Make it cheaper.`);
   return { allergens, cost, overBudget, feedback: problems.length ? `Fix the previous answer. ${problems.join(' ')} Answer with the full corrected JSON.` : '' };
 }

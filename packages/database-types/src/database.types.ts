@@ -661,6 +661,20 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"thealth_option": {
+                  Row: {
+                    "code": string,"exclusions": (string)[],"hard": boolean,"icon": string,"implies_allergen": string | null,"keywords": (string)[],"kind": string,"labels": NonNullable<Json>,"prompt_rule": string | null,"sort_order": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "code": string,"exclusions"?: (string)[],"hard"?: boolean,"icon": string,"implies_allergen"?: string | null,"keywords"?: (string)[],"kind": string,"labels": NonNullable<Json>,"prompt_rule"?: string | null,"sort_order": number
+                  }
+                  Update: {
+                    "code"?: string,"exclusions"?: (string)[],"hard"?: boolean,"icon"?: string,"implies_allergen"?: string | null,"keywords"?: (string)[],"kind"?: string,"labels"?: NonNullable<Json>,"prompt_rule"?: string | null,"sort_order"?: number
+                  }
+                  Relationships: [
+
+                  ]
                 },"thousehold": {
                   Row: {
                     "auxiliar_id": string | null,"business_type_id": string,"created_at": string,"created_by": string | null,"currency": string | null,"deleted_at": string | null,"deleted_by": string | null,"financial_pyramid_id": string | null,"id": string,"name": string,"preferences": Json | null,"setup_completed_at": string | null,"status": string | null,"updated_at": string | null,"updated_by": string | null
@@ -985,14 +999,14 @@ isOneToOne: false
                   ]
                 },"tmember_health_profile": {
                   Row: {
-                    "activities": (string)[],"activity_level": string | null,"allergies": (string)[],"birth_year": number | null,"created_at": string,"created_by": string | null,"diet": (string)[],"dislikes": (string)[],"health_goal": string | null,"household_member_id": string,"id": string,"likes": (string)[],"notes": string | null,"updated_at": string | null,"updated_by": string | null
+                    "activities": (string)[],"activity_level": string | null,"allergies": (string)[],"birth_year": number | null,"conditions": (string)[],"created_at": string,"created_by": string | null,"diet": (string)[],"dislikes": (string)[],"health_goal": string | null,"height_cm": number | null,"household_member_id": string,"id": string,"likes": (string)[],"notes": string | null,"updated_at": string | null,"updated_by": string | null,"weight_kg": number | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "activities"?: (string)[],"activity_level"?: string | null,"allergies"?: (string)[],"birth_year"?: number | null,"created_at"?: string,"created_by"?: string | null,"diet"?: (string)[],"dislikes"?: (string)[],"health_goal"?: string | null,"household_member_id": string,"id"?: string,"likes"?: (string)[],"notes"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null
+                    "activities"?: (string)[],"activity_level"?: string | null,"allergies"?: (string)[],"birth_year"?: number | null,"conditions"?: (string)[],"created_at"?: string,"created_by"?: string | null,"diet"?: (string)[],"dislikes"?: (string)[],"health_goal"?: string | null,"height_cm"?: number | null,"household_member_id": string,"id"?: string,"likes"?: (string)[],"notes"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"weight_kg"?: number | null
                   }
                   Update: {
-                    "activities"?: (string)[],"activity_level"?: string | null,"allergies"?: (string)[],"birth_year"?: number | null,"created_at"?: string,"created_by"?: string | null,"diet"?: (string)[],"dislikes"?: (string)[],"health_goal"?: string | null,"household_member_id"?: string,"id"?: string,"likes"?: (string)[],"notes"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null
+                    "activities"?: (string)[],"activity_level"?: string | null,"allergies"?: (string)[],"birth_year"?: number | null,"conditions"?: (string)[],"created_at"?: string,"created_by"?: string | null,"diet"?: (string)[],"dislikes"?: (string)[],"health_goal"?: string | null,"height_cm"?: number | null,"household_member_id"?: string,"id"?: string,"likes"?: (string)[],"notes"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"weight_kg"?: number | null
                   }
                   Relationships: [
                     {
@@ -1480,8 +1494,22 @@ isOneToOne: true
 "f_health_access":
 { Args: { "p_household_id": string,"p_write"?: boolean }; Returns: boolean
                            },
+"f_health_rules":
+{ Args: { "p_household_id": string }; Returns: Json
+                           },
+"f_household_forbidden":
+{ Args: { "p_household_id": string }; Returns: {
+              "code": string,"exclusions": (string)[],"keywords": (string)[]
+            }[]
+                           },
 "f_is_household_member":
 { Args: { "p_admin"?: boolean,"p_household": string }; Returns: boolean
+                           },
+"f_map_codes":
+{ Args: { "p_kind": string,"p_values": (string)[] }; Returns: (string)[]
+                           },
+"f_norm_text":
+{ Args: { "p": string }; Returns: string
                            },
 "f_provision_household":
 { Args: { "p_household_id": string }; Returns: Json
@@ -1491,6 +1519,9 @@ isOneToOne: true
                            },
 "f_register_transaction":
 { Args: { "p_amount"?: number,"p_auxiliar_id"?: string,"p_category"?: string,"p_concept": string,"p_external_reference"?: string,"p_household_id": string,"p_items"?: Json,"p_operation_code"?: string,"p_recorded_via"?: string,"p_source_text"?: string,"p_transaction_date"?: string,"p_type"?: string,"p_user_id"?: string }; Returns: Json
+                           },
+"f_text_mentions":
+{ Args: { "p_exclusions": (string)[],"p_keywords": (string)[],"p_text": string }; Returns: string
                            }
           }
           Enums: {
@@ -1521,6 +1552,9 @@ isOneToOne: true
                            },
 "f_create_report_link":
 { Args: { "p_household_id": string,"p_month"?: string,"p_ttl_minutes"?: number,"p_user_id"?: string }; Returns: Json
+                           },
+"f_food_budget_suggestion":
+{ Args: { "p_household_id": string,"p_share"?: number }; Returns: Json
                            },
 "f_get_family_health_context":
 { Args: { "p_household_id": string }; Returns: Json
@@ -1563,6 +1597,12 @@ isOneToOne: true
                            },
 "f_select_household_pyramid":
 { Args: { "p_customized"?: boolean,"p_household_id": string,"p_percentages": Json,"p_template_id": string }; Returns: string
+                           },
+"f_set_food_budget":
+{ Args: { "p_household_id": string,"p_monthly_limit": number }; Returns: Json
+                           },
+"f_set_household_preference":
+{ Args: { "p_household_id": string,"p_key": string,"p_value": Json }; Returns: Json
                            },
 "f_upsert_member_health_profile":
 { Args: { "p_member_id": string,"p_profile": Json }; Returns: Json

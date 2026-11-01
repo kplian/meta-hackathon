@@ -461,7 +461,8 @@ export default function HomeScreen({ session }: { session: Session }) {
                   </Text>
                 </Pressable>
               </View>
-            ) : (
+            </View>
+          ) : (
               /* Table-Backed Module View (Admin / For Business / Budget / Members / Journal) */
               <View className="mt-5 rounded-3xl bg-white p-5 border border-[#E2EFE8]">
                 <View className="flex-row items-center justify-between mb-3">

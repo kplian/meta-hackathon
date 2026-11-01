@@ -1,16 +1,18 @@
 # Household onboarding
 
-All onboarding UI and feature translations live here. HomeScreen is the integration point: it checks the active household and renders OnboardingScreen until setup_completed_at is set.
+Onboarding screens live in this folder. Health profiles and the weekly menu reuse `features/health` (shared editor, catalog labels in the database). HomeScreen is the integration point: it checks the active household and renders OnboardingScreen until setup_completed_at is set.
 
 - OnboardingGate.tsx: loading/error handling and entry into the onboarding flow.
-- OnboardingScreen.tsx: household name, existing members, additional family profiles and completion.
+- OnboardingScreen.tsx: household name, existing members, additional family profiles, the health opt-in question and completion.
+- HealthStep.tsx: optional health profiles for each member.
+- MealPlanStep.tsx: first weekly menu when health was chosen, after the supermarket budget is saved.
 - IncomeSourcesStep.tsx: optional estimated income sources, shared or member-specific, with create/edit/soft-delete.
 - i18n.ts: Spanish, English and Portuguese in an isolated onboarding namespace.
 - Backend changes stay in supabase/migrations, including signup provisioning and member registration.
 
 Normal Auth signup creates a household and its creator membership transactionally. The default name uses family_name when available, otherwise the profile name. Auth updates do not create another household. Existing memberships are preserved. Invitation links are not implemented here and will need their own registration flow.
 
-The flow has five steps: household name/currency, members, optional income sources, optional assets, and a household pyramid plan. Completion is only saved after the plan is selected and its percentages total 100%. Sources are persisted independently and survive returning to earlier steps or reloading.
+The flow has six or eight steps: household name/currency, members, a health opt-in question, optional health profiles, optional income sources, optional assets, pyramid and, when health was chosen, the first weekly menu (budget suggestion = 40% of the needs level saved to `tbudget` via `f_set_food_budget`). Income sources and assets stay skippable. Skipping health leaves six steps; choosing it adds the profiles and the menu, eight steps. Without health, completion (`setup_completed_at`) is saved when the pyramid is saved. With health, it is saved on the last screen (`MealPlanStep`: Empezar, Continuar sin menú, or Omitir por ahora). The pyramid still must total 100%. Sources are persisted independently and survive returning to earlier steps or reloading.
 
 ## Assets
 
@@ -47,3 +49,13 @@ For non-USD monetary positions, the form can fetch an initial FX reference throu
 Template reads are global or household-scoped; global templates are read-only to ordinary clients. The legacy administrative screens are separate from onboarding and do not yet enforce this onboarding validation when editing household levels individually.
 
 Checks: `npm run test:pyramid` and reversible SQL `tests/pyramid-selection.sql`.
+
+## Health
+
+`HealthStep.tsx` collects optional profiles after the opt-in. `MealPlanStep.tsx` runs only when health was chosen and generates the first weekly menu. Both use the shared editor `features/health/MemberProfileCard.tsx`.
+
+The catalog is `budget.thealth_option`. Kinds are `allergen`, `diet`, `condition`, `activity`, `goal` and `activity_level`. Labels live in the database (`es`, `en`, `pt`). Keywords and exclusions are stored normalized (lowercase, no accents) and feed the allergen guard.
+
+A profile includes `conditions`, `weight_kg` and `height_cm`. Tag lists such as `conditions` accept catalog codes or free text; text that matches a label or keyword is saved as the catalog code. The opt-in is `health_opt_in` on `thousehold.preferences`, written with `f_set_household_preference`. The menu step suggests 40% of the pyramid needs level and saves that monthly supermarket limit to `tbudget` with `f_set_food_budget`.
+
+Checks: `npm run test:health`, and reversible SQL `tests/health-meal-plans.sql` and `tests/onboarding-health.sql`.

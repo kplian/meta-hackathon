@@ -1,3 +1,22 @@
+export type HealthOptionKind = 'allergen' | 'diet' | 'condition' | 'activity' | 'goal' | 'activity_level';
+
+export type HealthOption = {
+  kind: HealthOptionKind;
+  code: string;
+  icon: string;
+  sort_order: number;
+  hard: boolean;
+  implies_allergen: string | null;
+  labels: Record<string, string>;
+  prompt_rule: string | null;
+};
+
+export type HealthRules = {
+  forbidden: { code: string; keywords: string[]; exclusions: string[] }[];
+  prompt_rules: { kind: string; code: string; members: string[]; rule: string }[];
+  labels: Record<string, Record<string, string>>;
+};
+
 export type HealthMember = {
   member_id: string;
   name: string;
@@ -6,12 +25,15 @@ export type HealthMember = {
   birth_year: number | null;
   age: number | null;
   allergies: string[];
+  conditions: string[];
   diet: string[];
   likes: string[];
   dislikes: string[];
   activity_level: 'low' | 'moderate' | 'high' | null;
   activities: string[];
   health_goal: string | null;
+  weight_kg: number | null;
+  height_cm: number | null;
   notes: string | null;
   has_profile: boolean;
 };
@@ -29,6 +51,7 @@ export type HealthContext = {
   food: CategoryStatus;
   eating_out: CategoryStatus;
   health: CategoryStatus;
+  rules: HealthRules;
 };
 
 export type MealPlan = {
@@ -43,7 +66,3 @@ export type MealPlan = {
   shopping_list: { item: string; quantity: string; cost: number }[];
   activities: { name: string; for: string; cost: number; why: string }[];
 };
-
-export const DIET_OPTIONS = ['vegetarian', 'vegan', 'gluten_free', 'lactose_free', 'low_sugar', 'low_salt'] as const;
-export const GOAL_OPTIONS = ['maintain', 'eat_healthier', 'lose_weight', 'gain_muscle', 'more_energy'] as const;
-export const LEVEL_OPTIONS = ['low', 'moderate', 'high'] as const;
