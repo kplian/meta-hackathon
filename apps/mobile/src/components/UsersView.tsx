@@ -634,11 +634,10 @@ export default function UsersView({ currentUserId, onUsersChanged }: UsersViewPr
                         <Pressable
                           key={opt}
                           onPress={() => setChannelType(opt)}
-                          className={`flex-1 flex-row items-center justify-center rounded-2xl py-3 border ${
-                            active
+                          className={`flex-1 flex-row items-center justify-center rounded-2xl py-3 border ${active
                               ? 'bg-pine border-pine'
                               : 'bg-white border-[#DCECE3]'
-                          }`}
+                            }`}
                         >
                           <Ionicons
                             name={opt === 'whatsapp' ? 'logo-whatsapp' : 'paper-plane-outline'}
@@ -646,9 +645,8 @@ export default function UsersView({ currentUserId, onUsersChanged }: UsersViewPr
                             color={active ? '#FFFFFF' : '#0B3D2E'}
                           />
                           <Text
-                            className={`ml-2 text-xs font-extrabold uppercase ${
-                              active ? 'text-white' : 'text-pine'
-                            }`}
+                            className={`ml-2 text-xs font-extrabold uppercase ${active ? 'text-white' : 'text-pine'
+                              }`}
                           >
                             {opt}
                           </Text>
@@ -984,7 +982,7 @@ export default function UsersView({ currentUserId, onUsersChanged }: UsersViewPr
                 <TextInput
                   value={fullName}
                   onChangeText={setFullName}
-                  placeholder="Valentina Morales"
+                  placeholder="Valentina Smith"
                   placeholderTextColor="#8FA198"
                   className="rounded-xl bg-white px-3.5 py-2.5 text-sm text-[#12211B] border border-[#DCECE3]"
                 />
@@ -1016,14 +1014,12 @@ export default function UsersView({ currentUserId, onUsersChanged }: UsersViewPr
                       <Pressable
                         key={r}
                         onPress={() => setRole(r)}
-                        className={`flex-1 items-center rounded-xl py-2.5 border ${
-                          active ? 'bg-pine border-pine' : 'bg-white border-[#DCECE3]'
-                        }`}
+                        className={`flex-1 items-center rounded-xl py-2.5 border ${active ? 'bg-pine border-pine' : 'bg-white border-[#DCECE3]'
+                          }`}
                       >
                         <Text
-                          className={`text-xs font-extrabold uppercase ${
-                            active ? 'text-white' : 'text-pine'
-                          }`}
+                          className={`text-xs font-extrabold uppercase ${active ? 'text-white' : 'text-pine'
+                            }`}
                         >
                           {r}
                         </Text>
@@ -1045,14 +1041,12 @@ export default function UsersView({ currentUserId, onUsersChanged }: UsersViewPr
                         <Pressable
                           key={loc}
                           onPress={() => setLocale(loc)}
-                          className={`flex-1 items-center rounded-xl py-2 border ${
-                            active ? 'bg-pine border-pine' : 'bg-white border-[#DCECE3]'
-                          }`}
+                          className={`flex-1 items-center rounded-xl py-2 border ${active ? 'bg-pine border-pine' : 'bg-white border-[#DCECE3]'
+                            }`}
                         >
                           <Text
-                            className={`text-xs font-bold uppercase ${
-                              active ? 'text-white' : 'text-pine'
-                            }`}
+                            className={`text-xs font-bold uppercase ${active ? 'text-white' : 'text-pine'
+                              }`}
                           >
                             {loc}
                           </Text>
@@ -1075,14 +1069,12 @@ export default function UsersView({ currentUserId, onUsersChanged }: UsersViewPr
                         <Pressable
                           key={tz}
                           onPress={() => setTimezone(tz)}
-                          className={`rounded-xl px-3 py-2 border ${
-                            active ? 'bg-pine border-pine' : 'bg-white border-[#DCECE3]'
-                          }`}
+                          className={`rounded-xl px-3 py-2 border ${active ? 'bg-pine border-pine' : 'bg-white border-[#DCECE3]'
+                            }`}
                         >
                           <Text
-                            className={`text-xs font-bold ${
-                              active ? 'text-white' : 'text-pine'
-                            }`}
+                            className={`text-xs font-bold ${active ? 'text-white' : 'text-pine'
+                              }`}
                           >
                             {tz}
                           </Text>

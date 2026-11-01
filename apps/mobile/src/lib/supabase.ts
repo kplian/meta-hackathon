@@ -14,6 +14,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+export const isLocalBackend =
+  supabaseUrl.includes('localhost') || supabaseUrl.includes('127.0.0.1');
+export const currentSupabaseUrl = supabaseUrl;
+
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: AsyncStorage,
