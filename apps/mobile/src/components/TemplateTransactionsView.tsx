@@ -115,6 +115,7 @@ export default function TemplateTransactionsView({
           .from('ttemplate_transaction')
           .select('*')
           .is('deleted_at', null)
+          .is('household_id', null)
           .order('created_at', { ascending: false }),
         supabase
           .schema('budget')
@@ -127,6 +128,7 @@ export default function TemplateTransactionsView({
           .from('taccount')
           .select('*')
           .is('deleted_at', null)
+          .is('household_id', null)
           .order('code', { ascending: true }),
         supabase
           .schema('budget')
@@ -193,11 +195,15 @@ export default function TemplateTransactionsView({
     [accounts],
   );
 
-  // Filtered templates
+  // Filtered templates (excluding any household-specific templates)
   const filteredTemplates = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return templates;
-    return templates.filter((t) => {
+    // Exclude records where household_id is not null
+    const baseTemplates = templates.filter(
+      (t) => t.household_id === null || t.household_id === undefined,
+    );
+    if (!q) return baseTemplates;
+    return baseTemplates.filter((t) => {
       const bizName =
         (t.business_type_id && businessTypeMap.get(t.business_type_id)?.name) || '';
       return (

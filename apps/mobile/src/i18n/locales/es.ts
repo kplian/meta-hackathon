@@ -94,8 +94,8 @@ export const es = {
     templateTransactionSubtitle: 'Plantillas y reglas contables para transacciones automáticas',
     householdLabel: 'Household',
     householdSubtitle: 'Hogares y espacios de gasto común',
-    auxiliarLabel: 'Auxiliar',
-    auxiliarSubtitle: 'Entidades auxiliares vinculadas al hogar',
+    auxiliarLabel: 'Bolsa de gastos/ingresos',
+    auxiliarSubtitle: 'Bolsas de gastos, ingresos y cuentas auxiliares vinculadas al hogar',
   },
   dashboard: {
     activeHousehold: 'Hogar Activo',

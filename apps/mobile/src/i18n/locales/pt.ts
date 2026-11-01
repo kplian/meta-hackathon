@@ -94,8 +94,8 @@ export const pt = {
     templateTransactionSubtitle: 'Modelos e regras contábeis para transações automáticas',
     householdLabel: 'Household',
     householdSubtitle: 'Lares e espaços de despesas compartilhadas',
-    auxiliarLabel: 'Auxiliar',
-    auxiliarSubtitle: 'Entidades auxiliares vinculadas ao lar',
+    auxiliarLabel: 'Bolsa de despesas/receitas',
+    auxiliarSubtitle: 'Bolsas de despesas, receitas e entidades auxiliares vinculadas ao lar',
   },
   dashboard: {
     activeHousehold: 'Lar Ativo',

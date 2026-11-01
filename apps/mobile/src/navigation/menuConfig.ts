@@ -167,7 +167,7 @@ export const DRAWER_SECTIONS: DrawerMenuSection[] = [
       },
       {
         id: 'auxiliar',
-        label: 'Auxiliar',
+        label: 'Income / Expense Pot',
         labelKey: NAV_CONSTANTS.AUXILIAR_LABEL,
         iconFamily: 'ionicons',
         iconName: 'swap-horizontal-outline',
@@ -347,9 +347,9 @@ export const VIEW_META: Record<
     table: 'thousehold',
   },
   auxiliar: {
-    title: 'Auxiliar',
+    title: 'Income / Expense Pot',
     titleKey: NAV_CONSTANTS.AUXILIAR_LABEL,
-    subtitle: 'Entidades auxiliares vinculadas al hogar',
+    subtitle: 'Bolsas de gastos, ingresos y cuentas auxiliares vinculadas al hogar',
     subtitleKey: NAV_CONSTANTS.AUXILIAR_SUBTITLE,
     category: 'BUDGET',
     table: 'tauxiliar',

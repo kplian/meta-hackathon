@@ -35,11 +35,7 @@ interface TransactionItemDraft {
   id: string;
   category: string;
   amount: string;
-  description: string;
-  quantity: string;
-  unit_price: string;
-  unit_measure_code: string;
-  item_code: string;
+  concept: string;
 }
 
 interface DisplayTransactionItem {
@@ -213,17 +209,12 @@ function formatTimeFromIso(isoDate: string): string {
 function createEmptyItem(
   defaultCategoryId = '',
   initialAmount = '',
-  itemIndex = 1,
 ): TransactionItemDraft {
   return {
     id: Math.random().toString(36).slice(2, 10),
     category: defaultCategoryId,
     amount: initialAmount,
-    description: '',
-    quantity: '1',
-    unit_price: initialAmount,
-    unit_measure_code: 'unit',
-    item_code: `ITM-${String(itemIndex).padStart(3, '0')}`,
+    concept: '',
   };
 }
 
@@ -241,7 +232,12 @@ export default function JournalView({
   const [loading, setLoading] = useState(true);
   const [isHouseholdPickerOpen, setIsHouseholdPickerOpen] = useState(false);
   const [userHouseholds, setUserHouseholds] = useState<
-    { role: string | null; member_type: string; household: HouseholdRow }[]
+    {
+      role: string | null;
+      member_type: string;
+      auxiliar_id: string | null;
+      household: HouseholdRow;
+    }[]
   >([]);
 
   // Database records
@@ -256,17 +252,15 @@ export default function JournalView({
   // Modal Create Transaction state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
-  // Header fields for budget.f_register_transaction
+  // Minimal transaction fields for budget.f_register_transaction
   const [txType, setTxType] = useState<'expense' | 'income'>('expense');
   const [concept, setConcept] = useState('');
   const [operationCode, setOperationCode] = useState('');
-  const [externalReference, setExternalReference] = useState('Débito Nido');
-  const [recordedVia, setRecordedVia] = useState<'app' | 'whatsapp' | 'telegram'>('app');
-  const [sourceText, setSourceText] = useState('');
-  const [selectedAuxiliarId, setSelectedAuxiliarId] = useState<string>('');
+  const [externalReference, setExternalReference] = useState('');
 
   // Items for budget.f_register_transaction (p_items)
   const [items, setItems] = useState<TransactionItemDraft[]>([]);
@@ -278,13 +272,14 @@ export default function JournalView({
       const userHhRes = await supabase
         .schema('budget')
         .from('thousehold_member')
-        .select('id, role, member_type, user_id, thousehold(*)')
+        .select('id, role, member_type, user_id, auxiliar_id, thousehold(*)')
         .eq('user_id', userId)
         .eq('status', 'active');
 
       const joinedUserHouseholds: {
         role: string | null;
         member_type: string;
+        auxiliar_id: string | null;
         household: HouseholdRow;
       }[] = [];
 
@@ -295,6 +290,7 @@ export default function JournalView({
             joinedUserHouseholds.push({
               role: row.role,
               member_type: row.member_type,
+              auxiliar_id: (row as Record<string, unknown>).auxiliar_id as string | null,
               household: hh,
             });
           }
@@ -514,36 +510,31 @@ export default function JournalView({
     return items.reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
   }, [items]);
 
-  // Open Modal & initialize form
+  // Current user's default auxiliar in the active household
+  const currentUserAuxiliarId = useMemo(() => {
+    const targetHhId = activeHousehold?.id;
+    if (!targetHhId) return undefined;
+    const match = userHouseholds.find((h) => h.household.id === targetHhId);
+    return match?.auxiliar_id ?? undefined;
+  }, [userHouseholds, activeHousehold?.id]);
+
+  // Open Modal & initialize minimal form
   const handleOpenCreateModal = () => {
     setFormError(null);
     setFormSuccess(null);
     setTxType('expense');
     setConcept('');
-    setOperationCode(`OP-${Date.now().toString().slice(-5)}`);
-    setExternalReference('Débito Nido');
-    setRecordedVia('app');
-    setSourceText('');
-    setSelectedAuxiliarId(auxiliars[0]?.id ?? '');
-    setItems([
-      createEmptyItem(
-        budgetTypes[0]?.id ?? '',
-        '',
-        1,
-      ),
-    ]);
+    setOperationCode(`OP-${Date.now().toString().slice(-6)}`);
+    setExternalReference('');
+    setShowAdvanced(false);
+    const defaultCat = budgetTypes[0]?.category_key || budgetTypes[0]?.id || '';
+    setItems([createEmptyItem(defaultCat, '')]);
     setIsModalOpen(true);
   };
 
   const handleAddItem = () => {
-    setItems((prev) => [
-      ...prev,
-      createEmptyItem(
-        budgetTypes[0]?.id ?? '',
-        '',
-        prev.length + 1,
-      ),
-    ]);
+    const defaultCat = budgetTypes[0]?.category_key || budgetTypes[0]?.id || '';
+    setItems((prev) => [...prev, createEmptyItem(defaultCat, '')]);
   };
 
   const handleRemoveItem = (itemId: string) => {
@@ -558,21 +549,7 @@ export default function JournalView({
     setItems((prev) =>
       prev.map((item) => {
         if (item.id !== itemId) return item;
-        const updated = { ...item, [field]: value };
-        if (field === 'quantity' || field === 'unit_price') {
-          const qty = parseFloat(updated.quantity) || 1;
-          const price = parseFloat(updated.unit_price) || 0;
-          if (qty > 0 && price > 0) {
-            updated.amount = (qty * price).toFixed(2);
-          }
-        } else if (field === 'amount') {
-          const amt = parseFloat(value) || 0;
-          const qty = parseFloat(updated.quantity) || 1;
-          if (qty > 0) {
-            updated.unit_price = (amt / qty).toFixed(2);
-          }
-        }
-        return updated;
+        return { ...item, [field]: value };
       }),
     );
   };
@@ -582,7 +559,8 @@ export default function JournalView({
     setFormError(null);
     setFormSuccess(null);
 
-    if (!concept.trim()) {
+    const trimmedConcept = concept.trim();
+    if (!trimmedConcept) {
       setFormError(t(JOURNAL_CONSTANTS.ERR_CONCEPT_REQUIRED));
       return;
     }
@@ -617,30 +595,45 @@ export default function JournalView({
 
     setSaving(true);
     try {
-      const itemsPayload = items.map((it, idx) => ({
-        category: it.category,
-        amount: parseFloat(it.amount),
-        description: it.description.trim() || concept.trim(),
-        quantity: parseFloat(it.quantity) || 1,
-        unit_price:
-          parseFloat(it.unit_price) ||
-          parseFloat(it.amount) / (parseFloat(it.quantity) || 1),
-        unit_measure_code: it.unit_measure_code.trim() || 'unit',
-        item_code: it.item_code.trim() || `ITM-${String(idx + 1).padStart(3, '0')}`,
-      }));
+      const itemsPayload = items.map((it, idx) => {
+        const itemAmt = parseFloat(it.amount);
+        const itemConcept = it.concept.trim() || trimmedConcept;
+        return {
+          category: it.category,
+          concept: itemConcept,
+          description: itemConcept,
+          amount: itemAmt,
+          quantity: 1,
+          unit_price: itemAmt,
+          unit_measure_code: 'unit',
+          item_code: `ITM-${String(idx + 1).padStart(3, '0')}`,
+        };
+      });
+
+      // Auto-generate source summary text from items
+      const generatedSourceText =
+        items.length > 1
+          ? `${txType === 'expense' ? 'Gastos combinados' : 'Ingresos combinados'}: ${items
+              .map((it) => it.concept.trim() || trimmedConcept)
+              .join(', ')}`
+          : trimmedConcept;
+
+      const generatedOpCode =
+        operationCode.trim() || `OP-${Date.now().toString().slice(-6)}`;
 
       // Call database function budget.f_register_transaction
       const { data, error: rpcError } = await supabase.rpc('f_register_transaction', {
         p_household_id: targetHouseholdId,
-        p_concept: concept.trim(),
+        p_concept: trimmedConcept,
         p_amount: computedTotalAmount,
         p_type: txType,
-        p_operation_code: operationCode.trim() || undefined,
+        p_transaction_date: new Date().toISOString(),
+        p_operation_code: generatedOpCode,
         p_external_reference: externalReference.trim() || undefined,
-        p_source_text: sourceText.trim() || undefined,
-        p_recorded_via: recordedVia,
+        p_source_text: generatedSourceText,
+        p_recorded_via: 'app',
         p_user_id: userId,
-        p_auxiliar_id: selectedAuxiliarId || undefined,
+        p_auxiliar_id: currentUserAuxiliarId || undefined,
         p_items: itemsPayload,
       });
 
@@ -1063,7 +1056,7 @@ export default function JournalView({
               contentContainerClassName="pb-6 gap-4"
               showsVerticalScrollIndicator={false}
             >
-              {/* Section 1: Cabecera budget.ttransaction */}
+              {/* Section 1: Main Header Data */}
               <View className="rounded-3xl bg-white p-4 border border-[#E2EFE8] gap-3">
                 <Text className="text-xs font-extrabold uppercase tracking-wider text-pine">
                   {t(JOURNAL_CONSTANTS.HEADER_SECTION_TITLE)}
@@ -1116,7 +1109,7 @@ export default function JournalView({
                   </Pressable>
                 </View>
 
-                {/* Concept & Amount */}
+                {/* Concept */}
                 <View>
                   <Text className="text-[11px] font-bold text-sage mb-1">
                     {t(JOURNAL_CONSTANTS.CONCEPT_LABEL)} *
@@ -1146,106 +1139,9 @@ export default function JournalView({
                     </Text>
                   </View>
                 </View>
-
-                {/* Operation Code & External reference */}
-                <View className="flex-row gap-3">
-                  <View className="flex-1">
-                    <Text className="text-[11px] font-bold text-sage mb-1">
-                      {t(JOURNAL_CONSTANTS.OPERATION_CODE_LABEL)}
-                    </Text>
-                    <TextInput
-                      value={operationCode}
-                      onChangeText={setOperationCode}
-                      placeholder="OP-001"
-                      placeholderTextColor="#9AA5A1"
-                      className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2.5 text-sm text-pine"
-                    />
-                  </View>
-
-                  <View className="flex-1">
-                    <Text className="text-[11px] font-bold text-sage mb-1">
-                      {t(JOURNAL_CONSTANTS.PAYMENT_METHOD_LABEL)}
-                    </Text>
-                    <TextInput
-                      value={externalReference}
-                      onChangeText={setExternalReference}
-                      placeholder="Débito Nido / Boleta split"
-                      placeholderTextColor="#9AA5A1"
-                      className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2.5 text-sm text-pine"
-                    />
-                  </View>
-                </View>
-
-                {/* Auxiliar selector */}
-                {auxiliars.length > 0 ? (
-                  <View>
-                    <Text className="text-[11px] font-bold text-sage mb-1">
-                      {t(JOURNAL_CONSTANTS.AUXILIAR_LABEL)}
-                    </Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      <View className="flex-row gap-1.5">
-                        {auxiliars.map((aux) => (
-                          <Pressable
-                            key={aux.id}
-                            onPress={() => setSelectedAuxiliarId(aux.id)}
-                            className={`rounded-full px-3 py-1.5 border ${
-                              selectedAuxiliarId === aux.id
-                                ? 'bg-pine border-pine'
-                                : 'bg-[#F9FCFA] border-[#DCEBE2]'
-                            }`}
-                          >
-                            <Text
-                              className={`text-xs font-bold ${
-                                selectedAuxiliarId === aux.id ? 'text-white' : 'text-pine'
-                              }`}
-                            >
-                              {aux.name}
-                            </Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                    </ScrollView>
-                  </View>
-                ) : null}
-
-                {/* Recorded via selector */}
-                <View>
-                  <Text className="text-[11px] font-bold text-sage mb-1">
-                    {t(JOURNAL_CONSTANTS.CHANNEL_LABEL)}
-                  </Text>
-                  <View className="flex-row gap-2">
-                    {(['app', 'whatsapp', 'telegram'] as const).map((via) => (
-                      <Pressable
-                        key={via}
-                        onPress={() => setRecordedVia(via)}
-                        className={`flex-1 items-center rounded-xl py-2 border ${
-                          recordedVia === via
-                            ? 'bg-[#D6F2E4] border-pine'
-                            : 'bg-[#F9FCFA] border-[#DCEBE2]'
-                        }`}
-                      >
-                        <Text className="text-xs font-bold text-pine uppercase">{via}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Source Text */}
-                <View>
-                  <Text className="text-[11px] font-bold text-sage mb-1">
-                    {t(JOURNAL_CONSTANTS.SOURCE_TEXT_LABEL)}
-                  </Text>
-                  <TextInput
-                    value={sourceText}
-                    onChangeText={setSourceText}
-                    placeholder={t(JOURNAL_CONSTANTS.SOURCE_TEXT_PLACEHOLDER)}
-                    placeholderTextColor="#9AA5A1"
-                    className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2 text-sm text-pine"
-                  />
-                </View>
               </View>
 
-              {/* Section 2: Items & Categories (budget.f_register_transaction) */}
+              {/* Section 2: Items & Categories */}
               <View className="rounded-3xl bg-white p-4 border border-[#E2EFE8] gap-3">
                 <View className="flex-row items-center justify-between">
                   <View>
@@ -1255,7 +1151,7 @@ export default function JournalView({
                   </View>
                   <Pressable
                     onPress={handleAddItem}
-                    className="flex-row items-center rounded-full bg-[#D6F2E4] px-3 py-1.5"
+                    className="flex-row items-center rounded-full bg-[#D6F2E4] px-3 py-1.5 active:bg-[#BEE8D2]"
                   >
                     <Ionicons name="add" size={15} color="#0B3D2E" />
                     <Text className="ml-1 text-xs font-bold text-pine">
@@ -1288,105 +1184,111 @@ export default function JournalView({
                         </Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                           <View className="flex-row gap-1.5">
-                            {budgetTypes.map((bt) => (
-                              <Pressable
-                                key={bt.id}
-                                onPress={() => handleUpdateItem(item.id, 'category', bt.id)}
-                                className={`rounded-full px-3 py-1 border ${
-                                  item.category === bt.id || item.category === bt.category_key
-                                    ? 'bg-pine border-pine'
-                                    : 'bg-white border-[#DCEBE2]'
-                                }`}
-                              >
-                                <Text
-                                  className={`text-[11px] font-bold ${
-                                    item.category === bt.id || item.category === bt.category_key
-                                      ? 'text-white'
-                                      : 'text-pine'
+                            {budgetTypes.map((bt) => {
+                              const catKey = bt.category_key || bt.id;
+                              const isSelected =
+                                item.category === catKey || item.category === bt.id;
+                              return (
+                                <Pressable
+                                  key={bt.id}
+                                  onPress={() => handleUpdateItem(item.id, 'category', catKey)}
+                                  className={`rounded-full px-3 py-1 border ${
+                                    isSelected
+                                      ? 'bg-pine border-pine'
+                                      : 'bg-white border-[#DCEBE2]'
                                   }`}
                                 >
-                                  {bt.name}
-                                </Text>
-                              </Pressable>
-                            ))}
+                                  <Text
+                                    className={`text-[11px] font-bold ${
+                                      isSelected ? 'text-white' : 'text-pine'
+                                    }`}
+                                  >
+                                    {bt.name}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
                           </View>
                         </ScrollView>
                       </View>
                     ) : null}
 
-                    {/* Amount & Description */}
+                    {/* Amount & Item Concept */}
                     <View className="flex-row gap-2">
-                      <View className="flex-1">
+                      <View className="w-28">
                         <Text className="text-[10px] font-bold text-sage mb-1">
                           {t(JOURNAL_CONSTANTS.ITEM_AMOUNT_LABEL)}
                         </Text>
                         <TextInput
                           value={item.amount}
                           onChangeText={(v) => handleUpdateItem(item.id, 'amount', v)}
-                          keyboardType="numeric"
-                          placeholder="50.00"
+                          keyboardType="decimal-pad"
+                          placeholder="0.00"
                           placeholderTextColor="#9AA5A1"
                           className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-2 text-xs font-bold text-pine"
                         />
                       </View>
-                      <View className="flex-[2]">
+                      <View className="flex-1">
                         <Text className="text-[10px] font-bold text-sage mb-1">
                           {t(COMMON_CONSTANTS.DESCRIPTION)}
                         </Text>
                         <TextInput
-                          value={item.description}
-                          onChangeText={(v) => handleUpdateItem(item.id, 'description', v)}
-                          placeholder={t(JOURNAL_CONSTANTS.DESCRIPTION_PLACEHOLDER)}
+                          value={item.concept}
+                          onChangeText={(v) => handleUpdateItem(item.id, 'concept', v)}
+                          placeholder={
+                            items.length === 1
+                              ? concept.trim() || t(JOURNAL_CONSTANTS.DESCRIPTION_PLACEHOLDER)
+                              : t(JOURNAL_CONSTANTS.DESCRIPTION_PLACEHOLDER)
+                          }
                           placeholderTextColor="#9AA5A1"
                           className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-2 text-xs text-pine"
-                        />
-                      </View>
-                    </View>
-
-                    {/* Quantity, Unit Price, Item Code */}
-                    <View className="flex-row gap-2">
-                      <View className="flex-1">
-                        <Text className="text-[10px] font-bold text-sage mb-1">
-                          {t(JOURNAL_CONSTANTS.QTY_LABEL)}
-                        </Text>
-                        <TextInput
-                          value={item.quantity}
-                          onChangeText={(v) => handleUpdateItem(item.id, 'quantity', v)}
-                          keyboardType="numeric"
-                          placeholder="1"
-                          placeholderTextColor="#9AA5A1"
-                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-1.5 text-xs text-pine"
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-[10px] font-bold text-sage mb-1">
-                          {t(JOURNAL_CONSTANTS.UNIT_PRICE_LABEL)}
-                        </Text>
-                        <TextInput
-                          value={item.unit_price}
-                          onChangeText={(v) => handleUpdateItem(item.id, 'unit_price', v)}
-                          keyboardType="numeric"
-                          placeholder="0"
-                          placeholderTextColor="#9AA5A1"
-                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-1.5 text-xs text-pine"
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-[10px] font-bold text-sage mb-1">
-                          {t(COMMON_CONSTANTS.CODE)}
-                        </Text>
-                        <TextInput
-                          value={item.item_code}
-                          onChangeText={(v) => handleUpdateItem(item.id, 'item_code', v)}
-                          placeholder="ITM-001"
-                          placeholderTextColor="#9AA5A1"
-                          className="rounded-xl border border-[#DCEBE2] bg-white px-3 py-1.5 text-xs text-pine"
                         />
                       </View>
                     </View>
                   </View>
                 ))}
               </View>
+
+              {/* Optional Advanced / Reference section */}
+              <Pressable
+                onPress={() => setShowAdvanced((prev) => !prev)}
+                className="flex-row items-center justify-between py-1 px-1"
+              >
+                <Text className="text-xs font-bold text-sage">
+                  {showAdvanced
+                    ? '− Menos opciones'
+                    : '+ Más opciones (referencia, comprobante)'}
+                </Text>
+              </Pressable>
+
+              {showAdvanced ? (
+                <View className="rounded-2xl bg-white p-3.5 border border-[#E2EFE8] gap-3">
+                  <View>
+                    <Text className="text-[11px] font-bold text-sage mb-1">
+                      {t(JOURNAL_CONSTANTS.PAYMENT_METHOD_LABEL)}
+                    </Text>
+                    <TextInput
+                      value={externalReference}
+                      onChangeText={setExternalReference}
+                      placeholder="Ej. Varios recibos de fin de semana, Débito Nido..."
+                      placeholderTextColor="#9AA5A1"
+                      className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2 text-xs text-pine"
+                    />
+                  </View>
+                  <View>
+                    <Text className="text-[11px] font-bold text-sage mb-1">
+                      {t(JOURNAL_CONSTANTS.OPERATION_CODE_LABEL)}
+                    </Text>
+                    <TextInput
+                      value={operationCode}
+                      onChangeText={setOperationCode}
+                      placeholder="OP-MULTI-04"
+                      placeholderTextColor="#9AA5A1"
+                      className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2 text-xs text-pine"
+                    />
+                  </View>
+                </View>
+              ) : null}
 
               {formError ? (
                 <View className="rounded-2xl bg-red-50 p-3.5 border border-red-200">
@@ -1412,7 +1314,8 @@ export default function JournalView({
                   <>
                     <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
                     <Text className="ml-2 text-base font-extrabold text-white">
-                      {t(JOURNAL_CONSTANTS.SAVE_BUTTON)}
+                      {t(JOURNAL_CONSTANTS.SAVE_BUTTON)} ({activeHousehold?.currency ?? 'BOB'}{' '}
+                      {computedTotalAmount.toFixed(2)})
                     </Text>
                   </>
                 )}

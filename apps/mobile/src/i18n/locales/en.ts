@@ -94,8 +94,8 @@ export const en = {
     templateTransactionSubtitle: 'Accounting templates and rules for automated transactions',
     householdLabel: 'Household',
     householdSubtitle: 'Households and shared expense spaces',
-    auxiliarLabel: 'Auxiliar',
-    auxiliarSubtitle: 'Auxiliary entities linked to the household',
+    auxiliarLabel: 'Income / Expense Pot',
+    auxiliarSubtitle: 'Income, expense pots, and auxiliary entities linked to the household',
   },
   dashboard: {
     activeHousehold: 'Active Household',
