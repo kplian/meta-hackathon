@@ -1,4 +1,6 @@
--- Migration: 20261030181500_category_templates_and_accounts.sql
--- Note: All catalog data inserts have been consolidated into 
--- 20261031200000_master_catalogs_and_bootstrap_data.sql
--- to enforce strict foreign key precedence and clean schema initialization.
+-- Superseded by 20261031140000_playbook_metadata.sql (Family Finance playbook templates).
+-- Kept as a no-op so older migration history stays valid on dev resets.
+
+DO $$ BEGIN
+    NULL;
+END $$;
