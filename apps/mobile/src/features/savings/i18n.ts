@@ -1,7 +1,7 @@
 import i18n from '../../i18n';
 const resources = {
   es: {
-    title: 'Tu ahorro del mes', generated: 'Ahorro generado hasta hoy', formula: 'Ingresos recibidos menos gastos reales de este mes.',
+    backendUpdate: 'El resumen de ahorro aún no está disponible. Falta actualizar el servicio de datos.', title: 'Tu ahorro del mes', generated: 'Ahorro generado hasta hoy', formula: 'Ingresos recibidos menos gastos reales de este mes.',
     target: 'Meta mensual: {{amount}}', achieved: 'Meta alcanzada hasta hoy', gap: 'Faltan {{amount}} para la meta', noTarget: 'Sin meta mensual configurada',
     provisional: 'El resultado puede cambiar con los próximos ingresos y gastos del mes.',
     allocated: 'Dinero movido este mes', investments: 'Del disponible a inversiones', vaults: 'Del disponible a bóvedas',
@@ -12,7 +12,7 @@ const resources = {
     progress: '{{percent}}% de la meta', deficit: 'Déficit hasta hoy: {{amount}}',
   },
   en: {
-    title: 'Your savings this month', generated: 'Savings generated so far', formula: 'Income received minus actual expenses this month.',
+    backendUpdate: 'The savings summary is not available yet. The data service needs to be updated.', title: 'Your savings this month', generated: 'Savings generated so far', formula: 'Income received minus actual expenses this month.',
     target: 'Monthly goal: {{amount}}', achieved: 'Goal reached so far', gap: '{{amount}} still needed for the goal', noTarget: 'No monthly goal configured',
     provisional: 'The result may change as more income and expenses arrive this month.',
     allocated: 'Money moved this month', investments: 'From available cash to investments', vaults: 'From available cash to vaults',
@@ -23,7 +23,7 @@ const resources = {
     progress: '{{percent}}% of goal', deficit: 'Deficit so far: {{amount}}',
   },
   pt: {
-    title: 'Sua poupança do mês', generated: 'Poupança gerada até agora', formula: 'Receitas recebidas menos despesas reais deste mês.',
+    backendUpdate: 'O resumo de poupança ainda não está disponível. O serviço de dados precisa ser atualizado.', title: 'Sua poupança do mês', generated: 'Poupança gerada até agora', formula: 'Receitas recebidas menos despesas reais deste mês.',
     target: 'Meta mensal: {{amount}}', achieved: 'Meta atingida até agora', gap: 'Faltam {{amount}} para a meta', noTarget: 'Sem meta mensal configurada',
     provisional: 'O resultado pode mudar com as próximas receitas e despesas do mês.',
     allocated: 'Dinheiro movimentado neste mês', investments: 'Do disponível para investimentos', vaults: 'Do disponível para cofres',

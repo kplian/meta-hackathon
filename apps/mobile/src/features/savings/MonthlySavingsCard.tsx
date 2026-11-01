@@ -4,18 +4,15 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 
-export type Savings = {
-  generated: number; target: number; gap: number; achieved: boolean;
-  investment_contributions: number; vault_contributions: number;
-  investment_returns: number; vault_returns: number;
-  previous_month: string; previous_generated: number;
-};
-export type SavingsMonth = { currency: string; month: string; savings: Savings };
+import { isSavings, type Savings } from './summary';
+export type { Savings } from './summary';
+export type SavingsMonth = { currency: string; month: string; savings?: Savings };
 
 export function MonthlySavingsSummary({ data }: { data: SavingsMonth }) {
   const { t, i18n } = useTranslation('monthlySavings');
   const money = (amount: number) => new Intl.NumberFormat(i18n.language, { style: 'currency', currency: data.currency }).format(amount);
   const s = data.savings;
+  if (!isSavings(s)) return <Text accessibilityRole="alert" className="rounded-2xl bg-white p-5 text-pine">{t('backendUpdate')}</Text>;
   const month = (value: string) => new Date(`${value}-01T12:00:00`).toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' });
   const progress = s.target > 0 ? Math.max(0, Math.min(100, s.generated / s.target * 100)) : 0;
   return <View className="rounded-3xl border border-[#D3E8DC] bg-white p-5" testID="monthly-savings-summary">
