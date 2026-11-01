@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase, isLocalBackend, currentSupabaseUrl } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 import type { HouseholdRow } from '../lib/budget-schema';
 import {
@@ -80,7 +80,7 @@ export default function HomeScreen({ session }: { session: Session }) {
   const fullName =
     (session.user.user_metadata?.full_name as string | undefined) ||
     (session.user.user_metadata?.name as string | undefined) ||
-    'Familia Morales';
+    ' Smith Family';
 
   const activeHousehold = households[activeHouseholdIndex] ?? null;
 
@@ -253,9 +253,8 @@ export default function HomeScreen({ session }: { session: Session }) {
                   className={`rounded-full px-2 py-0.5 ${active ? 'bg-pine' : ''}`}
                 >
                   <Text
-                    className={`text-[10px] font-extrabold ${
-                      active ? 'text-white' : 'text-pine'
-                    }`}
+                    className={`text-[10px] font-extrabold ${active ? 'text-white' : 'text-pine'
+                      }`}
                   >
                     {lang.shortLabel}
                   </Text>
@@ -345,46 +344,46 @@ export default function HomeScreen({ session }: { session: Session }) {
             activeHousehold={activeHousehold}
           />
         ) : (
-        <ScrollView
-          className="flex-1 bg-[#F4FAF6] rounded-t-3xl"
-          contentContainerClassName="p-5 pb-10"
-        >
-          {/* Breadcrumb & Header Card */}
-          <View className="rounded-3xl bg-white p-5 shadow-sm border border-[#E2EFE8]">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1 mr-3">
-                <View className="flex-row items-center">
-                  <View className="rounded-full bg-[#E6F4EC] px-2.5 py-0.5">
-                    <Text className="text-[10px] font-extrabold tracking-wider text-pine">
-                      {currentMeta.category}
-                    </Text>
-                  </View>
-                  {currentMeta.table ? (
-                    <View className="ml-2 rounded-full bg-[#F1F5F3] px-2.5 py-0.5">
-                      <Text className="text-[10px] font-semibold text-sage">
-                        budget.{currentMeta.table}
+          <ScrollView
+            className="flex-1 bg-[#F4FAF6] rounded-t-3xl"
+            contentContainerClassName="p-5 pb-10"
+          >
+            {/* Breadcrumb & Header Card */}
+            <View className="rounded-3xl bg-white p-5 shadow-sm border border-[#E2EFE8]">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 mr-3">
+                  <View className="flex-row items-center">
+                    <View className="rounded-full bg-[#E6F4EC] px-2.5 py-0.5">
+                      <Text className="text-[10px] font-extrabold tracking-wider text-pine">
+                        {currentMeta.category}
                       </Text>
                     </View>
-                  ) : null}
+                    {currentMeta.table ? (
+                      <View className="ml-2 rounded-full bg-[#F1F5F3] px-2.5 py-0.5">
+                        <Text className="text-[10px] font-semibold text-sage">
+                          budget.{currentMeta.table}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <Text className="mt-2 text-2xl font-extrabold text-pine">
+                    {t(currentMeta.titleKey)}
+                  </Text>
+                  <Text className="mt-1 text-[13px] leading-5 text-sage">
+                    {t(currentMeta.subtitleKey)}
+                  </Text>
                 </View>
 
-                <Text className="mt-2 text-2xl font-extrabold text-pine">
-                  {t(currentMeta.titleKey)}
-                </Text>
-                <Text className="mt-1 text-[13px] leading-5 text-sage">
-                  {t(currentMeta.subtitleKey)}
-                </Text>
+                <Pressable
+                  onPress={() => setRefreshTick((t) => t + 1)}
+                  className="h-10 w-10 items-center justify-center rounded-full bg-[#E8F4ED] active:bg-[#D5E8DC]"
+                  accessibilityLabel={t(COMMON_CONSTANTS.REFRESH)}
+                >
+                  <Ionicons name="refresh" size={18} color="#0B3D2E" />
+                </Pressable>
               </View>
-
-              <Pressable
-                onPress={() => setRefreshTick((t) => t + 1)}
-                className="h-10 w-10 items-center justify-center rounded-full bg-[#E8F4ED] active:bg-[#D5E8DC]"
-                accessibilityLabel={t(COMMON_CONSTANTS.REFRESH)}
-              >
-                <Ionicons name="refresh" size={18} color="#0B3D2E" />
-              </Pressable>
             </View>
-          </View>
 
           {/* View-Specific Content */}
           {activeView === 'profile' ? (
@@ -394,155 +393,157 @@ export default function HomeScreen({ session }: { session: Session }) {
                   <Text className="text-lg font-extrabold text-white">
                     {fullName.slice(0, 2).toUpperCase()}
                   </Text>
-                </View>
-                <View className="ml-4 flex-1">
-                  <Text className="text-lg font-extrabold text-pine">{fullName}</Text>
-                  <Text className="text-sm text-sage">{email}</Text>
-                </View>
-              </View>
-
-              {/* Language Preference Card */}
-              <View className="rounded-2xl bg-[#F4FAF6] p-4 gap-2.5">
-                <Text className="text-xs font-bold uppercase tracking-wider text-sage">
-                  {t(PROFILE_CONSTANTS.LANGUAGE_PREFERENCE)}
-                </Text>
-                <Text className="text-xs text-[#546A60]">
-                  {t(PROFILE_CONSTANTS.LANGUAGE_SUBTITLE)}
-                </Text>
-                <View className="flex-row gap-2 mt-1">
-                  {SUPPORTED_LANGUAGES.map((lang) => {
-                    const active = currentLang === lang.code;
-                    return (
-                      <Pressable
-                        key={lang.code}
-                        onPress={() => void changeAppLanguage(lang.code)}
-                        className={`flex-1 items-center justify-center rounded-xl py-2.5 border ${
-                          active
-                            ? 'bg-pine border-pine'
-                            : 'bg-white border-[#D3E8DC] active:bg-[#E8F6EE]'
-                        }`}
-                      >
-                        <Text
-                          className={`text-xs font-extrabold ${
-                            active ? 'text-white' : 'text-pine'
-                          }`}
+                  <View className="flex-row gap-2 mt-1">
+                    {SUPPORTED_LANGUAGES.map((lang) => {
+                      const active = currentLang === lang.code;
+                      return (
+                        <Pressable
+                          key={lang.code}
+                          onPress={() => void changeAppLanguage(lang.code)}
+                          className={`flex-1 items-center justify-center rounded-xl py-2.5 border ${active
+                              ? 'bg-pine border-pine'
+                              : 'bg-white border-[#D3E8DC] active:bg-[#E8F6EE]'
+                            }`}
                         >
-                          {lang.label} ({lang.shortLabel})
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                          <Text
+                            className={`text-xs font-extrabold ${active ? 'text-white' : 'text-pine'
+                              }`}
+                          >
+                            {lang.label} ({lang.shortLabel})
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
-              </View>
 
-              <View className="rounded-2xl bg-[#F4FAF6] p-4 gap-2">
-                <Text className="text-xs font-bold uppercase tracking-wider text-sage">
-                  {t(PROFILE_CONSTANTS.SESSION_DETAILS)}
-                </Text>
-                <Text className="text-xs text-[#263C33]">
-                  {t(PROFILE_CONSTANTS.USER_ID)}: {session.user.id}
-                </Text>
-                <Text className="text-xs text-[#263C33]">
-                  {t(PROFILE_CONSTANTS.PROVIDER)}: {session.user.app_metadata?.provider ?? 'email'}
-                </Text>
-              </View>
+                <View className="rounded-2xl bg-[#F4FAF6] p-4 gap-2">
+                  <Text className="text-xs font-bold uppercase tracking-wider text-sage">
+                    {t(PROFILE_CONSTANTS.SESSION_DETAILS)}
+                  </Text>
+                  <Text className="text-xs text-[#263C33]">
+                    {t(PROFILE_CONSTANTS.USER_ID)}: {session.user.id}
+                  </Text>
+                  <Text className="text-xs text-[#263C33]">
+                    {t(PROFILE_CONSTANTS.PROVIDER)}: {session.user.app_metadata?.provider ?? 'email'}
+                  </Text>
+                </View>
 
-              <Pressable
-                onPress={() => void signOut()}
-                className="flex-row items-center justify-center rounded-2xl bg-pine py-3.5 active:opacity-85"
-              >
-                <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
-                <Text className="ml-2 text-sm font-bold text-white">
-                  {t(COMMON_CONSTANTS.SIGN_OUT)}
-                </Text>
-              </Pressable>
-            </View>
-          ) : (
-            /* Table-Backed Module View (Admin / For Business / Budget / Members / Journal) */
-            <View className="mt-5 rounded-3xl bg-white p-5 border border-[#E2EFE8]">
-              <View className="flex-row items-center justify-between mb-3">
-                <Text className="text-base font-extrabold text-pine">
-                  {t(COMMON_CONSTANTS.RECORDS)} ({rows.length})
-                </Text>
+                {/* Backend Environment Card */}
+                <View className="rounded-2xl bg-[#F4FAF6] p-4 gap-2">
+                  <Text className="text-xs font-bold uppercase tracking-wider text-sage">
+                    Backend Environment
+                  </Text>
+                  <View className="flex-row items-center gap-2">
+                    <View
+                      className={`h-2.5 w-2.5 rounded-full ${isLocalBackend ? 'bg-amber-500' : 'bg-emerald-500'
+                        }`}
+                    />
+                    <Text className="text-sm font-extrabold text-pine">
+                      {isLocalBackend ? 'Local (Docker)' : 'Supabase Cloud'}
+                    </Text>
+                  </View>
+                  <Text className="text-[11px] text-[#546A60] font-mono" numberOfLines={1}>
+                    {currentSupabaseUrl}
+                  </Text>
+                </View>
+
                 <Pressable
-                  onPress={() => setIsDrawerOpen(true)}
-                  className="rounded-full bg-[#E8F6EE] px-3 py-1.5"
+                  onPress={() => void signOut()}
+                  className="flex-row items-center justify-center rounded-2xl bg-pine py-3.5 active:opacity-85"
                 >
-                  <Text className="text-xs font-bold text-pine">
-                    {t(COMMON_CONSTANTS.SIDE_MENU)}
+                  <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
+                  <Text className="ml-2 text-sm font-bold text-white">
+                    {t(COMMON_CONSTANTS.SIGN_OUT)}
                   </Text>
                 </Pressable>
               </View>
-
-              {loadingRows ? (
-                <View className="py-10 items-center">
-                  <ActivityIndicator size="large" color="#0B3D2E" />
-                  <Text className="mt-2 text-xs text-sage">
-                    {t(COMMON_CONSTANTS.QUERYING)} budget.{currentMeta.table}...
+            ) : (
+              /* Table-Backed Module View (Admin / For Business / Budget / Members / Journal) */
+              <View className="mt-5 rounded-3xl bg-white p-5 border border-[#E2EFE8]">
+                <View className="flex-row items-center justify-between mb-3">
+                  <Text className="text-base font-extrabold text-pine">
+                    {t(COMMON_CONSTANTS.RECORDS)} ({rows.length})
                   </Text>
+                  <Pressable
+                    onPress={() => setIsDrawerOpen(true)}
+                    className="rounded-full bg-[#E8F6EE] px-3 py-1.5"
+                  >
+                    <Text className="text-xs font-bold text-pine">
+                      {t(COMMON_CONSTANTS.SIDE_MENU)}
+                    </Text>
+                  </Pressable>
                 </View>
-              ) : queryError ? (
-                <View className="rounded-2xl bg-red-50 p-4">
-                  <Text className="text-xs font-bold text-red-700">
-                    {t(COMMON_CONSTANTS.QUERY_ERROR)}
-                  </Text>
-                  <Text className="mt-1 text-xs text-red-600">{queryError}</Text>
-                </View>
-              ) : rows.length === 0 ? (
-                <View className="items-center py-8 px-4 rounded-2xl bg-[#F4FAF6]">
-                  <Ionicons name="layers-outline" size={28} color="#5F7269" />
-                  <Text className="mt-2 text-sm font-bold text-pine text-center">
-                    {t(COMMON_CONSTANTS.NO_RECORDS_IN)} {t(currentMeta.titleKey)}
-                  </Text>
-                  <Text className="mt-1 text-xs text-sage text-center leading-4">
-                    {t(COMMON_CONSTANTS.TABLE_READY_EMPTY)}
-                  </Text>
-                </View>
-              ) : (
-                <View className="gap-3">
-                  {rows.map((row, idx) => {
-                    const primaryTitle =
-                      (row.name as string) ||
-                      (row.full_name as string) ||
-                      (row.concept as string) ||
-                      (row.code as string) ||
-                      (row.category_key as string) ||
-                      `Registro #${idx + 1}`;
 
-                    const entries = Object.entries(row).filter(
-                      ([k]) =>
-                        !['created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by'].includes(
-                          k,
-                        ),
-                    );
+                {loadingRows ? (
+                  <View className="py-10 items-center">
+                    <ActivityIndicator size="large" color="#0B3D2E" />
+                    <Text className="mt-2 text-xs text-sage">
+                      {t(COMMON_CONSTANTS.QUERYING)} budget.{currentMeta.table}...
+                    </Text>
+                  </View>
+                ) : queryError ? (
+                  <View className="rounded-2xl bg-red-50 p-4">
+                    <Text className="text-xs font-bold text-red-700">
+                      {t(COMMON_CONSTANTS.QUERY_ERROR)}
+                    </Text>
+                    <Text className="mt-1 text-xs text-red-600">{queryError}</Text>
+                  </View>
+                ) : rows.length === 0 ? (
+                  <View className="items-center py-8 px-4 rounded-2xl bg-[#F4FAF6]">
+                    <Ionicons name="layers-outline" size={28} color="#5F7269" />
+                    <Text className="mt-2 text-sm font-bold text-pine text-center">
+                      {t(COMMON_CONSTANTS.NO_RECORDS_IN)} {t(currentMeta.titleKey)}
+                    </Text>
+                    <Text className="mt-1 text-xs text-sage text-center leading-4">
+                      {t(COMMON_CONSTANTS.TABLE_READY_EMPTY)}
+                    </Text>
+                  </View>
+                ) : (
+                  <View className="gap-3">
+                    {rows.map((row, idx) => {
+                      const primaryTitle =
+                        (row.name as string) ||
+                        (row.full_name as string) ||
+                        (row.concept as string) ||
+                        (row.code as string) ||
+                        (row.category_key as string) ||
+                        `Registro #${idx + 1}`;
 
-                    return (
-                      <View
-                        key={(row.id as string) ?? String(idx)}
-                        className="rounded-2xl bg-[#F4FAF6] p-4 border border-[#E2EFE8]"
-                      >
-                        <Text className="text-sm font-extrabold text-pine">{primaryTitle}</Text>
-                        <View className="mt-2 gap-1">
-                          {entries.slice(0, 6).map(([key, val]) => (
-                            <View key={key} className="flex-row justify-between">
-                              <Text className="text-[11px] font-semibold text-sage">{key}:</Text>
-                              <Text
-                                className="text-[11px] font-bold text-[#1F2D27] ml-2 flex-1 text-right"
-                                numberOfLines={1}
-                              >
-                                {formatFieldValue(val)}
-                              </Text>
-                            </View>
-                          ))}
+                      const entries = Object.entries(row).filter(
+                        ([k]) =>
+                          !['created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by'].includes(
+                            k,
+                          ),
+                      );
+
+                      return (
+                        <View
+                          key={(row.id as string) ?? String(idx)}
+                          className="rounded-2xl bg-[#F4FAF6] p-4 border border-[#E2EFE8]"
+                        >
+                          <Text className="text-sm font-extrabold text-pine">{primaryTitle}</Text>
+                          <View className="mt-2 gap-1">
+                            {entries.slice(0, 6).map(([key, val]) => (
+                              <View key={key} className="flex-row justify-between">
+                                <Text className="text-[11px] font-semibold text-sage">{key}:</Text>
+                                <Text
+                                  className="text-[11px] font-bold text-[#1F2D27] ml-2 flex-1 text-right"
+                                  numberOfLines={1}
+                                >
+                                  {formatFieldValue(val)}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
                         </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          )}
-        </ScrollView>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            )}
+          </ScrollView>
         )}
       </View>
 
