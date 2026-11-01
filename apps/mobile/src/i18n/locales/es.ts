@@ -92,6 +92,8 @@ export const es = {
     financialPyramidSubtitle: 'Niveles y metas de la pirámide financiera',
     templateTransactionLabel: 'Template transaction',
     templateTransactionSubtitle: 'Plantillas y reglas contables para transacciones automáticas',
+    investmentsLabel: 'Administración de ahorros e inversiones',
+    investmentsSubtitle: 'Aquí podrás administrar los ahorros e inversiones de tu hogar. Estamos preparando esta sección.',
     householdLabel: 'Household',
     householdSubtitle: 'Hogares y espacios de gasto común',
     auxiliarLabel: 'Bolsa de gastos/ingresos',

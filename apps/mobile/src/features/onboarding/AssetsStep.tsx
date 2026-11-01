@@ -10,9 +10,10 @@ type Position = Database['budget']['Tables']['tasset_position']['Row'];
 type Instrument = { symbol: string; name: string; exchange: string; currency: string; type: string };
 type Quote = { price: number; currency: string; asOf: string; symbol: string; exchange: string };
 type FxQuote = { currency: string; rate: number; asOf: string; provider: string };
-interface Props { householdId: string; currency: string; finishing: boolean; onFinish: () => Promise<void>; onBack: () => void }
+export type AssetRegistration = Database['public']['Functions']['f_register_household_asset']['Args'];
+interface Props { householdId: string; currency: string; finishing: boolean; onFinish: () => Promise<void>; onBack: () => void; management?: boolean; onRegister?: (draft: AssetRegistration) => Promise<void> | void; onSaved?: () => void; submitLabel?: string }
 
-export default function AssetsStep({ householdId, currency, finishing, onFinish, onBack }: Props) {
+export default function AssetsStep({ householdId, currency, finishing, onFinish, onBack, management = false, onRegister, onSaved, submitLabel }: Props) {
   const { t, i18n } = useTranslation('onboarding');
   const [types, setTypes] = useState<AssetType[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
@@ -21,7 +22,7 @@ export default function AssetsStep({ householdId, currency, finishing, onFinish,
   const [saving, setSaving] = useState(false);
   const [marketBusy, setMarketBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(management);
   const [type, setType] = useState<AssetType | null>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Instrument[]>([]);
@@ -118,7 +119,16 @@ export default function AssetsStep({ householdId, currency, finishing, onFinish,
     }
     setSaving(true); setError(null);
     try {
-      const response = await supabase.rpc('f_register_household_asset', {
+      // Historical purchase costs remain private. Refresh the public reference
+      // when available, but a manually recorded purchase can survive provider failure.
+      try {
+        if (type.market_priced) {
+          await market({ action: 'sync_quote', kind: type.code, symbol: instrument!.symbol, exchange: instrument!.exchange });
+        } else if (type.unit_kind === 'fiat') {
+          await market({ action: 'sync_quote', kind: 'fiat', currency: unitCode });
+        }
+      } catch (err) { if (!onRegister) throw err; }
+      const draft: AssetRegistration = {
         p_household_id: householdId, p_asset_type_code: type.code, p_name: name.trim(),
         p_quantity: quantity.trim().replace(',', '.'), p_unit_price_usd: price.trim().replace(',', '.'), p_request_id: requestId,
         p_price_basis: quote ? 'market_estimate' : type.market_priced ? 'purchase_price' : 'estimated_value',
@@ -131,10 +141,12 @@ export default function AssetsStep({ householdId, currency, finishing, onFinish,
         p_yield_settings: { enabled: hasYield, yield_kind: hasYield ? yieldKind : null,
           reminder_enabled: hasYield && remind, reminder_day: hasYield && remind ? Number(reminderDay) : null,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' },
-      });
+      };
+      if (onRegister) { await onRegister(draft); return; }
+      const response = await supabase.rpc('f_register_household_asset', draft);
       if (response.error) throw response.error;
-      reset(); await load();
-    } catch { setError(t('saveError')); }
+      reset(); await load(); onSaved?.();
+    } catch (err) { setError(err instanceof Error ? err.message : t('saveError')); }
     finally { setSaving(false); }
   }
   async function remove(position: Position) {
@@ -152,13 +164,13 @@ export default function AssetsStep({ householdId, currency, finishing, onFinish,
   }
   return (
     <View className="mt-6 gap-4" testID="onboarding-assets">
-      <View className="flex-row items-start gap-3 rounded-2xl bg-white p-4">
+      {!management ? <View className="flex-row items-start gap-3 rounded-2xl bg-white p-4">
         <Ionicons name="information-circle-outline" size={22} color="#0B3D2E" />
         <Text className="flex-1 text-sm leading-5 text-sage">{t('assets.note')}</Text>
-      </View>
+      </View> : null}
       {loading ? <ActivityIndicator color="#0B3D2E" /> : null}
-      {positions.length ? <View className="rounded-2xl bg-pine p-5"><Text className="text-sm text-white">{t('assets.total')}</Text><Text className="mt-1 text-2xl font-bold text-white">{usd(positions.reduce((sum, row) => sum + Number(row.opening_value_usd), 0))}</Text></View> : null}
-      {positions.map((position) => (
+      {!management && positions.length ? <View className="rounded-2xl bg-pine p-5"><Text className="text-sm text-white">{t('assets.total')}</Text><Text className="mt-1 text-2xl font-bold text-white">{usd(positions.reduce((sum, row) => sum + Number(row.opening_value_usd), 0))}</Text></View> : null}
+      {(!management ? positions : []).map((position) => (
         <View key={position.id} className="rounded-2xl bg-white p-5">
           <Text className="text-lg font-bold text-pine">{position.alias || position.name}</Text>
           {position.alias ? <Text className="mt-1 text-sm text-sage">{position.name}</Text> : null}
@@ -168,7 +180,7 @@ export default function AssetsStep({ householdId, currency, finishing, onFinish,
           <Pressable disabled={busy} onPress={() => void remove(position)} accessibilityRole="button" className="mt-2 py-2"><Text className="text-red-700">{t('assets.remove')}</Text></Pressable>
         </View>
       ))}
-      {!formOpen && !loadFailed && !loading ? <Pressable disabled={busy} onPress={() => setFormOpen(true)} accessibilityRole="button" className="items-center rounded-2xl border border-[#D3E8DC] bg-white p-5">
+      {!management && !formOpen && !loadFailed && !loading ? <Pressable disabled={busy} onPress={() => setFormOpen(true)} accessibilityRole="button" className="items-center rounded-2xl border border-[#D3E8DC] bg-white p-5">
         <Ionicons name="add-circle-outline" size={28} color="#0B3D2E" /><Text className="mt-2 font-bold text-pine">{t(positions.length ? 'assets.addAnother' : 'assets.configure')}</Text>
       </Pressable> : null}
       {formOpen ? <View className="rounded-3xl bg-white p-5">
@@ -225,17 +237,17 @@ export default function AssetsStep({ householdId, currency, finishing, onFinish,
             {remind ? <View><Text className="mt-4 font-semibold text-pine">{t('assets.reminderDay')}</Text><TextInput value={reminderDay} onChangeText={setReminderDay} maxLength={2} keyboardType="number-pad" editable={!busy} accessibilityLabel={t('assets.reminderDay')} className={inputClass} /></View> : null}
             <Text className="mt-3 text-xs leading-5 text-sage">{t('assets.yieldHelp')}</Text>
           </View> : null}
-          <Pressable disabled={busy} onPress={() => void save()} accessibilityRole="button" className="mt-5 items-center rounded-xl bg-mint py-3"><Text className="font-bold text-pine">{t('assets.save')}</Text></Pressable>
+          <Pressable disabled={busy} onPress={() => void save()} accessibilityRole="button" className="mt-5 items-center rounded-xl bg-mint py-3"><Text className="font-bold text-pine">{submitLabel ?? t('assets.save')}</Text></Pressable>
         </View> : null}
-        <Pressable disabled={busy} onPress={reset} accessibilityRole="button" className="mt-3 items-center p-3"><Text className="text-sage">{t('income.cancel')}</Text></Pressable>
+        <Pressable disabled={busy} onPress={management ? onBack : reset} accessibilityRole="button" className="mt-3 items-center p-3"><Text className="text-sage">{t('income.cancel')}</Text></Pressable>
       </View> : null}
       {saving || marketBusy ? <ActivityIndicator color="#0B3D2E" /> : null}
       {error ? <Text accessibilityRole="alert" className="text-sm text-red-700">{error}</Text> : null}
       {loadFailed ? <Pressable onPress={() => void load()} accessibilityRole="button" className="p-3"><Text className="text-pine">{t('income.retry')}</Text></Pressable> : null}
-      <Pressable disabled={busy || loadFailed} onPress={() => void finish()} accessibilityRole="button" className={`mt-4 items-center rounded-2xl bg-pine py-4 ${busy || loadFailed ? 'opacity-50' : ''}`}>
+      {!management ? <><Pressable disabled={busy || loadFailed} onPress={() => void finish()} accessibilityRole="button" className={`mt-4 items-center rounded-2xl bg-pine py-4 ${busy || loadFailed ? 'opacity-50' : ''}`}>
         {finishing ? <ActivityIndicator color="white" /> : <Text className="text-base font-bold text-white">{t(positions.length ? 'assets.continue' : 'assets.skip')}</Text>}
       </Pressable>
-      <Pressable disabled={busy} onPress={onBack} accessibilityRole="button" className="items-center p-3"><Text className="font-semibold text-sage">{t('back')}</Text></Pressable>
+      <Pressable disabled={busy} onPress={onBack} accessibilityRole="button" className="items-center p-3"><Text className="font-semibold text-sage">{t('back')}</Text></Pressable></> : null}
     </View>
   );
 }

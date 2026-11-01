@@ -1,3 +1,4 @@
+import InvestmentsScreen from '../features/investments/InvestmentsScreen';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -300,9 +301,9 @@ export default function HomeScreen({ session }: { session: Session }) {
             })}
           </View>
 
-          <Text className="mr-3 text-[14px] font-semibold text-[#263C33]">
+          {activeView !== 'investments' || isPermanentDesktop ? <Text numberOfLines={1} className="mr-3 max-w-[340px] text-[14px] font-semibold text-[#263C33]">
             {t(currentMeta.titleKey)}
-          </Text>
+          </Text> : null}
           <Pressable
             onPress={() => handleSelectView('profile')}
             className="h-9 w-9 items-center justify-center rounded-full bg-pine active:opacity-85"
@@ -335,6 +336,8 @@ export default function HomeScreen({ session }: { session: Session }) {
         {/* Active Interface Content */}
         {activeView === 'dashboard' && activeHousehold ? (
           <MonthlyDashboard householdId={activeHousehold.id} householdName={activeHousehold.name ?? ''} />
+        ) : activeView === 'investments' && activeHousehold ? (
+          <InvestmentsScreen key={activeHousehold.id} householdId={activeHousehold.id} />
         ) : activeView === 'journal' ? (
           <JournalView
             userId={session.user.id}

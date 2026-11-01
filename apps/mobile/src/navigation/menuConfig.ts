@@ -19,7 +19,8 @@ export type ViewId =
   // BUDGET section (Drawer & Bottom Bar)
   | 'household'
   | 'budget'
-  | 'auxiliar';
+  | 'auxiliar'
+  | 'investments';
 
 export type BottomTabId = 'dashboard' | 'journal' | 'profile';
 
@@ -149,8 +150,15 @@ export const DRAWER_SECTIONS: DrawerMenuSection[] = [
   {
     title: 'BUDGET',
     titleKey: NAV_CONSTANTS.SECTION_BUDGET,
-    count: 3,
+    count: 4,
     items: [
+      {
+        id: 'investments',
+        label: 'Savings and investment management',
+        labelKey: NAV_CONSTANTS.INVESTMENTS_LABEL,
+        iconFamily: 'ionicons',
+        iconName: 'trending-up-outline',
+      },
       {
         id: 'household',
         label: 'Household',
@@ -345,6 +353,13 @@ export const VIEW_META: Record<
     subtitleKey: NAV_CONSTANTS.HOUSEHOLD_SUBTITLE,
     category: 'BUDGET',
     table: 'thousehold',
+  },
+  investments: {
+    title: 'Savings and investment management',
+    titleKey: NAV_CONSTANTS.INVESTMENTS_LABEL,
+    subtitle: 'Manage household savings and investments',
+    subtitleKey: NAV_CONSTANTS.INVESTMENTS_SUBTITLE,
+    category: 'BUDGET',
   },
   auxiliar: {
     title: 'Income / Expense Pot',
