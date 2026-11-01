@@ -12,6 +12,7 @@ node_modules/
 # Supabase
 supabase/.branches
 supabase/.temp
+supabase/snippets/
 .supabase
 
 # n8n local data (if running via docker volume mounted locally)

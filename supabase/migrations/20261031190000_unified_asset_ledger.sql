@@ -600,7 +600,7 @@ BEGIN
         v_resolved_template_id := COALESCE(
             (v_item->>'template_transaction_id')::uuid,
             v_item_template_id,
-            (SELECT id FROM budget.ttemplate_transaction WHERE code = 'purchase' AND household_id=p_household_id AND status='active' LIMIT 1),
+            (SELECT id FROM budget.ttemplate_transaction WHERE code = 'expense_paid' AND household_id=p_household_id AND status='active' LIMIT 1),
             (SELECT id FROM budget.ttemplate_transaction WHERE status = 'active' AND household_id=p_household_id LIMIT 1)
         );
 

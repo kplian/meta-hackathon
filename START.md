@@ -39,3 +39,10 @@ El dashboard incluye patrimonio acumulado en USD con pastel y detalle por posici
 El historial de ahorro muestra los últimos diez meses completos, sin el actual (`f_closed_month_savings_report`, migración `20261031310000`). Calcula ingresos y gastos reales contabilizados en la cuenta operativa de efectivo/disponible con código 110, y su diferencia; no combina el dinero patrimonial USD de `PATR-cash`, ni cuenta transferencias o aperturas como ahorro. No requiere cierre ni job, y completa los meses sin movimientos con cero.
 
 Gastos por integrante: torta del mes actual en moneda del hogar (`f_member_expenses_report`, migración `20261031320000`). Resuelve el integrante por auxiliar de las líneas de débito; el resto y los gastos históricos sin detalle se agrupan como Global de la familia. Excluye ingresos y patrimonio, no duplica las líneas de pago y conserva el histograma como último indicador.
+
+Tras integrar el catálogo playbook de `dev`, `supabase/seed.sql` mantiene solo metadatos. Para usar Valentina y los movimientos demo, carga opcionalmente `supabase/seed.demo.sql` en tu BD local antes de `node scripts/setup-local.mjs`. Las versiones de los catálogos propios y `setup_completed_at` se separaron de las versiones de las migraciones de `dev`; no resetees una BD con datos para resolver el historial.
+
+Carga explícita del demo local (opcional):
+```bash
+docker exec -i supabase_db_meta_hackathon psql -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/seed.demo.sql
+```

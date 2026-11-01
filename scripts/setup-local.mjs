@@ -30,7 +30,7 @@ let login = await client.auth.signInWithPassword({ email, password });
 if (login.error) {
   // Reuse the seeded profile UUID to preserve its household memberships and transactions.
   const profile = await admin.schema('budget').from('tuser').select('id').eq('email_user', email).single();
-  if (profile.error) throw profile.error;
+  if (profile.error) throw new Error('Demo profile missing. Load supabase/seed.demo.sql in your local database first.');
   const created = await admin.auth.admin.createUser({
     id: profile.data.id, email, password, email_confirm: true,
     user_metadata: { full_name: 'Valentina Morales' },
