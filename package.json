@@ -13,7 +13,7 @@
     "db:reset": "supabase db reset",
     "db:diff": "supabase db diff -f",
     "db:push": "supabase db push",
-    "db:types": "supabase gen types typescript --local --schema budget,public,storage > packages/database-types/src/database.types.ts",
+    "db:types": "node scripts/generate-database-types.mjs",
     "n8n:up": "docker compose up -d",
     "n8n:down": "docker compose down",
     "n8n:logs": "docker compose logs -f n8n",
@@ -23,7 +23,12 @@
     "mobile:web": "npm run web --workspace apps/mobile",
     "mobile:android": "npm run android --workspace apps/mobile",
     "mobile:ios": "npm run ios --workspace apps/mobile",
-    "mobile:typecheck": "npm run typecheck --workspace apps/mobile"
+    "mobile:typecheck": "npm run typecheck --workspace apps/mobile",
+    "local:setup": "supabase start && node scripts/setup-local.mjs",
+    "market:serve": "supabase functions serve asset-market --env-file .env",
+    "test:market": "node --experimental-strip-types --test tests/asset-market.test.mjs tests/asset-refresh.test.mjs",
+    "assets:refresh": "node scripts/refresh-asset-valuations.mjs",
+    "test:pyramid": "node --experimental-strip-types --test tests/pyramid-calculations.test.mjs"
   },
   "keywords": [
     "supabase",

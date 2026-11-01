@@ -8,21 +8,19 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 import type { HouseholdRow } from '../lib/budget-schema';
 import {
-  DRAWER_SECTIONS,
   VIEW_META,
   type BottomTabId,
   type ViewId,
 } from '../navigation/menuConfig';
 import {
   COMMON_CONSTANTS,
-  DASHBOARD_CONSTANTS,
   NAV_CONSTANTS,
   PROFILE_CONSTANTS,
   SUPPORTED_LANGUAGES,
@@ -43,6 +41,8 @@ import TemplateTransactionsView from '../components/TemplateTransactionsView';
 import HouseholdsView from '../components/HouseholdsView';
 import BudgetsView from '../components/BudgetsView';
 import AuxiliarsView from '../components/AuxiliarsView';
+import MonthlyDashboard from '../features/dashboard/MonthlyDashboard';
+import OnboardingGate from '../features/onboarding/OnboardingGate';
 
 type GenericRow = Record<string, unknown>;
 
@@ -59,11 +59,13 @@ export default function HomeScreen({ session }: { session: Session }) {
     return String(value);
   };
 
-  // Open the left menu initially so the user immediately sees the navigation drawer from the design
-  const [isDrawerOpen, setIsDrawerOpen] = useState(true);
+  // Keep the dashboard visible on entry; the menu remains available in the header.
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeView, setActiveView] = useState<ViewId>('dashboard');
 
+  const [loadingHouseholds, setLoadingHouseholds] = useState(true);
+  const [householdError, setHouseholdError] = useState<string | null>(null);
   const [households, setHouseholds] = useState<HouseholdRow[]>([]);
   const [activeHouseholdIndex, setActiveHouseholdIndex] = useState(0);
   const [usersCount, setUsersCount] = useState<number | undefined>(undefined);
@@ -87,29 +89,40 @@ export default function HomeScreen({ session }: { session: Session }) {
     let cancelled = false;
 
     async function loadInitialData() {
-      const [hhMemberRes, usersRes] = await Promise.all([
-        supabase
-          .schema('budget')
-          .from('thousehold_member')
-          .select('id, role, member_type, user_id, thousehold(*)')
-          .eq('user_id', session.user.id)
-          .eq('status', 'active'),
-        supabase
-          .schema('budget')
-          .from('tuser')
-          .select('id', { count: 'exact', head: true })
-          .is('deleted_at', null),
-      ]);
+      setLoadingHouseholds(true);
+      setHouseholdError(null);
+      try {
+        const [hhMemberRes, usersRes] = await Promise.all([
+          supabase
+            .schema('budget')
+            .from('thousehold_member')
+            .select('id, role, member_type, user_id, thousehold(*)')
+            .eq('user_id', session.user.id)
+            .eq('status', 'active'),
+          supabase
+            .schema('budget')
+            .from('tuser')
+            .select('id', { count: 'exact', head: true })
+            .is('deleted_at', null),
+        ]);
 
-      if (cancelled) return;
-      if (hhMemberRes.data) {
-        const joinedHouseholds = hhMemberRes.data
-          .map((row) => row.thousehold as unknown as HouseholdRow | null)
-          .filter((h): h is HouseholdRow => Boolean(h));
-        setHouseholds(joinedHouseholds);
-      }
-      if (usersRes.count !== null && usersRes.count !== undefined) {
-        setUsersCount(usersRes.count);
+        if (cancelled) return;
+        if (hhMemberRes.error) throw hhMemberRes.error;
+        if (hhMemberRes.data) {
+          const joinedHouseholds = hhMemberRes.data
+            .map((row) => row.thousehold as unknown as HouseholdRow | null)
+            .filter((h): h is HouseholdRow => Boolean(h));
+          setHouseholds(joinedHouseholds);
+        }
+        if (usersRes.count !== null && usersRes.count !== undefined) {
+          setUsersCount(usersRes.count);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setHouseholdError(error instanceof Error ? error.message : String(error));
+        }
+      } finally {
+        if (!cancelled) setLoadingHouseholds(false);
       }
     }
 
@@ -188,6 +201,21 @@ export default function HomeScreen({ session }: { session: Session }) {
   };
 
   const currentMeta = VIEW_META[activeView];
+
+  if (activeView === 'dashboard' && (loadingHouseholds || householdError || !activeHousehold?.setup_completed_at)) {
+    return (
+      <OnboardingGate
+        household={activeHousehold}
+        userId={session.user.id}
+        loading={loadingHouseholds}
+        error={householdError}
+        onRefresh={() => {
+          setLoadingHouseholds(true);
+          setRefreshTick((tick) => tick + 1);
+        }}
+      />
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-[#E9F5EE]">
@@ -268,7 +296,9 @@ export default function HomeScreen({ session }: { session: Session }) {
         />
 
         {/* Active Interface Content */}
-        {activeView === 'journal' ? (
+        {activeView === 'dashboard' && activeHousehold ? (
+          <MonthlyDashboard householdId={activeHousehold.id} householdName={activeHousehold.name ?? ''} />
+        ) : activeView === 'journal' ? (
           <JournalView
             userId={session.user.id}
             activeHousehold={activeHousehold}
@@ -357,84 +387,7 @@ export default function HomeScreen({ session }: { session: Session }) {
           </View>
 
           {/* View-Specific Content */}
-          {activeView === 'dashboard' ? (
-            <View className="mt-5 gap-4">
-              {/* Summary KPI cards */}
-              <View className="flex-row flex-wrap gap-3">
-                <View className="min-w-[150px] flex-1 rounded-3xl bg-pine p-4">
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-xs font-bold uppercase tracking-wider text-[#A9D6C2]">
-                      {t(DASHBOARD_CONSTANTS.ACTIVE_HOUSEHOLD)}
-                    </Text>
-                    <MaterialCommunityIcons name="home-heart" size={20} color="#BCEAD5" />
-                  </View>
-                  <Text className="mt-2 text-lg font-extrabold text-white" numberOfLines={1}>
-                    {activeHousehold?.name ?? t(NAV_CONSTANTS.NO_HOUSEHOLD_ASSIGNED)}
-                  </Text>
-                  <Text className="mt-0.5 text-xs text-[#BCEAD5]">
-                    {t(DASHBOARD_CONSTANTS.CURRENCY_LABEL)}: {activeHousehold?.currency ?? 'BOB'}
-                  </Text>
-                </View>
-
-                <View className="min-w-[150px] flex-1 rounded-3xl bg-white p-4 border border-[#E2EFE8]">
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-xs font-bold uppercase tracking-wider text-sage">
-                      {t(DASHBOARD_CONSTANTS.HOUSEHOLDS_CARD)}
-                    </Text>
-                    <Ionicons name="home-outline" size={18} color="#0B3D2E" />
-                  </View>
-                  <Text className="mt-2 text-2xl font-extrabold text-pine">
-                    {households.length}
-                  </Text>
-                  <Text className="mt-0.5 text-xs text-sage">
-                    {t(DASHBOARD_CONSTANTS.REGISTERED_IN_SUPABASE)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Quick Navigation Grid for All Drawer Modules */}
-              {DRAWER_SECTIONS.map((section) => (
-                <View
-                  key={section.title}
-                  className="rounded-3xl bg-white p-5 border border-[#E2EFE8]"
-                >
-                  <View className="mb-3 flex-row items-center justify-between">
-                    <Text className="text-xs font-extrabold tracking-wider text-sage">
-                      {t(section.titleKey)}
-                    </Text>
-                    <Text className="text-xs font-bold text-[#9BA8A2]">
-                      {section.count} {t(NAV_CONSTANTS.MODULES_COUNT)}
-                    </Text>
-                  </View>
-
-                  <View className="gap-2">
-                    {section.items.map((item) => (
-                      <Pressable
-                        key={item.id}
-                        onPress={() => handleSelectView(item.id)}
-                        className="flex-row items-center justify-between rounded-2xl bg-[#F4FAF6] px-3.5 py-3 active:bg-[#E4F4EC]"
-                      >
-                        <View className="flex-row items-center">
-                          <View className="h-9 w-9 items-center justify-center rounded-xl bg-[#E2EFE8]">
-                            <Ionicons name="folder-open-outline" size={17} color="#0B3D2E" />
-                          </View>
-                          <View className="ml-3">
-                            <Text className="text-[14px] font-bold text-pine">
-                              {t(item.labelKey)}
-                            </Text>
-                            <Text className="text-[11px] text-sage" numberOfLines={1}>
-                              {t(VIEW_META[item.id].subtitleKey)}
-                            </Text>
-                          </View>
-                        </View>
-                        <Ionicons name="chevron-forward" size={16} color="#0B3D2E" />
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : activeView === 'profile' ? (
+          {activeView === 'profile' ? (
             <View className="mt-5 rounded-3xl bg-white p-6 border border-[#E2EFE8] gap-4">
               <View className="flex-row items-center">
                 <View className="h-14 w-14 items-center justify-center rounded-full bg-pine">
