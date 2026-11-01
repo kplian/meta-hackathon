@@ -51,3 +51,7 @@ enabled = true
 client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
 secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
 skip_nonce_check = true
+# Optional log analytics are unnecessary for local app testing and can exceed
+# the memory available in a small Colima VM.
+[analytics]
+enabled = false
