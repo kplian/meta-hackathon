@@ -323,6 +323,10 @@ export default function JournalView({
         .from('ttransaction')
         .select('*')
         .eq('household_id', targetHouseholdId)
+        .eq('ledger_book', 'operating')
+        .in('type', ['income', 'expense'])
+        .eq('status', 'active')
+        .is('deleted_at', null)
         .order('transaction_date', { ascending: false })
         .limit(50);
 
@@ -412,7 +416,7 @@ export default function JournalView({
       const txDetails = dbDetails.filter((d) => d.transaction_id === tx.id);
       const firstDetail = txDetails[0];
       const categoryLabel =
-        (firstDetail && btMap.get(firstDetail.budget_type_id)) ||
+        (firstDetail?.budget_type_id && btMap.get(firstDetail.budget_type_id)) ||
         ((tx.input_data as Record<string, unknown>)?.category as string) ||
         (tx.type === 'income' ? 'Ingreso' : 'Comida');
 
@@ -499,7 +503,7 @@ export default function JournalView({
   // Summary metrics from DB
   const totalExpenses = useMemo(() => {
     return dbTransactions
-      .filter((t) => t.type !== 'income')
+      .filter((t) => t.type === 'expense')
       .reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
   }, [dbTransactions]);
 
@@ -613,9 +617,6 @@ export default function JournalView({
 
     setSaving(true);
     try {
-      const selectedMemberId =
-        selectedFilter !== 'Todos' ? selectedFilter : userId;
-
       const itemsPayload = items.map((it, idx) => ({
         category: it.category,
         amount: parseFloat(it.amount),
@@ -634,12 +635,12 @@ export default function JournalView({
         p_concept: concept.trim(),
         p_amount: computedTotalAmount,
         p_type: txType,
-        p_operation_code: operationCode.trim() || null,
-        p_external_reference: externalReference.trim() || null,
-        p_source_text: sourceText.trim() || null,
+        p_operation_code: operationCode.trim() || undefined,
+        p_external_reference: externalReference.trim() || undefined,
+        p_source_text: sourceText.trim() || undefined,
         p_recorded_via: recordedVia,
-        p_user_id: selectedMemberId,
-        p_auxiliar_id: selectedAuxiliarId || null,
+        p_user_id: userId,
+        p_auxiliar_id: selectedAuxiliarId || undefined,
         p_items: itemsPayload,
       });
 

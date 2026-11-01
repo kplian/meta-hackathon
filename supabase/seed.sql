@@ -69,11 +69,11 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Link budget categories to playbook templates (stable IDs from playbook metadata migration)
 UPDATE budget.tbudget_type SET template_transaction_id = '27abf4b0-2cf9-4279-9f51-0833142e64f9'
-WHERE category_key IN (
+WHERE household_id IS NULL AND category_key IN (
     'transportation_fuel', 'supermarket_groceries', 'pets', 'taxes_fees', 'restaurants_leisure',
     'utilities', 'clothing_personal_care', 'other', 'children_education', 'insurance', 'housing', 'health_pharmacy'
 );
 UPDATE budget.tbudget_type SET template_transaction_id = '8efc3b39-e5ea-48de-9657-c4c54bb25ab0'
-WHERE category_key = 'debts_loans';
+WHERE household_id IS NULL AND category_key = 'debts_loans';
 UPDATE budget.tbudget_type SET template_transaction_id = 'a0ecb51d-b608-48fb-a5fc-41dc0c150bd1'
-WHERE category_key = 'savings_investments';
+WHERE household_id IS NULL AND category_key = 'savings_investments';
