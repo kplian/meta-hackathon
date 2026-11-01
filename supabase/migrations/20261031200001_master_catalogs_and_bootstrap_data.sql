@@ -403,6 +403,11 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- ------------------------------------------------------------------------------
 -- 17. BOOTSTRAP TRANSACTION DETAILS (Double-entry accounting lines)
+-- Note: The unified ledger guard (budget.f_check_journal) requires every line to
+-- use accounts, auxiliars and budget types that belong to the transaction's own
+-- household. Accounts and budget types are therefore resolved dynamically from the
+-- household-scoped copies (cloned by trg_household_auto_provision) using the
+-- master account code and category key, instead of hardcoded master IDs.
 -- ------------------------------------------------------------------------------
 DELETE FROM budget.ttransaction_detail
 WHERE transaction_id IN (
@@ -416,29 +421,48 @@ WHERE transaction_id IN (
 
 INSERT INTO budget.ttransaction_detail (
     id, transaction_id, account_id, auxiliar_id, budget_type_id, item_code, description, unit_measure_code, quantity, unit_price, debit_base, credit_base, status, created_by
-) VALUES
+)
+SELECT
+    v.id::uuid,
+    v.transaction_id::uuid,
+    a.id,
+    v.auxiliar_id::uuid,
+    b.id,
+    v.item_code,
+    v.description,
+    'unit',
+    1,
+    v.amount,
+    CASE WHEN v.side = 'debit' THEN v.amount ELSE 0 END,
+    CASE WHEN v.side = 'credit' THEN v.amount ELSE 0 END,
+    'active',
+    v.created_by::uuid
+FROM (VALUES
     -- Tx 1: Jumbo Bilbao (64,200) -> Supermarket and Groceries
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01', '99999999-9999-4999-8999-999999999901', 'd556c3ae-9a60-4c07-8010-234584ea5cf1', '66666666-6666-4666-8666-666666666601', 'c9f2530b-c52a-4d4b-81aa-775fffc19fa3', 'ITM-001', 'Debit record - Compra supermercado Jumbo Bilbao', 'unit', 1, 64200, 64200, 0, 'active', '18598847-ee9d-4638-aee8-ed4d30770664'),
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa11', '99999999-9999-4999-8999-999999999901', 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '66666666-6666-4666-8666-666666666601', 'c9f2530b-c52a-4d4b-81aa-775fffc19fa3', 'ITM-001', 'Credit record - Pago con Cash/Débito', 'unit', 1, 64200, 0, 64200, 'active', '18598847-ee9d-4638-aee8-ed4d30770664'),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01', '99999999-9999-4999-8999-999999999901', '510', '66666666-6666-4666-8666-666666666601', 'supermarket_groceries', 'ITM-001', 'Debit record - Compra supermercado Jumbo Bilbao', 'debit', 64200::numeric, '18598847-ee9d-4638-aee8-ed4d30770664'),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa11', '99999999-9999-4999-8999-999999999901', '110', '66666666-6666-4666-8666-666666666601', 'supermarket_groceries', 'ITM-001', 'Credit record - Pago con Cash/Débito', 'credit', 64200::numeric, '18598847-ee9d-4638-aee8-ed4d30770664'),
 
     -- Tx 2: Farmacias Ahumada (12,800) -> Health and Pharmacy
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02', '99999999-9999-4999-8999-999999999902', 'd556c3ae-9a60-4c07-8010-234584ea5cf1', '66666666-6666-4666-8666-666666666601', 'c8a40cf3-f58d-4226-9bf9-71942d497546', 'ITM-002', 'Debit record - Medicamentos Farmacias Ahumada', 'unit', 1, 12800, 12800, 0, 'active', '88888888-8888-4888-8888-888888888801'),
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa12', '99999999-9999-4999-8999-999999999902', 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '66666666-6666-4666-8666-666666666601', 'c8a40cf3-f58d-4226-9bf9-71942d497546', 'ITM-002', 'Credit record - Pago Cash/Débito', 'unit', 1, 12800, 0, 12800, 'active', '88888888-8888-4888-8888-888888888801'),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02', '99999999-9999-4999-8999-999999999902', '560', '66666666-6666-4666-8666-666666666601', 'health_pharmacy', 'ITM-002', 'Debit record - Medicamentos Farmacias Ahumada', 'debit', 12800::numeric, '88888888-8888-4888-8888-888888888801'),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa12', '99999999-9999-4999-8999-999999999902', '110', '66666666-6666-4666-8666-666666666601', 'health_pharmacy', 'ITM-002', 'Credit record - Pago Cash/Débito', 'credit', 12800::numeric, '88888888-8888-4888-8888-888888888801'),
 
     -- Tx 3: Copec Vitacura (32,000) -> Transportation and Fuel
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa03', '99999999-9999-4999-8999-999999999903', 'd556c3ae-9a60-4c07-8010-234584ea5cf1', '66666666-6666-4666-8666-666666666601', '07a56835-b3a0-40ff-ad33-3afaed38f4ae', 'ITM-003', 'Debit record - Combustible Copec Vitacura', 'unit', 1, 32000, 32000, 0, 'active', '88888888-8888-4888-8888-888888888801'),
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa13', '99999999-9999-4999-8999-999999999903', 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '66666666-6666-4666-8666-666666666601', '07a56835-b3a0-40ff-ad33-3afaed38f4ae', 'ITM-003', 'Credit record - Pago Cash/Débito', 'unit', 1, 32000, 0, 32000, 'active', '88888888-8888-4888-8888-888888888801'),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa03', '99999999-9999-4999-8999-999999999903', '530', '66666666-6666-4666-8666-666666666601', 'transportation_fuel', 'ITM-003', 'Debit record - Combustible Copec Vitacura', 'debit', 32000::numeric, '88888888-8888-4888-8888-888888888801'),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa13', '99999999-9999-4999-8999-999999999903', '110', '66666666-6666-4666-8666-666666666601', 'transportation_fuel', 'ITM-003', 'Credit record - Pago Cash/Débito', 'credit', 32000::numeric, '88888888-8888-4888-8888-888888888801'),
 
     -- Tx 4: Netflix Familiar (10,990) -> Utilities
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa04', '99999999-9999-4999-8999-999999999904', 'd556c3ae-9a60-4c07-8010-234584ea5cf1', '66666666-6666-4666-8666-666666666601', '35d9aaa4-0dbd-49e6-9bab-a9d256a9cf0b', 'ITM-004', 'Debit record - Suscripción mensual Netflix', 'unit', 1, 10990, 10990, 0, 'active', '6f521862-f9dd-450a-ab69-79de338e2269'),
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa14', '99999999-9999-4999-8999-999999999904', 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '66666666-6666-4666-8666-666666666601', '35d9aaa4-0dbd-49e6-9bab-a9d256a9cf0b', 'ITM-004', 'Credit record - Pago automático Cash', 'unit', 1, 10990, 0, 10990, 'active', '6f521862-f9dd-450a-ab69-79de338e2269'),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa04', '99999999-9999-4999-8999-999999999904', '540', '66666666-6666-4666-8666-666666666601', 'utilities', 'ITM-004', 'Debit record - Suscripción mensual Netflix', 'debit', 10990::numeric, '6f521862-f9dd-450a-ab69-79de338e2269'),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa14', '99999999-9999-4999-8999-999999999904', '110', '66666666-6666-4666-8666-666666666601', 'utilities', 'ITM-004', 'Credit record - Pago automático Cash', 'credit', 10990::numeric, '6f521862-f9dd-450a-ab69-79de338e2269'),
 
     -- Tx 5: Librería Antártica (18,500) -> Education and School
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa05', '99999999-9999-4999-8999-999999999905', 'd556c3ae-9a60-4c07-8010-234584ea5cf1', '66666666-6666-4666-8666-666666666601', '619bcd10-bd18-4635-af69-c62a4ae39018', 'ITM-005', 'Debit record - Materiales escolares Colegio Mateo', 'unit', 1, 18500, 18500, 0, 'active', '18598847-ee9d-4638-aee8-ed4d30770664'),
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa15', '99999999-9999-4999-8999-999999999905', 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '66666666-6666-4666-8666-666666666601', '619bcd10-bd18-4635-af69-c62a4ae39018', 'ITM-005', 'Credit record - Pago Cash/Débito', 'unit', 1, 18500, 0, 18500, 'active', '18598847-ee9d-4638-aee8-ed4d30770664'),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa05', '99999999-9999-4999-8999-999999999905', '570', '66666666-6666-4666-8666-666666666601', 'children_education', 'ITM-005', 'Debit record - Materiales escolares Colegio Mateo', 'debit', 18500::numeric, '18598847-ee9d-4638-aee8-ed4d30770664'),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa15', '99999999-9999-4999-8999-999999999905', '110', '66666666-6666-4666-8666-666666666601', 'children_education', 'ITM-005', 'Credit record - Pago Cash/Débito', 'credit', 18500::numeric, '18598847-ee9d-4638-aee8-ed4d30770664'),
 
-    -- Tx 6: Ahorro Vacaciones (150,000) -> Savings and Investments & Investments Account (130)
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa06', '99999999-9999-4999-8999-999999999906', 'bc54a393-dcf2-4d08-a34b-cab17438af3b', '66666666-6666-4666-8666-666666666603', 'e2c05b09-7bd8-4d65-9421-4715248b2ddf', 'ITM-006', 'Debit record - Depósito en Fondo Vacaciones', 'unit', 1, 150000, 150000, 0, 'active', '6f521862-f9dd-450a-ab69-79de338e2269'),
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa16', '99999999-9999-4999-8999-999999999906', 'ee7fc903-bfb0-4332-8395-039fcaabbcd1', '66666666-6666-4666-8666-666666666603', 'e2c05b09-7bd8-4d65-9421-4715248b2ddf', 'ITM-006', 'Credit record - Aporte meta ahorro familiar', 'unit', 1, 150000, 0, 150000, 'active', '6f521862-f9dd-450a-ab69-79de338e2269')
+    -- Tx 6: Ahorro Vacaciones (150,000) -> Savings and Investments (account 130)
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa06', '99999999-9999-4999-8999-999999999906', '130', '66666666-6666-4666-8666-666666666603', 'savings_investments', 'ITM-006', 'Debit record - Depósito en Fondo Vacaciones', 'debit', 150000::numeric, '6f521862-f9dd-450a-ab69-79de338e2269'),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa16', '99999999-9999-4999-8999-999999999906', '110', '66666666-6666-4666-8666-666666666603', 'savings_investments', 'ITM-006', 'Credit record - Aporte meta ahorro familiar', 'credit', 150000::numeric, '6f521862-f9dd-450a-ab69-79de338e2269')
+) AS v(id, transaction_id, account_code, auxiliar_id, category_key, item_code, description, side, amount, created_by)
+JOIN budget.ttransaction t ON t.id = v.transaction_id::uuid
+JOIN budget.taccount a ON a.household_id = t.household_id AND a.code = v.account_code
+LEFT JOIN budget.tbudget_type b ON b.household_id = t.household_id AND b.category_key = v.category_key
 ON CONFLICT (id) DO NOTHING;
-
