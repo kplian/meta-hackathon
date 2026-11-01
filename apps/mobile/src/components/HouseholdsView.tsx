@@ -810,9 +810,8 @@ export default function HouseholdsView({
                                 setMemberUserId(u.id);
                                 setOpenMemberDropdown(null);
                               }}
-                              className={`flex-row items-center justify-between rounded-lg px-3 py-2 ${
-                                selected ? 'bg-[#E6F4EC]' : 'bg-transparent'
-                              }`}
+                              className={`flex-row items-center justify-between rounded-lg px-3 py-2 ${selected ? 'bg-[#E6F4EC]' : 'bg-transparent'
+                                }`}
                             >
                               <View>
                                 <Text className="text-xs font-bold text-pine">{u.full_name}</Text>
@@ -841,14 +840,12 @@ export default function HouseholdsView({
                         <Pressable
                           key={opt}
                           onPress={() => setMemberRole(opt)}
-                          className={`flex-1 items-center rounded-xl py-2.5 border ${
-                            active ? 'bg-pine border-pine' : 'bg-white border-[#DCECE3]'
-                          }`}
+                          className={`flex-1 items-center rounded-xl py-2.5 border ${active ? 'bg-pine border-pine' : 'bg-white border-[#DCECE3]'
+                            }`}
                         >
                           <Text
-                            className={`text-xs font-extrabold uppercase ${
-                              active ? 'text-white' : 'text-pine'
-                            }`}
+                            className={`text-xs font-extrabold uppercase ${active ? 'text-white' : 'text-pine'
+                              }`}
                           >
                             {opt}
                           </Text>
@@ -870,14 +867,12 @@ export default function HouseholdsView({
                         <Pressable
                           key={opt}
                           onPress={() => setMemberType(opt)}
-                          className={`flex-1 items-center rounded-xl py-2.5 border ${
-                            active ? 'bg-pine border-pine' : 'bg-white border-[#DCECE3]'
-                          }`}
+                          className={`flex-1 items-center rounded-xl py-2.5 border ${active ? 'bg-pine border-pine' : 'bg-white border-[#DCECE3]'
+                            }`}
                         >
                           <Text
-                            className={`text-xs font-extrabold uppercase ${
-                              active ? 'text-white' : 'text-pine'
-                            }`}
+                            className={`text-xs font-extrabold uppercase ${active ? 'text-white' : 'text-pine'
+                              }`}
                           >
                             {opt}
                           </Text>
@@ -922,9 +917,8 @@ export default function HouseholdsView({
                             setMemberAuxiliarId(null);
                             setOpenMemberDropdown(null);
                           }}
-                          className={`flex-row items-center justify-between rounded-lg px-3 py-2 ${
-                            memberAuxiliarId === null ? 'bg-[#E6F4EC]' : 'bg-transparent'
-                          }`}
+                          className={`flex-row items-center justify-between rounded-lg px-3 py-2 ${memberAuxiliarId === null ? 'bg-[#E6F4EC]' : 'bg-transparent'
+                            }`}
                         >
                           <Text className="text-xs font-bold text-pine">
                             {t(COMMON_CONSTANTS.NONE)}
@@ -943,9 +937,8 @@ export default function HouseholdsView({
                                 setMemberAuxiliarId(aux.id);
                                 setOpenMemberDropdown(null);
                               }}
-                              className={`flex-row items-center justify-between rounded-lg px-3 py-2 ${
-                                selected ? 'bg-[#E6F4EC]' : 'bg-transparent'
-                              }`}
+                              className={`flex-row items-center justify-between rounded-lg px-3 py-2 ${selected ? 'bg-[#E6F4EC]' : 'bg-transparent'
+                                }`}
                             >
                               <Text className="text-xs font-bold text-[#12211B]">
                                 {aux.code} — {aux.name}
@@ -1307,9 +1300,8 @@ export default function HouseholdsView({
                             setBusinessTypeId(bt.id);
                             setOpenHhDropdown(null);
                           }}
-                          className={`flex-row items-center justify-between rounded-lg px-3 py-2 ${
-                            selected ? 'bg-[#E6F4EC]' : 'bg-transparent'
-                          }`}
+                          className={`flex-row items-center justify-between rounded-lg px-3 py-2 ${selected ? 'bg-[#E6F4EC]' : 'bg-transparent'
+                            }`}
                         >
                           <Text className="text-xs font-bold text-pine">
                             {bt.name} ({bt.code})
@@ -1332,7 +1324,7 @@ export default function HouseholdsView({
                 <TextInput
                   value={name}
                   onChangeText={setName}
-                  placeholder="Morales Family"
+                  placeholder="Smith Family"
                   placeholderTextColor="#8FA198"
                   className="rounded-xl bg-white px-3.5 py-2.5 text-sm text-[#12211B] border border-[#DCECE3]"
                 />
@@ -1350,14 +1342,12 @@ export default function HouseholdsView({
                       <Pressable
                         key={curr}
                         onPress={() => setCurrency(curr)}
-                        className={`flex-1 items-center rounded-xl py-2.5 border ${
-                          active ? 'bg-pine border-pine' : 'bg-white border-[#DCECE3]'
-                        }`}
+                        className={`flex-1 items-center rounded-xl py-2.5 border ${active ? 'bg-pine border-pine' : 'bg-white border-[#DCECE3]'
+                          }`}
                       >
                         <Text
-                          className={`text-xs font-extrabold ${
-                            active ? 'text-white' : 'text-pine'
-                          }`}
+                          className={`text-xs font-extrabold ${active ? 'text-white' : 'text-pine'
+                            }`}
                         >
                           {curr}
                         </Text>
@@ -1400,9 +1390,8 @@ export default function HouseholdsView({
                           setAuxiliarId(null);
                           setOpenHhDropdown(null);
                         }}
-                        className={`flex-row items-center justify-between rounded-lg px-3 py-2 ${
-                          auxiliarId === null ? 'bg-[#E6F4EC]' : 'bg-transparent'
-                        }`}
+                        className={`flex-row items-center justify-between rounded-lg px-3 py-2 ${auxiliarId === null ? 'bg-[#E6F4EC]' : 'bg-transparent'
+                          }`}
                       >
                         <Text className="text-xs font-bold text-pine">
                           {t(COMMON_CONSTANTS.NONE)}
@@ -1421,9 +1410,8 @@ export default function HouseholdsView({
                               setAuxiliarId(aux.id);
                               setOpenHhDropdown(null);
                             }}
-                            className={`flex-row items-center justify-between rounded-lg px-3 py-2 ${
-                              selected ? 'bg-[#E6F4EC]' : 'bg-transparent'
-                            }`}
+                            className={`flex-row items-center justify-between rounded-lg px-3 py-2 ${selected ? 'bg-[#E6F4EC]' : 'bg-transparent'
+                              }`}
                           >
                             <Text className="text-xs font-bold text-[#12211B]">
                               {aux.code} — {aux.name}
