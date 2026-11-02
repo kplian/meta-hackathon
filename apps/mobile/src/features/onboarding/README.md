@@ -59,3 +59,7 @@ The catalog is `budget.thealth_option`. Kinds are `allergen`, `diet`, `condition
 A profile includes `conditions`, `weight_kg` and `height_cm`. Tag lists such as `conditions` accept catalog codes or free text; text that matches a label or keyword is saved as the catalog code. The opt-in is `health_opt_in` on `thousehold.preferences`, written with `f_set_household_preference`. The menu step suggests 40% of the pyramid needs level and saves that monthly supermarket limit to `tbudget` with `f_set_food_budget`.
 
 Checks: `npm run test:health`, and reversible SQL `tests/health-meal-plans.sql` and `tests/onboarding-health.sql`.
+
+## Personal WhatsApp
+
+After the members step, only the household creator is offered an optional WhatsApp registration for their own profile. Other members are not asked for numbers during onboarding. Every signed-in member can add, edit or remove their own international number in Profile. Channels use `budget.tchannel`, owner-only RLS and `f_set_my_whatsapp`; numbers are unverified and registration does not opt into bot messages. The additional optional question adds one step for the creator.

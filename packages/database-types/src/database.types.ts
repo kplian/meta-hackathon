@@ -1759,6 +1759,9 @@ isOneToOne: false
 "f_set_household_preference":
 { Args: { "p_household_id": string,"p_key": string,"p_value": Json }; Returns: Json
                            },
+"f_set_my_whatsapp":
+{ Args: { "p_phone": string }; Returns: undefined
+                           },
 "f_transfer_saving_vault":
 { Args: { "p_destination": Json,"p_destination_amount": number | string,"p_household_id": string,"p_household_per_usd"?: number | string,"p_note"?: string,"p_rate_as_of"?: string,"p_request_id": string,"p_source": Json,"p_source_amount": number | string }; Returns: string
                            },
