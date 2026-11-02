@@ -1,0 +1,863 @@
+{
+  "workflowId": "Mp1ACq1Zxypiktdg",
+  "nodes": [
+    {
+      "name": "WhatsApp entry",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {
+          "messageStatusUpdates": []
+        }
+      },
+      "position": [
+        0,
+        0
+      ],
+      "credential": {
+        "key": "whatsAppTriggerApi",
+        "id": "2FeT8VcF0ZStRcFL",
+        "name": "WhatsApp DEV"
+      }
+    },
+    {
+      "name": "Telegram entry",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {
+          "download": false
+        }
+      },
+      "position": [
+        0,
+        250
+      ],
+      "credential": {
+        "key": "telegramApi",
+        "id": "5QPZfZspne7yifAe",
+        "name": "Telegram account 2"
+      }
+    },
+    {
+      "name": "Normalize WhatsApp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Pure channel adapters. Their callers must be the authenticated native triggers.\nfunction normalizeWhatsApp(event) {\n  const accountId = String(event?.metadata?.phone_number_id || '');\n  if (!/^\\d+$/.test(accountId) || !Array.isArray(event?.messages)) return [];\n  return event.messages.flatMap(message => {\n    const sender = String(message.from || '');\n    if (!/^\\d+$/.test(sender) || !message.id) return [];\n    const kind = ['voice', 'audio'].includes(message.type) ? 'audio'\n      : ['text', 'image', 'document'].includes(message.type) ? message.type : 'unsupported';\n    const media = message[message.type] || {};\n    return [{ version: 1, message: {\n      id: String(message.id), kind,\n      text: String(message.text?.body || media.caption || ''),\n      attachments: media.id ? [{ id: String(media.id), mimeType: media.mime_type || null, fileName: media.filename || null }] : [],\n    }, localeHint: null, transport: {\n      channel: 'whatsapp', senderId: sender, recipientId: sender,\n      accountId, messageId: String(message.id),\n    } }];\n  });\n}\n\nfunction normalizeTelegram(update) {\n  const message = update?.message;\n  // Financial conversations are private. Groups, bot senders and edited updates\n  // must not reuse a private user's identity or leak financial replies to a group.\n  if (!message || message.chat?.type !== 'private' || message.from?.is_bot) return [];\n  const sender = String(message.from?.id || '');\n  const recipient = String(message.chat?.id || '');\n  if (!/^\\d+$/.test(sender) || recipient !== sender || message.message_id === undefined) return [];\n  const media = message.voice || message.audio || message.photo?.at(-1) || message.document;\n  const kind = message.voice || message.audio ? 'audio' : message.photo ? 'image'\n    : message.document ? 'document' : typeof message.text === 'string' ? 'text' : 'unsupported';\n  return [{ version: 1, message: {\n    id: `${update.update_id}:${message.message_id}`, kind,\n    text: String(message.text || message.caption || ''),\n    attachments: media?.file_id ? [{ id: String(media.file_id), mimeType: media.mime_type || null, fileName: media.file_name || null }] : [],\n  }, localeHint: message.from.language_code || null, transport: {\n    channel: 'telegram', senderId: sender, recipientId: recipient,\n    accountId: null, messageId: String(message.message_id),\n  } }];\n}\n\nfunction supportedLocale(value) {\n  const code = String(value || '').toLowerCase().split(/[-_]/)[0];\n  return ['es', 'en', 'pt'].includes(code) ? code : null;\n}\n\nfunction detectTextLocale(text) {\n  const input = String(text || '').toLowerCase();\n  const explicit = input.match(/^\\/(?:lang|language|idioma|start)\\s+(es|en|pt)\\b/);\n  if (explicit) return explicit[1];\n  const words = input.match(/[\\p{L}]+/gu) || [];\n  const dictionaries = {\n    es: ['hola', 'buenas', 'quiero', 'necesito', 'gasté', 'gasto', 'cuánto', 'hogar', 'ingresos', 'ayuda', 'registrarme', 'gracias', 'español'],\n    en: ['hello', 'hi', 'please', 'spent', 'spend', 'income', 'expense', 'register', 'account', 'help', 'thanks', 'balance', 'english'],\n    pt: ['oi', 'olá', 'bom', 'obrigado', 'obrigada', 'quero', 'preciso', 'gastei', 'despesa', 'receita', 'família', 'cadastro', 'ajuda', 'português'],\n  };\n  const scores = Object.entries(dictionaries).map(([locale, dictionary]) => ({ locale, score: words.filter(word => dictionary.includes(word)).length }));\n  scores.sort((a, b) => b.score - a.score);\n  return scores[0].score > 0 && scores[0].score > scores[1].score ? scores[0].locale : null;\n}\n\nfunction selectLocale(envelope, profileLocale) {\n  return detectTextLocale(envelope.message.text) || supportedLocale(profileLocale) || supportedLocale(envelope.localeHint);\n}\n\nfunction authorizeContext(envelope, httpResponse) {\n  const status = httpResponse?.statusCode ?? 200;\n  const body = httpResponse?.body ?? httpResponse;\n  const healthy = status >= 200 && status < 300 && body?.success === true;\n  const registered = healthy && body.registered === true && typeof body.user?.id === 'string';\n  return {\n    ...envelope,\n    state: registered ? 'registered' : healthy && body.registered === false ? 'unregistered' : 'unavailable',\n    locale: selectLocale(envelope, registered ? body.user.locale : null),\n    user: registered ? body.user : null,\n  };\n}\n\nfunction genericReply(context, reason = context.state) {\n  const catalog = {\n    unregistered: {\n      es: 'Para usar el asistente, crea tu cuenta en la app y vincula este medio de contacto. Si ya tienes cuenta, verifica que este contacto esté vinculado.',\n      en: 'To use the assistant, create an account in the app and link this contact method. If you already have an account, make sure this contact is linked.',\n      pt: 'Para usar o assistente, crie sua conta no app e vincule este meio de contato. Se já tem uma conta, verifique se este contato está vinculado.',\n    },\n    unavailable: {\n      es: 'No pudimos verificar tu cuenta en este momento. Inténtalo más tarde.',\n      en: 'We could not verify your account right now. Please try again later.',\n      pt: 'Não foi possível verificar sua conta agora. Tente novamente mais tarde.',\n    },\n    unsupported: {\n      es: 'Envíame tu consulta como texto, audio, imagen o documento.',\n      en: 'Please send your question as text, audio, an image or a document.',\n      pt: 'Envie sua pergunta como texto, áudio, imagem ou documento.',\n    },\n  };\n  const messages = catalog[reason];\n  if (!messages) throw new Error('Unknown generic reply');\n  const text = context.locale ? messages[context.locale] : ['es', 'en', 'pt'].map(locale => messages[locale]).join('\\n\\n');\n  return { text };\n}\n\nfunction assistantInput(context, content) {\n  if (context.state !== 'registered') throw new Error('Unregistered users cannot reach the assistant');\n  const text = typeof content === 'string' && content.trim() ? content : context.message.text;\n  // This is the ONLY object serialized into the model prompt. No provider IDs,\n  // routing, webhook headers, token, raw event or signature is included.\n  return {\n    message: { text, kind: context.message.kind, attachments: context.message.attachments.map(file => ({ mimeType: file.mimeType, fileName: file.fileName })) },\n    user: { name: context.user.name, households: context.user.households || [] },\n    locale: context.locale,\n  };\n}\n\nfunction standardReply(output) {\n  const text = typeof output === 'string' ? output : output?.text;\n  if (typeof text !== 'string' || !text.trim()) throw new Error('EMPTY_ASSISTANT_REPLY');\n  return { text };\n}\n\nfunction chunkReply(reply, transport) {\n  const result = [];\n  let remaining = standardReply(reply).text;\n  while (remaining.length) {\n    let end = Math.min(4000, remaining.length);\n    // Avoid cutting an emoji surrogate pair in half. The conservative limit also\n    // fits both channels' text limits, without truncating a financial report.\n    if (end < remaining.length && /[\\uD800-\\uDBFF]/.test(remaining[end - 1])) end--;\n    result.push({ reply: { text: remaining.slice(0, end) }, transport });\n    remaining = remaining.slice(end);\n  }\n  return result;\n}\n\nfunction whatsappReply(item) {\n  if (item.transport.channel !== 'whatsapp') throw new Error('Wrong outbound adapter');\n  const to = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(to)) throw new Error('Invalid recipient');\n  return { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { body: standardReply(item.reply).text } };\n}\n\nfunction telegramReply(item) {\n  if (item.transport.channel !== 'telegram') throw new Error('Wrong outbound adapter');\n  const chatId = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(chatId)) throw new Error('Invalid recipient');\n  // Explicit HTML with escaped text avoids accidental Markdown/HTML parse errors.\n  const text = standardReply(item.reply).text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  return { chatId, text };\n}\n\nreturn $input.all().flatMap((item, index) => normalizeWhatsApp(item.json).map(json => ({ json, pairedItem: { item: index } })));"
+      },
+      "position": [
+        250,
+        0
+      ],
+      "keep": "Code in JavaScript1"
+    },
+    {
+      "name": "Normalize Telegram",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Pure channel adapters. Their callers must be the authenticated native triggers.\nfunction normalizeWhatsApp(event) {\n  const accountId = String(event?.metadata?.phone_number_id || '');\n  if (!/^\\d+$/.test(accountId) || !Array.isArray(event?.messages)) return [];\n  return event.messages.flatMap(message => {\n    const sender = String(message.from || '');\n    if (!/^\\d+$/.test(sender) || !message.id) return [];\n    const kind = ['voice', 'audio'].includes(message.type) ? 'audio'\n      : ['text', 'image', 'document'].includes(message.type) ? message.type : 'unsupported';\n    const media = message[message.type] || {};\n    return [{ version: 1, message: {\n      id: String(message.id), kind,\n      text: String(message.text?.body || media.caption || ''),\n      attachments: media.id ? [{ id: String(media.id), mimeType: media.mime_type || null, fileName: media.filename || null }] : [],\n    }, localeHint: null, transport: {\n      channel: 'whatsapp', senderId: sender, recipientId: sender,\n      accountId, messageId: String(message.id),\n    } }];\n  });\n}\n\nfunction normalizeTelegram(update) {\n  const message = update?.message;\n  // Financial conversations are private. Groups, bot senders and edited updates\n  // must not reuse a private user's identity or leak financial replies to a group.\n  if (!message || message.chat?.type !== 'private' || message.from?.is_bot) return [];\n  const sender = String(message.from?.id || '');\n  const recipient = String(message.chat?.id || '');\n  if (!/^\\d+$/.test(sender) || recipient !== sender || message.message_id === undefined) return [];\n  const media = message.voice || message.audio || message.photo?.at(-1) || message.document;\n  const kind = message.voice || message.audio ? 'audio' : message.photo ? 'image'\n    : message.document ? 'document' : typeof message.text === 'string' ? 'text' : 'unsupported';\n  return [{ version: 1, message: {\n    id: `${update.update_id}:${message.message_id}`, kind,\n    text: String(message.text || message.caption || ''),\n    attachments: media?.file_id ? [{ id: String(media.file_id), mimeType: media.mime_type || null, fileName: media.file_name || null }] : [],\n  }, localeHint: message.from.language_code || null, transport: {\n    channel: 'telegram', senderId: sender, recipientId: recipient,\n    accountId: null, messageId: String(message.message_id),\n  } }];\n}\n\nfunction supportedLocale(value) {\n  const code = String(value || '').toLowerCase().split(/[-_]/)[0];\n  return ['es', 'en', 'pt'].includes(code) ? code : null;\n}\n\nfunction detectTextLocale(text) {\n  const input = String(text || '').toLowerCase();\n  const explicit = input.match(/^\\/(?:lang|language|idioma|start)\\s+(es|en|pt)\\b/);\n  if (explicit) return explicit[1];\n  const words = input.match(/[\\p{L}]+/gu) || [];\n  const dictionaries = {\n    es: ['hola', 'buenas', 'quiero', 'necesito', 'gasté', 'gasto', 'cuánto', 'hogar', 'ingresos', 'ayuda', 'registrarme', 'gracias', 'español'],\n    en: ['hello', 'hi', 'please', 'spent', 'spend', 'income', 'expense', 'register', 'account', 'help', 'thanks', 'balance', 'english'],\n    pt: ['oi', 'olá', 'bom', 'obrigado', 'obrigada', 'quero', 'preciso', 'gastei', 'despesa', 'receita', 'família', 'cadastro', 'ajuda', 'português'],\n  };\n  const scores = Object.entries(dictionaries).map(([locale, dictionary]) => ({ locale, score: words.filter(word => dictionary.includes(word)).length }));\n  scores.sort((a, b) => b.score - a.score);\n  return scores[0].score > 0 && scores[0].score > scores[1].score ? scores[0].locale : null;\n}\n\nfunction selectLocale(envelope, profileLocale) {\n  return detectTextLocale(envelope.message.text) || supportedLocale(profileLocale) || supportedLocale(envelope.localeHint);\n}\n\nfunction authorizeContext(envelope, httpResponse) {\n  const status = httpResponse?.statusCode ?? 200;\n  const body = httpResponse?.body ?? httpResponse;\n  const healthy = status >= 200 && status < 300 && body?.success === true;\n  const registered = healthy && body.registered === true && typeof body.user?.id === 'string';\n  return {\n    ...envelope,\n    state: registered ? 'registered' : healthy && body.registered === false ? 'unregistered' : 'unavailable',\n    locale: selectLocale(envelope, registered ? body.user.locale : null),\n    user: registered ? body.user : null,\n  };\n}\n\nfunction genericReply(context, reason = context.state) {\n  const catalog = {\n    unregistered: {\n      es: 'Para usar el asistente, crea tu cuenta en la app y vincula este medio de contacto. Si ya tienes cuenta, verifica que este contacto esté vinculado.',\n      en: 'To use the assistant, create an account in the app and link this contact method. If you already have an account, make sure this contact is linked.',\n      pt: 'Para usar o assistente, crie sua conta no app e vincule este meio de contato. Se já tem uma conta, verifique se este contato está vinculado.',\n    },\n    unavailable: {\n      es: 'No pudimos verificar tu cuenta en este momento. Inténtalo más tarde.',\n      en: 'We could not verify your account right now. Please try again later.',\n      pt: 'Não foi possível verificar sua conta agora. Tente novamente mais tarde.',\n    },\n    unsupported: {\n      es: 'Envíame tu consulta como texto, audio, imagen o documento.',\n      en: 'Please send your question as text, audio, an image or a document.',\n      pt: 'Envie sua pergunta como texto, áudio, imagem ou documento.',\n    },\n  };\n  const messages = catalog[reason];\n  if (!messages) throw new Error('Unknown generic reply');\n  const text = context.locale ? messages[context.locale] : ['es', 'en', 'pt'].map(locale => messages[locale]).join('\\n\\n');\n  return { text };\n}\n\nfunction assistantInput(context, content) {\n  if (context.state !== 'registered') throw new Error('Unregistered users cannot reach the assistant');\n  const text = typeof content === 'string' && content.trim() ? content : context.message.text;\n  // This is the ONLY object serialized into the model prompt. No provider IDs,\n  // routing, webhook headers, token, raw event or signature is included.\n  return {\n    message: { text, kind: context.message.kind, attachments: context.message.attachments.map(file => ({ mimeType: file.mimeType, fileName: file.fileName })) },\n    user: { name: context.user.name, households: context.user.households || [] },\n    locale: context.locale,\n  };\n}\n\nfunction standardReply(output) {\n  const text = typeof output === 'string' ? output : output?.text;\n  if (typeof text !== 'string' || !text.trim()) throw new Error('EMPTY_ASSISTANT_REPLY');\n  return { text };\n}\n\nfunction chunkReply(reply, transport) {\n  const result = [];\n  let remaining = standardReply(reply).text;\n  while (remaining.length) {\n    let end = Math.min(4000, remaining.length);\n    // Avoid cutting an emoji surrogate pair in half. The conservative limit also\n    // fits both channels' text limits, without truncating a financial report.\n    if (end < remaining.length && /[\\uD800-\\uDBFF]/.test(remaining[end - 1])) end--;\n    result.push({ reply: { text: remaining.slice(0, end) }, transport });\n    remaining = remaining.slice(end);\n  }\n  return result;\n}\n\nfunction whatsappReply(item) {\n  if (item.transport.channel !== 'whatsapp') throw new Error('Wrong outbound adapter');\n  const to = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(to)) throw new Error('Invalid recipient');\n  return { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { body: standardReply(item.reply).text } };\n}\n\nfunction telegramReply(item) {\n  if (item.transport.channel !== 'telegram') throw new Error('Wrong outbound adapter');\n  const chatId = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(chatId)) throw new Error('Invalid recipient');\n  // Explicit HTML with escaped text avoids accidental Markdown/HTML parse errors.\n  const text = standardReply(item.reply).text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  return { chatId, text };\n}\n\nreturn $input.all().flatMap((item, index) => normalizeTelegram(item.json).map(json => ({ json, pairedItem: { item: index } })));"
+      },
+      "position": [
+        250,
+        250
+      ]
+    },
+    {
+      "name": "One message at a time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "position": [
+        500,
+        100
+      ]
+    },
+    {
+      "name": "Resolve registration",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "parameters": {
+        "method": "POST",
+        "url": "https://ywibmualqaipmygmrojz.supabase.co/rest/v1/rpc/f_messaging_context_lab",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Profile",
+              "value": "budget"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ ({p_channel_type: $json.transport.channel, p_channel_code: $json.transport.senderId}) }}",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "position": [
+        750,
+        100
+      ],
+      "credential": {
+        "key": "supabaseApi",
+        "id": "D7CKuo645oY8I6Dc",
+        "name": "Supabase account 2"
+      }
+    },
+    {
+      "name": "Authorized context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Pure channel adapters. Their callers must be the authenticated native triggers.\nfunction normalizeWhatsApp(event) {\n  const accountId = String(event?.metadata?.phone_number_id || '');\n  if (!/^\\d+$/.test(accountId) || !Array.isArray(event?.messages)) return [];\n  return event.messages.flatMap(message => {\n    const sender = String(message.from || '');\n    if (!/^\\d+$/.test(sender) || !message.id) return [];\n    const kind = ['voice', 'audio'].includes(message.type) ? 'audio'\n      : ['text', 'image', 'document'].includes(message.type) ? message.type : 'unsupported';\n    const media = message[message.type] || {};\n    return [{ version: 1, message: {\n      id: String(message.id), kind,\n      text: String(message.text?.body || media.caption || ''),\n      attachments: media.id ? [{ id: String(media.id), mimeType: media.mime_type || null, fileName: media.filename || null }] : [],\n    }, localeHint: null, transport: {\n      channel: 'whatsapp', senderId: sender, recipientId: sender,\n      accountId, messageId: String(message.id),\n    } }];\n  });\n}\n\nfunction normalizeTelegram(update) {\n  const message = update?.message;\n  // Financial conversations are private. Groups, bot senders and edited updates\n  // must not reuse a private user's identity or leak financial replies to a group.\n  if (!message || message.chat?.type !== 'private' || message.from?.is_bot) return [];\n  const sender = String(message.from?.id || '');\n  const recipient = String(message.chat?.id || '');\n  if (!/^\\d+$/.test(sender) || recipient !== sender || message.message_id === undefined) return [];\n  const media = message.voice || message.audio || message.photo?.at(-1) || message.document;\n  const kind = message.voice || message.audio ? 'audio' : message.photo ? 'image'\n    : message.document ? 'document' : typeof message.text === 'string' ? 'text' : 'unsupported';\n  return [{ version: 1, message: {\n    id: `${update.update_id}:${message.message_id}`, kind,\n    text: String(message.text || message.caption || ''),\n    attachments: media?.file_id ? [{ id: String(media.file_id), mimeType: media.mime_type || null, fileName: media.file_name || null }] : [],\n  }, localeHint: message.from.language_code || null, transport: {\n    channel: 'telegram', senderId: sender, recipientId: recipient,\n    accountId: null, messageId: String(message.message_id),\n  } }];\n}\n\nfunction supportedLocale(value) {\n  const code = String(value || '').toLowerCase().split(/[-_]/)[0];\n  return ['es', 'en', 'pt'].includes(code) ? code : null;\n}\n\nfunction detectTextLocale(text) {\n  const input = String(text || '').toLowerCase();\n  const explicit = input.match(/^\\/(?:lang|language|idioma|start)\\s+(es|en|pt)\\b/);\n  if (explicit) return explicit[1];\n  const words = input.match(/[\\p{L}]+/gu) || [];\n  const dictionaries = {\n    es: ['hola', 'buenas', 'quiero', 'necesito', 'gasté', 'gasto', 'cuánto', 'hogar', 'ingresos', 'ayuda', 'registrarme', 'gracias', 'español'],\n    en: ['hello', 'hi', 'please', 'spent', 'spend', 'income', 'expense', 'register', 'account', 'help', 'thanks', 'balance', 'english'],\n    pt: ['oi', 'olá', 'bom', 'obrigado', 'obrigada', 'quero', 'preciso', 'gastei', 'despesa', 'receita', 'família', 'cadastro', 'ajuda', 'português'],\n  };\n  const scores = Object.entries(dictionaries).map(([locale, dictionary]) => ({ locale, score: words.filter(word => dictionary.includes(word)).length }));\n  scores.sort((a, b) => b.score - a.score);\n  return scores[0].score > 0 && scores[0].score > scores[1].score ? scores[0].locale : null;\n}\n\nfunction selectLocale(envelope, profileLocale) {\n  return detectTextLocale(envelope.message.text) || supportedLocale(profileLocale) || supportedLocale(envelope.localeHint);\n}\n\nfunction authorizeContext(envelope, httpResponse) {\n  const status = httpResponse?.statusCode ?? 200;\n  const body = httpResponse?.body ?? httpResponse;\n  const healthy = status >= 200 && status < 300 && body?.success === true;\n  const registered = healthy && body.registered === true && typeof body.user?.id === 'string';\n  return {\n    ...envelope,\n    state: registered ? 'registered' : healthy && body.registered === false ? 'unregistered' : 'unavailable',\n    locale: selectLocale(envelope, registered ? body.user.locale : null),\n    user: registered ? body.user : null,\n  };\n}\n\nfunction genericReply(context, reason = context.state) {\n  const catalog = {\n    unregistered: {\n      es: 'Para usar el asistente, crea tu cuenta en la app y vincula este medio de contacto. Si ya tienes cuenta, verifica que este contacto esté vinculado.',\n      en: 'To use the assistant, create an account in the app and link this contact method. If you already have an account, make sure this contact is linked.',\n      pt: 'Para usar o assistente, crie sua conta no app e vincule este meio de contato. Se já tem uma conta, verifique se este contato está vinculado.',\n    },\n    unavailable: {\n      es: 'No pudimos verificar tu cuenta en este momento. Inténtalo más tarde.',\n      en: 'We could not verify your account right now. Please try again later.',\n      pt: 'Não foi possível verificar sua conta agora. Tente novamente mais tarde.',\n    },\n    unsupported: {\n      es: 'Envíame tu consulta como texto, audio, imagen o documento.',\n      en: 'Please send your question as text, audio, an image or a document.',\n      pt: 'Envie sua pergunta como texto, áudio, imagem ou documento.',\n    },\n  };\n  const messages = catalog[reason];\n  if (!messages) throw new Error('Unknown generic reply');\n  const text = context.locale ? messages[context.locale] : ['es', 'en', 'pt'].map(locale => messages[locale]).join('\\n\\n');\n  return { text };\n}\n\nfunction assistantInput(context, content) {\n  if (context.state !== 'registered') throw new Error('Unregistered users cannot reach the assistant');\n  const text = typeof content === 'string' && content.trim() ? content : context.message.text;\n  // This is the ONLY object serialized into the model prompt. No provider IDs,\n  // routing, webhook headers, token, raw event or signature is included.\n  return {\n    message: { text, kind: context.message.kind, attachments: context.message.attachments.map(file => ({ mimeType: file.mimeType, fileName: file.fileName })) },\n    user: { name: context.user.name, households: context.user.households || [] },\n    locale: context.locale,\n  };\n}\n\nfunction standardReply(output) {\n  const text = typeof output === 'string' ? output : output?.text;\n  if (typeof text !== 'string' || !text.trim()) throw new Error('EMPTY_ASSISTANT_REPLY');\n  return { text };\n}\n\nfunction chunkReply(reply, transport) {\n  const result = [];\n  let remaining = standardReply(reply).text;\n  while (remaining.length) {\n    let end = Math.min(4000, remaining.length);\n    // Avoid cutting an emoji surrogate pair in half. The conservative limit also\n    // fits both channels' text limits, without truncating a financial report.\n    if (end < remaining.length && /[\\uD800-\\uDBFF]/.test(remaining[end - 1])) end--;\n    result.push({ reply: { text: remaining.slice(0, end) }, transport });\n    remaining = remaining.slice(end);\n  }\n  return result;\n}\n\nfunction whatsappReply(item) {\n  if (item.transport.channel !== 'whatsapp') throw new Error('Wrong outbound adapter');\n  const to = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(to)) throw new Error('Invalid recipient');\n  return { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { body: standardReply(item.reply).text } };\n}\n\nfunction telegramReply(item) {\n  if (item.transport.channel !== 'telegram') throw new Error('Wrong outbound adapter');\n  const chatId = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(chatId)) throw new Error('Invalid recipient');\n  // Explicit HTML with escaped text avoids accidental Markdown/HTML parse errors.\n  const text = standardReply(item.reply).text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  return { chatId, text };\n}\n\nconst source = $('One message at a time').item.json; return { json: authorizeContext(source, $input.item.json) };"
+      },
+      "position": [
+        1000,
+        100
+      ]
+    },
+    {
+      "name": "Registered user?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.state }}",
+              "rightValue": "registered",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1250,
+        100
+      ]
+    },
+    {
+      "name": "Registration reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Pure channel adapters. Their callers must be the authenticated native triggers.\nfunction normalizeWhatsApp(event) {\n  const accountId = String(event?.metadata?.phone_number_id || '');\n  if (!/^\\d+$/.test(accountId) || !Array.isArray(event?.messages)) return [];\n  return event.messages.flatMap(message => {\n    const sender = String(message.from || '');\n    if (!/^\\d+$/.test(sender) || !message.id) return [];\n    const kind = ['voice', 'audio'].includes(message.type) ? 'audio'\n      : ['text', 'image', 'document'].includes(message.type) ? message.type : 'unsupported';\n    const media = message[message.type] || {};\n    return [{ version: 1, message: {\n      id: String(message.id), kind,\n      text: String(message.text?.body || media.caption || ''),\n      attachments: media.id ? [{ id: String(media.id), mimeType: media.mime_type || null, fileName: media.filename || null }] : [],\n    }, localeHint: null, transport: {\n      channel: 'whatsapp', senderId: sender, recipientId: sender,\n      accountId, messageId: String(message.id),\n    } }];\n  });\n}\n\nfunction normalizeTelegram(update) {\n  const message = update?.message;\n  // Financial conversations are private. Groups, bot senders and edited updates\n  // must not reuse a private user's identity or leak financial replies to a group.\n  if (!message || message.chat?.type !== 'private' || message.from?.is_bot) return [];\n  const sender = String(message.from?.id || '');\n  const recipient = String(message.chat?.id || '');\n  if (!/^\\d+$/.test(sender) || recipient !== sender || message.message_id === undefined) return [];\n  const media = message.voice || message.audio || message.photo?.at(-1) || message.document;\n  const kind = message.voice || message.audio ? 'audio' : message.photo ? 'image'\n    : message.document ? 'document' : typeof message.text === 'string' ? 'text' : 'unsupported';\n  return [{ version: 1, message: {\n    id: `${update.update_id}:${message.message_id}`, kind,\n    text: String(message.text || message.caption || ''),\n    attachments: media?.file_id ? [{ id: String(media.file_id), mimeType: media.mime_type || null, fileName: media.file_name || null }] : [],\n  }, localeHint: message.from.language_code || null, transport: {\n    channel: 'telegram', senderId: sender, recipientId: recipient,\n    accountId: null, messageId: String(message.message_id),\n  } }];\n}\n\nfunction supportedLocale(value) {\n  const code = String(value || '').toLowerCase().split(/[-_]/)[0];\n  return ['es', 'en', 'pt'].includes(code) ? code : null;\n}\n\nfunction detectTextLocale(text) {\n  const input = String(text || '').toLowerCase();\n  const explicit = input.match(/^\\/(?:lang|language|idioma|start)\\s+(es|en|pt)\\b/);\n  if (explicit) return explicit[1];\n  const words = input.match(/[\\p{L}]+/gu) || [];\n  const dictionaries = {\n    es: ['hola', 'buenas', 'quiero', 'necesito', 'gasté', 'gasto', 'cuánto', 'hogar', 'ingresos', 'ayuda', 'registrarme', 'gracias', 'español'],\n    en: ['hello', 'hi', 'please', 'spent', 'spend', 'income', 'expense', 'register', 'account', 'help', 'thanks', 'balance', 'english'],\n    pt: ['oi', 'olá', 'bom', 'obrigado', 'obrigada', 'quero', 'preciso', 'gastei', 'despesa', 'receita', 'família', 'cadastro', 'ajuda', 'português'],\n  };\n  const scores = Object.entries(dictionaries).map(([locale, dictionary]) => ({ locale, score: words.filter(word => dictionary.includes(word)).length }));\n  scores.sort((a, b) => b.score - a.score);\n  return scores[0].score > 0 && scores[0].score > scores[1].score ? scores[0].locale : null;\n}\n\nfunction selectLocale(envelope, profileLocale) {\n  return detectTextLocale(envelope.message.text) || supportedLocale(profileLocale) || supportedLocale(envelope.localeHint);\n}\n\nfunction authorizeContext(envelope, httpResponse) {\n  const status = httpResponse?.statusCode ?? 200;\n  const body = httpResponse?.body ?? httpResponse;\n  const healthy = status >= 200 && status < 300 && body?.success === true;\n  const registered = healthy && body.registered === true && typeof body.user?.id === 'string';\n  return {\n    ...envelope,\n    state: registered ? 'registered' : healthy && body.registered === false ? 'unregistered' : 'unavailable',\n    locale: selectLocale(envelope, registered ? body.user.locale : null),\n    user: registered ? body.user : null,\n  };\n}\n\nfunction genericReply(context, reason = context.state) {\n  const catalog = {\n    unregistered: {\n      es: 'Para usar el asistente, crea tu cuenta en la app y vincula este medio de contacto. Si ya tienes cuenta, verifica que este contacto esté vinculado.',\n      en: 'To use the assistant, create an account in the app and link this contact method. If you already have an account, make sure this contact is linked.',\n      pt: 'Para usar o assistente, crie sua conta no app e vincule este meio de contato. Se já tem uma conta, verifique se este contato está vinculado.',\n    },\n    unavailable: {\n      es: 'No pudimos verificar tu cuenta en este momento. Inténtalo más tarde.',\n      en: 'We could not verify your account right now. Please try again later.',\n      pt: 'Não foi possível verificar sua conta agora. Tente novamente mais tarde.',\n    },\n    unsupported: {\n      es: 'Envíame tu consulta como texto, audio, imagen o documento.',\n      en: 'Please send your question as text, audio, an image or a document.',\n      pt: 'Envie sua pergunta como texto, áudio, imagem ou documento.',\n    },\n  };\n  const messages = catalog[reason];\n  if (!messages) throw new Error('Unknown generic reply');\n  const text = context.locale ? messages[context.locale] : ['es', 'en', 'pt'].map(locale => messages[locale]).join('\\n\\n');\n  return { text };\n}\n\nfunction assistantInput(context, content) {\n  if (context.state !== 'registered') throw new Error('Unregistered users cannot reach the assistant');\n  const text = typeof content === 'string' && content.trim() ? content : context.message.text;\n  // This is the ONLY object serialized into the model prompt. No provider IDs,\n  // routing, webhook headers, token, raw event or signature is included.\n  return {\n    message: { text, kind: context.message.kind, attachments: context.message.attachments.map(file => ({ mimeType: file.mimeType, fileName: file.fileName })) },\n    user: { name: context.user.name, households: context.user.households || [] },\n    locale: context.locale,\n  };\n}\n\nfunction standardReply(output) {\n  const text = typeof output === 'string' ? output : output?.text;\n  if (typeof text !== 'string' || !text.trim()) throw new Error('EMPTY_ASSISTANT_REPLY');\n  return { text };\n}\n\nfunction chunkReply(reply, transport) {\n  const result = [];\n  let remaining = standardReply(reply).text;\n  while (remaining.length) {\n    let end = Math.min(4000, remaining.length);\n    // Avoid cutting an emoji surrogate pair in half. The conservative limit also\n    // fits both channels' text limits, without truncating a financial report.\n    if (end < remaining.length && /[\\uD800-\\uDBFF]/.test(remaining[end - 1])) end--;\n    result.push({ reply: { text: remaining.slice(0, end) }, transport });\n    remaining = remaining.slice(end);\n  }\n  return result;\n}\n\nfunction whatsappReply(item) {\n  if (item.transport.channel !== 'whatsapp') throw new Error('Wrong outbound adapter');\n  const to = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(to)) throw new Error('Invalid recipient');\n  return { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { body: standardReply(item.reply).text } };\n}\n\nfunction telegramReply(item) {\n  if (item.transport.channel !== 'telegram') throw new Error('Wrong outbound adapter');\n  const chatId = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(chatId)) throw new Error('Invalid recipient');\n  // Explicit HTML with escaped text avoids accidental Markdown/HTML parse errors.\n  const text = standardReply(item.reply).text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  return { chatId, text };\n}\n\nreturn { json: { reply: genericReply($input.item.json) } };"
+      },
+      "position": [
+        1500,
+        500
+      ]
+    },
+    {
+      "name": "Content route",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $json.message.kind === 'text' ? 0 : ['audio','image','document'].includes($json.message.kind) ? 1 : 2 }}",
+        "numberOutputs": 3
+      },
+      "position": [
+        1500,
+        0
+      ],
+      "keep": "Switch1"
+    },
+    {
+      "name": "Unsupported reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Pure channel adapters. Their callers must be the authenticated native triggers.\nfunction normalizeWhatsApp(event) {\n  const accountId = String(event?.metadata?.phone_number_id || '');\n  if (!/^\\d+$/.test(accountId) || !Array.isArray(event?.messages)) return [];\n  return event.messages.flatMap(message => {\n    const sender = String(message.from || '');\n    if (!/^\\d+$/.test(sender) || !message.id) return [];\n    const kind = ['voice', 'audio'].includes(message.type) ? 'audio'\n      : ['text', 'image', 'document'].includes(message.type) ? message.type : 'unsupported';\n    const media = message[message.type] || {};\n    return [{ version: 1, message: {\n      id: String(message.id), kind,\n      text: String(message.text?.body || media.caption || ''),\n      attachments: media.id ? [{ id: String(media.id), mimeType: media.mime_type || null, fileName: media.filename || null }] : [],\n    }, localeHint: null, transport: {\n      channel: 'whatsapp', senderId: sender, recipientId: sender,\n      accountId, messageId: String(message.id),\n    } }];\n  });\n}\n\nfunction normalizeTelegram(update) {\n  const message = update?.message;\n  // Financial conversations are private. Groups, bot senders and edited updates\n  // must not reuse a private user's identity or leak financial replies to a group.\n  if (!message || message.chat?.type !== 'private' || message.from?.is_bot) return [];\n  const sender = String(message.from?.id || '');\n  const recipient = String(message.chat?.id || '');\n  if (!/^\\d+$/.test(sender) || recipient !== sender || message.message_id === undefined) return [];\n  const media = message.voice || message.audio || message.photo?.at(-1) || message.document;\n  const kind = message.voice || message.audio ? 'audio' : message.photo ? 'image'\n    : message.document ? 'document' : typeof message.text === 'string' ? 'text' : 'unsupported';\n  return [{ version: 1, message: {\n    id: `${update.update_id}:${message.message_id}`, kind,\n    text: String(message.text || message.caption || ''),\n    attachments: media?.file_id ? [{ id: String(media.file_id), mimeType: media.mime_type || null, fileName: media.file_name || null }] : [],\n  }, localeHint: message.from.language_code || null, transport: {\n    channel: 'telegram', senderId: sender, recipientId: recipient,\n    accountId: null, messageId: String(message.message_id),\n  } }];\n}\n\nfunction supportedLocale(value) {\n  const code = String(value || '').toLowerCase().split(/[-_]/)[0];\n  return ['es', 'en', 'pt'].includes(code) ? code : null;\n}\n\nfunction detectTextLocale(text) {\n  const input = String(text || '').toLowerCase();\n  const explicit = input.match(/^\\/(?:lang|language|idioma|start)\\s+(es|en|pt)\\b/);\n  if (explicit) return explicit[1];\n  const words = input.match(/[\\p{L}]+/gu) || [];\n  const dictionaries = {\n    es: ['hola', 'buenas', 'quiero', 'necesito', 'gasté', 'gasto', 'cuánto', 'hogar', 'ingresos', 'ayuda', 'registrarme', 'gracias', 'español'],\n    en: ['hello', 'hi', 'please', 'spent', 'spend', 'income', 'expense', 'register', 'account', 'help', 'thanks', 'balance', 'english'],\n    pt: ['oi', 'olá', 'bom', 'obrigado', 'obrigada', 'quero', 'preciso', 'gastei', 'despesa', 'receita', 'família', 'cadastro', 'ajuda', 'português'],\n  };\n  const scores = Object.entries(dictionaries).map(([locale, dictionary]) => ({ locale, score: words.filter(word => dictionary.includes(word)).length }));\n  scores.sort((a, b) => b.score - a.score);\n  return scores[0].score > 0 && scores[0].score > scores[1].score ? scores[0].locale : null;\n}\n\nfunction selectLocale(envelope, profileLocale) {\n  return detectTextLocale(envelope.message.text) || supportedLocale(profileLocale) || supportedLocale(envelope.localeHint);\n}\n\nfunction authorizeContext(envelope, httpResponse) {\n  const status = httpResponse?.statusCode ?? 200;\n  const body = httpResponse?.body ?? httpResponse;\n  const healthy = status >= 200 && status < 300 && body?.success === true;\n  const registered = healthy && body.registered === true && typeof body.user?.id === 'string';\n  return {\n    ...envelope,\n    state: registered ? 'registered' : healthy && body.registered === false ? 'unregistered' : 'unavailable',\n    locale: selectLocale(envelope, registered ? body.user.locale : null),\n    user: registered ? body.user : null,\n  };\n}\n\nfunction genericReply(context, reason = context.state) {\n  const catalog = {\n    unregistered: {\n      es: 'Para usar el asistente, crea tu cuenta en la app y vincula este medio de contacto. Si ya tienes cuenta, verifica que este contacto esté vinculado.',\n      en: 'To use the assistant, create an account in the app and link this contact method. If you already have an account, make sure this contact is linked.',\n      pt: 'Para usar o assistente, crie sua conta no app e vincule este meio de contato. Se já tem uma conta, verifique se este contato está vinculado.',\n    },\n    unavailable: {\n      es: 'No pudimos verificar tu cuenta en este momento. Inténtalo más tarde.',\n      en: 'We could not verify your account right now. Please try again later.',\n      pt: 'Não foi possível verificar sua conta agora. Tente novamente mais tarde.',\n    },\n    unsupported: {\n      es: 'Envíame tu consulta como texto, audio, imagen o documento.',\n      en: 'Please send your question as text, audio, an image or a document.',\n      pt: 'Envie sua pergunta como texto, áudio, imagem ou documento.',\n    },\n  };\n  const messages = catalog[reason];\n  if (!messages) throw new Error('Unknown generic reply');\n  const text = context.locale ? messages[context.locale] : ['es', 'en', 'pt'].map(locale => messages[locale]).join('\\n\\n');\n  return { text };\n}\n\nfunction assistantInput(context, content) {\n  if (context.state !== 'registered') throw new Error('Unregistered users cannot reach the assistant');\n  const text = typeof content === 'string' && content.trim() ? content : context.message.text;\n  // This is the ONLY object serialized into the model prompt. No provider IDs,\n  // routing, webhook headers, token, raw event or signature is included.\n  return {\n    message: { text, kind: context.message.kind, attachments: context.message.attachments.map(file => ({ mimeType: file.mimeType, fileName: file.fileName })) },\n    user: { name: context.user.name, households: context.user.households || [] },\n    locale: context.locale,\n  };\n}\n\nfunction standardReply(output) {\n  const text = typeof output === 'string' ? output : output?.text;\n  if (typeof text !== 'string' || !text.trim()) throw new Error('EMPTY_ASSISTANT_REPLY');\n  return { text };\n}\n\nfunction chunkReply(reply, transport) {\n  const result = [];\n  let remaining = standardReply(reply).text;\n  while (remaining.length) {\n    let end = Math.min(4000, remaining.length);\n    // Avoid cutting an emoji surrogate pair in half. The conservative limit also\n    // fits both channels' text limits, without truncating a financial report.\n    if (end < remaining.length && /[\\uD800-\\uDBFF]/.test(remaining[end - 1])) end--;\n    result.push({ reply: { text: remaining.slice(0, end) }, transport });\n    remaining = remaining.slice(end);\n  }\n  return result;\n}\n\nfunction whatsappReply(item) {\n  if (item.transport.channel !== 'whatsapp') throw new Error('Wrong outbound adapter');\n  const to = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(to)) throw new Error('Invalid recipient');\n  return { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { body: standardReply(item.reply).text } };\n}\n\nfunction telegramReply(item) {\n  if (item.transport.channel !== 'telegram') throw new Error('Wrong outbound adapter');\n  const chatId = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(chatId)) throw new Error('Invalid recipient');\n  // Explicit HTML with escaped text avoids accidental Markdown/HTML parse errors.\n  const text = standardReply(item.reply).text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  return { chatId, text };\n}\n\nreturn { json: { reply: genericReply($input.item.json, 'unsupported') } };"
+      },
+      "position": [
+        1750,
+        500
+      ]
+    },
+    {
+      "name": "Media channel",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $json.transport.channel === 'whatsapp' ? 0 : 1 }}",
+        "numberOutputs": 2
+      },
+      "position": [
+        1750,
+        200
+      ]
+    },
+    {
+      "name": "WhatsApp media metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v26.0/{{ $('Authorized context').item.json.message.attachments[0].id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "position": [
+        2000,
+        100
+      ],
+      "credential": {
+        "key": "httpHeaderAuth",
+        "id": "IewFQldhEIETRHZE",
+        "name": "Header Auth Meta 1"
+      },
+      "keep": "HTTP Request1"
+    },
+    {
+      "name": "WhatsApp media download",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "position": [
+        2250,
+        100
+      ],
+      "credential": {
+        "key": "httpHeaderAuth",
+        "id": "IewFQldhEIETRHZE",
+        "name": "Header Auth Meta 1"
+      },
+      "keep": "HTTP Request2"
+    },
+    {
+      "name": "Telegram media download",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "file",
+        "operation": "get",
+        "fileId": "={{ $('Authorized context').item.json.message.attachments[0].id }}",
+        "download": true,
+        "additionalFields": {}
+      },
+      "position": [
+        2250,
+        300
+      ],
+      "credential": {
+        "key": "telegramApi",
+        "id": "5QPZfZspne7yifAe",
+        "name": "Telegram account 2"
+      }
+    },
+    {
+      "name": "Audio or attachment",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $('Authorized context').item.json.message.kind === 'audio' ? 0 : 1 }}",
+        "numberOutputs": 2
+      },
+      "position": [
+        2500,
+        200
+      ]
+    },
+    {
+      "name": "Transcribe audio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/audio/transcriptions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "whisper-large-v3-turbo"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "position": [
+        2750,
+        100
+      ],
+      "credential": {
+        "key": "groqApi",
+        "id": "3j3emt2oYaVfvbZA",
+        "name": "Groq account"
+      },
+      "keep": "Groq Whisper"
+    },
+    {
+      "name": "Assistant input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Pure channel adapters. Their callers must be the authenticated native triggers.\nfunction normalizeWhatsApp(event) {\n  const accountId = String(event?.metadata?.phone_number_id || '');\n  if (!/^\\d+$/.test(accountId) || !Array.isArray(event?.messages)) return [];\n  return event.messages.flatMap(message => {\n    const sender = String(message.from || '');\n    if (!/^\\d+$/.test(sender) || !message.id) return [];\n    const kind = ['voice', 'audio'].includes(message.type) ? 'audio'\n      : ['text', 'image', 'document'].includes(message.type) ? message.type : 'unsupported';\n    const media = message[message.type] || {};\n    return [{ version: 1, message: {\n      id: String(message.id), kind,\n      text: String(message.text?.body || media.caption || ''),\n      attachments: media.id ? [{ id: String(media.id), mimeType: media.mime_type || null, fileName: media.filename || null }] : [],\n    }, localeHint: null, transport: {\n      channel: 'whatsapp', senderId: sender, recipientId: sender,\n      accountId, messageId: String(message.id),\n    } }];\n  });\n}\n\nfunction normalizeTelegram(update) {\n  const message = update?.message;\n  // Financial conversations are private. Groups, bot senders and edited updates\n  // must not reuse a private user's identity or leak financial replies to a group.\n  if (!message || message.chat?.type !== 'private' || message.from?.is_bot) return [];\n  const sender = String(message.from?.id || '');\n  const recipient = String(message.chat?.id || '');\n  if (!/^\\d+$/.test(sender) || recipient !== sender || message.message_id === undefined) return [];\n  const media = message.voice || message.audio || message.photo?.at(-1) || message.document;\n  const kind = message.voice || message.audio ? 'audio' : message.photo ? 'image'\n    : message.document ? 'document' : typeof message.text === 'string' ? 'text' : 'unsupported';\n  return [{ version: 1, message: {\n    id: `${update.update_id}:${message.message_id}`, kind,\n    text: String(message.text || message.caption || ''),\n    attachments: media?.file_id ? [{ id: String(media.file_id), mimeType: media.mime_type || null, fileName: media.file_name || null }] : [],\n  }, localeHint: message.from.language_code || null, transport: {\n    channel: 'telegram', senderId: sender, recipientId: recipient,\n    accountId: null, messageId: String(message.message_id),\n  } }];\n}\n\nfunction supportedLocale(value) {\n  const code = String(value || '').toLowerCase().split(/[-_]/)[0];\n  return ['es', 'en', 'pt'].includes(code) ? code : null;\n}\n\nfunction detectTextLocale(text) {\n  const input = String(text || '').toLowerCase();\n  const explicit = input.match(/^\\/(?:lang|language|idioma|start)\\s+(es|en|pt)\\b/);\n  if (explicit) return explicit[1];\n  const words = input.match(/[\\p{L}]+/gu) || [];\n  const dictionaries = {\n    es: ['hola', 'buenas', 'quiero', 'necesito', 'gasté', 'gasto', 'cuánto', 'hogar', 'ingresos', 'ayuda', 'registrarme', 'gracias', 'español'],\n    en: ['hello', 'hi', 'please', 'spent', 'spend', 'income', 'expense', 'register', 'account', 'help', 'thanks', 'balance', 'english'],\n    pt: ['oi', 'olá', 'bom', 'obrigado', 'obrigada', 'quero', 'preciso', 'gastei', 'despesa', 'receita', 'família', 'cadastro', 'ajuda', 'português'],\n  };\n  const scores = Object.entries(dictionaries).map(([locale, dictionary]) => ({ locale, score: words.filter(word => dictionary.includes(word)).length }));\n  scores.sort((a, b) => b.score - a.score);\n  return scores[0].score > 0 && scores[0].score > scores[1].score ? scores[0].locale : null;\n}\n\nfunction selectLocale(envelope, profileLocale) {\n  return detectTextLocale(envelope.message.text) || supportedLocale(profileLocale) || supportedLocale(envelope.localeHint);\n}\n\nfunction authorizeContext(envelope, httpResponse) {\n  const status = httpResponse?.statusCode ?? 200;\n  const body = httpResponse?.body ?? httpResponse;\n  const healthy = status >= 200 && status < 300 && body?.success === true;\n  const registered = healthy && body.registered === true && typeof body.user?.id === 'string';\n  return {\n    ...envelope,\n    state: registered ? 'registered' : healthy && body.registered === false ? 'unregistered' : 'unavailable',\n    locale: selectLocale(envelope, registered ? body.user.locale : null),\n    user: registered ? body.user : null,\n  };\n}\n\nfunction genericReply(context, reason = context.state) {\n  const catalog = {\n    unregistered: {\n      es: 'Para usar el asistente, crea tu cuenta en la app y vincula este medio de contacto. Si ya tienes cuenta, verifica que este contacto esté vinculado.',\n      en: 'To use the assistant, create an account in the app and link this contact method. If you already have an account, make sure this contact is linked.',\n      pt: 'Para usar o assistente, crie sua conta no app e vincule este meio de contato. Se já tem uma conta, verifique se este contato está vinculado.',\n    },\n    unavailable: {\n      es: 'No pudimos verificar tu cuenta en este momento. Inténtalo más tarde.',\n      en: 'We could not verify your account right now. Please try again later.',\n      pt: 'Não foi possível verificar sua conta agora. Tente novamente mais tarde.',\n    },\n    unsupported: {\n      es: 'Envíame tu consulta como texto, audio, imagen o documento.',\n      en: 'Please send your question as text, audio, an image or a document.',\n      pt: 'Envie sua pergunta como texto, áudio, imagem ou documento.',\n    },\n  };\n  const messages = catalog[reason];\n  if (!messages) throw new Error('Unknown generic reply');\n  const text = context.locale ? messages[context.locale] : ['es', 'en', 'pt'].map(locale => messages[locale]).join('\\n\\n');\n  return { text };\n}\n\nfunction assistantInput(context, content) {\n  if (context.state !== 'registered') throw new Error('Unregistered users cannot reach the assistant');\n  const text = typeof content === 'string' && content.trim() ? content : context.message.text;\n  // This is the ONLY object serialized into the model prompt. No provider IDs,\n  // routing, webhook headers, token, raw event or signature is included.\n  return {\n    message: { text, kind: context.message.kind, attachments: context.message.attachments.map(file => ({ mimeType: file.mimeType, fileName: file.fileName })) },\n    user: { name: context.user.name, households: context.user.households || [] },\n    locale: context.locale,\n  };\n}\n\nfunction standardReply(output) {\n  const text = typeof output === 'string' ? output : output?.text;\n  if (typeof text !== 'string' || !text.trim()) throw new Error('EMPTY_ASSISTANT_REPLY');\n  return { text };\n}\n\nfunction chunkReply(reply, transport) {\n  const result = [];\n  let remaining = standardReply(reply).text;\n  while (remaining.length) {\n    let end = Math.min(4000, remaining.length);\n    // Avoid cutting an emoji surrogate pair in half. The conservative limit also\n    // fits both channels' text limits, without truncating a financial report.\n    if (end < remaining.length && /[\\uD800-\\uDBFF]/.test(remaining[end - 1])) end--;\n    result.push({ reply: { text: remaining.slice(0, end) }, transport });\n    remaining = remaining.slice(end);\n  }\n  return result;\n}\n\nfunction whatsappReply(item) {\n  if (item.transport.channel !== 'whatsapp') throw new Error('Wrong outbound adapter');\n  const to = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(to)) throw new Error('Invalid recipient');\n  return { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { body: standardReply(item.reply).text } };\n}\n\nfunction telegramReply(item) {\n  if (item.transport.channel !== 'telegram') throw new Error('Wrong outbound adapter');\n  const chatId = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(chatId)) throw new Error('Invalid recipient');\n  // Explicit HTML with escaped text avoids accidental Markdown/HTML parse errors.\n  const text = standardReply(item.reply).text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  return { chatId, text };\n}\n\nconst context = $('Authorized context').item.json; const current = $input.item; return { json: { assistant: assistantInput(context, current.json.text) }, ...(current.binary ? { binary: current.binary } : {}) };"
+      },
+      "position": [
+        3000,
+        0
+      ]
+    },
+    {
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json.assistant) }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "POLÍTICA PRIORITARIA DE ERRORES Y REINTENTOS\nEstas reglas tienen prioridad sobre las demás instrucciones y sobre pedidos de insistir:\n1. Lee la respuesta completa de cada herramienta: HTTP statusCode, body y success. HTTP 200 NO significa éxito si body.success=false. Solo confirma una escritura si success=true explícito.\n2. Un error de autorización/permisos (401/403, Unauthorized, BACKEND_ONLY), configuración, JSON/UUID inválido (400/422, 22P02), categoría o monto inválido es permanente para esa llamada. NO vuelvas a llamar a la misma herramienta, ni pruebes otra herramienta para eludirlo, ni cambies datos adivinando. Finaliza con una explicación breve y útil. No digas que guardaste algo.\n3. Si faltan datos, el remitente no está registrado, o el hogar no existe/es ambiguo, pregunta lo necesario y TERMINA este turno. Solo vuelve a intentar en un nuevo mensaje cuando el usuario haya aportado la corrección.\n4. Un timeout o error 5xx en una escritura tiene resultado incierto: NO la repitas porque podría duplicarse. Informa que no pudiste confirmar el registro. No asegures que no se guardó. Tampoco repitas una escritura por 429.\n5. Solo en herramientas de CONSULTA puedes reintentar UNA vez por 429, 502, 503 o 504 explícitos. Si vuelve a fallar, finaliza. No reintentes otros errores ni fallos desconocidos.\n6. No repitas una escritura que ya devolvió success=true. No hagas varias escrituras en paralelo. Si una falla, no sigas con las siguientes.\n7. No reveles claves, SQL, teléfonos ni errores internos al usuario. Da un mensaje sencillo, distingue entre operación rechazada y resultado incierto, y explica qué dato o configuración falta.\nFIN DE POLÍTICA PRIORITARIA\n\n\nEres un asistente familiar de finanzas, ahorro y alimentación. Recibes un mensaje\nestándar; identidad, permisos, canal y entrega se resuelven fuera del modelo.\nDevuelve solo JSON {\"text\":\"respuesta\"}, en el idioma del mensaje (es/en/pt).\nSi el idioma no es claro usa locale y, si falta, español. Sé breve y claro.\n\nLas herramientas vienen del MCP: household, income_sources, transactions,\nassets, vaults, reports y health. Cada una recibe operation y payload (texto con el objeto\nJSON serializado; para no enviar campos usa el texto \"{}\"). Usa solo las operaciones descritas. No puedes crear hogares ni invitar\nusuarios. Puedes añadir integrantes a un hogar existente. No deshagas asientos.\n\nConsulta los hogares/miembros/posiciones/bóvedas cuando necesites sus IDs.\nSi hay varios hogares y no está claro cuál corresponde, pregunta. No pidas al\nusuario UUIDs ni identificadores técnicos. No incluyas identidad ni canal en\npayload. No adivines IDs, cotizaciones, tipos de cambio, montos ni saldos.\n\nPara registrar ingreso/gasto necesitas tipo, concepto y monto. Consulta\ntransactions/categories para gastos. Para ingresos usa income_general. Los\ningresos estimados no son ingresos recibidos. La fecha real la fija el servidor.\nLos ítems opcionales llevan concept, category, amount, quantity y unit_price;\namount es el total de la línea y la suma coincide con el total del movimiento.\n\nDistingue activos que ya tenía (register_initial, no reduce disponible) de una\ncompra nueva (assets/move). Depositar en una bóveda o invertir no es gasto de\nconsumo. Consulta saldo e IDs, explica monto, moneda, origen y destino, y pide\nconfirmación antes de comprar, vender o transferir. No prometas precios en vivo:\npor ahora deben ser proporcionados por el usuario si no están disponibles.\nEl patrimonio usa USD y el disponible usa moneda del hogar; nunca los sumes.\n\nSalud requiere consentimiento health_opt_in explícito; no lo habilites por\niniciativa propia. Consulta catálogo y perfiles antes de cambios. No hagas\ndiagnósticos ni recomendaciones de tratamiento. Las alergias son restricciones\nobligatorias. generate_plan genera, valida y guarda el plan; si falla no digas\nque se guardó. Puede advertir que supera el presupuesto.\n\nLee success en cada respuesta, incluyendo objetos dentro del resultado MCP.\nUna respuesta success:false es un rechazo aunque HTTP haya sido 200. Sigue la\npolítica de errores prioritaria. No repitas escrituras ni actúes en paralelo.\n",
+          "maxIterations": 4,
+          "enableStreaming": false,
+          "passthroughBinaryImages": true
+        }
+      },
+      "position": [
+        3250,
+        0
+      ],
+      "keep": "AI Agent"
+    },
+    {
+      "name": "DeepSeek Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "parameters": {
+        "model": "deepseek-v4-pro",
+        "options": {}
+      },
+      "position": [
+        3000,
+        -400
+      ],
+      "keep": "DeepSeek Chat Model"
+    },
+    {
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ 'messaging:mcp-v1:' + $('Authorized context').item.json.user.id }}",
+        "contextWindowLength": 5
+      },
+      "position": [
+        3250,
+        -400
+      ],
+      "keep": "Simple Memory"
+    },
+    {
+      "name": "Standard response schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\",\"minLength\":1}},\"required\":[\"text\"],\"additionalProperties\":false}",
+        "autoFix": false
+      },
+      "position": [
+        3500,
+        -400
+      ]
+    },
+    {
+      "name": "Standard reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Pure channel adapters. Their callers must be the authenticated native triggers.\nfunction normalizeWhatsApp(event) {\n  const accountId = String(event?.metadata?.phone_number_id || '');\n  if (!/^\\d+$/.test(accountId) || !Array.isArray(event?.messages)) return [];\n  return event.messages.flatMap(message => {\n    const sender = String(message.from || '');\n    if (!/^\\d+$/.test(sender) || !message.id) return [];\n    const kind = ['voice', 'audio'].includes(message.type) ? 'audio'\n      : ['text', 'image', 'document'].includes(message.type) ? message.type : 'unsupported';\n    const media = message[message.type] || {};\n    return [{ version: 1, message: {\n      id: String(message.id), kind,\n      text: String(message.text?.body || media.caption || ''),\n      attachments: media.id ? [{ id: String(media.id), mimeType: media.mime_type || null, fileName: media.filename || null }] : [],\n    }, localeHint: null, transport: {\n      channel: 'whatsapp', senderId: sender, recipientId: sender,\n      accountId, messageId: String(message.id),\n    } }];\n  });\n}\n\nfunction normalizeTelegram(update) {\n  const message = update?.message;\n  // Financial conversations are private. Groups, bot senders and edited updates\n  // must not reuse a private user's identity or leak financial replies to a group.\n  if (!message || message.chat?.type !== 'private' || message.from?.is_bot) return [];\n  const sender = String(message.from?.id || '');\n  const recipient = String(message.chat?.id || '');\n  if (!/^\\d+$/.test(sender) || recipient !== sender || message.message_id === undefined) return [];\n  const media = message.voice || message.audio || message.photo?.at(-1) || message.document;\n  const kind = message.voice || message.audio ? 'audio' : message.photo ? 'image'\n    : message.document ? 'document' : typeof message.text === 'string' ? 'text' : 'unsupported';\n  return [{ version: 1, message: {\n    id: `${update.update_id}:${message.message_id}`, kind,\n    text: String(message.text || message.caption || ''),\n    attachments: media?.file_id ? [{ id: String(media.file_id), mimeType: media.mime_type || null, fileName: media.file_name || null }] : [],\n  }, localeHint: message.from.language_code || null, transport: {\n    channel: 'telegram', senderId: sender, recipientId: recipient,\n    accountId: null, messageId: String(message.message_id),\n  } }];\n}\n\nfunction supportedLocale(value) {\n  const code = String(value || '').toLowerCase().split(/[-_]/)[0];\n  return ['es', 'en', 'pt'].includes(code) ? code : null;\n}\n\nfunction detectTextLocale(text) {\n  const input = String(text || '').toLowerCase();\n  const explicit = input.match(/^\\/(?:lang|language|idioma|start)\\s+(es|en|pt)\\b/);\n  if (explicit) return explicit[1];\n  const words = input.match(/[\\p{L}]+/gu) || [];\n  const dictionaries = {\n    es: ['hola', 'buenas', 'quiero', 'necesito', 'gasté', 'gasto', 'cuánto', 'hogar', 'ingresos', 'ayuda', 'registrarme', 'gracias', 'español'],\n    en: ['hello', 'hi', 'please', 'spent', 'spend', 'income', 'expense', 'register', 'account', 'help', 'thanks', 'balance', 'english'],\n    pt: ['oi', 'olá', 'bom', 'obrigado', 'obrigada', 'quero', 'preciso', 'gastei', 'despesa', 'receita', 'família', 'cadastro', 'ajuda', 'português'],\n  };\n  const scores = Object.entries(dictionaries).map(([locale, dictionary]) => ({ locale, score: words.filter(word => dictionary.includes(word)).length }));\n  scores.sort((a, b) => b.score - a.score);\n  return scores[0].score > 0 && scores[0].score > scores[1].score ? scores[0].locale : null;\n}\n\nfunction selectLocale(envelope, profileLocale) {\n  return detectTextLocale(envelope.message.text) || supportedLocale(profileLocale) || supportedLocale(envelope.localeHint);\n}\n\nfunction authorizeContext(envelope, httpResponse) {\n  const status = httpResponse?.statusCode ?? 200;\n  const body = httpResponse?.body ?? httpResponse;\n  const healthy = status >= 200 && status < 300 && body?.success === true;\n  const registered = healthy && body.registered === true && typeof body.user?.id === 'string';\n  return {\n    ...envelope,\n    state: registered ? 'registered' : healthy && body.registered === false ? 'unregistered' : 'unavailable',\n    locale: selectLocale(envelope, registered ? body.user.locale : null),\n    user: registered ? body.user : null,\n  };\n}\n\nfunction genericReply(context, reason = context.state) {\n  const catalog = {\n    unregistered: {\n      es: 'Para usar el asistente, crea tu cuenta en la app y vincula este medio de contacto. Si ya tienes cuenta, verifica que este contacto esté vinculado.',\n      en: 'To use the assistant, create an account in the app and link this contact method. If you already have an account, make sure this contact is linked.',\n      pt: 'Para usar o assistente, crie sua conta no app e vincule este meio de contato. Se já tem uma conta, verifique se este contato está vinculado.',\n    },\n    unavailable: {\n      es: 'No pudimos verificar tu cuenta en este momento. Inténtalo más tarde.',\n      en: 'We could not verify your account right now. Please try again later.',\n      pt: 'Não foi possível verificar sua conta agora. Tente novamente mais tarde.',\n    },\n    unsupported: {\n      es: 'Envíame tu consulta como texto, audio, imagen o documento.',\n      en: 'Please send your question as text, audio, an image or a document.',\n      pt: 'Envie sua pergunta como texto, áudio, imagem ou documento.',\n    },\n  };\n  const messages = catalog[reason];\n  if (!messages) throw new Error('Unknown generic reply');\n  const text = context.locale ? messages[context.locale] : ['es', 'en', 'pt'].map(locale => messages[locale]).join('\\n\\n');\n  return { text };\n}\n\nfunction assistantInput(context, content) {\n  if (context.state !== 'registered') throw new Error('Unregistered users cannot reach the assistant');\n  const text = typeof content === 'string' && content.trim() ? content : context.message.text;\n  // This is the ONLY object serialized into the model prompt. No provider IDs,\n  // routing, webhook headers, token, raw event or signature is included.\n  return {\n    message: { text, kind: context.message.kind, attachments: context.message.attachments.map(file => ({ mimeType: file.mimeType, fileName: file.fileName })) },\n    user: { name: context.user.name, households: context.user.households || [] },\n    locale: context.locale,\n  };\n}\n\nfunction standardReply(output) {\n  const text = typeof output === 'string' ? output : output?.text;\n  if (typeof text !== 'string' || !text.trim()) throw new Error('EMPTY_ASSISTANT_REPLY');\n  return { text };\n}\n\nfunction chunkReply(reply, transport) {\n  const result = [];\n  let remaining = standardReply(reply).text;\n  while (remaining.length) {\n    let end = Math.min(4000, remaining.length);\n    // Avoid cutting an emoji surrogate pair in half. The conservative limit also\n    // fits both channels' text limits, without truncating a financial report.\n    if (end < remaining.length && /[\\uD800-\\uDBFF]/.test(remaining[end - 1])) end--;\n    result.push({ reply: { text: remaining.slice(0, end) }, transport });\n    remaining = remaining.slice(end);\n  }\n  return result;\n}\n\nfunction whatsappReply(item) {\n  if (item.transport.channel !== 'whatsapp') throw new Error('Wrong outbound adapter');\n  const to = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(to)) throw new Error('Invalid recipient');\n  return { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { body: standardReply(item.reply).text } };\n}\n\nfunction telegramReply(item) {\n  if (item.transport.channel !== 'telegram') throw new Error('Wrong outbound adapter');\n  const chatId = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(chatId)) throw new Error('Invalid recipient');\n  // Explicit HTML with escaped text avoids accidental Markdown/HTML parse errors.\n  const text = standardReply(item.reply).text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  return { chatId, text };\n}\n\nif ($input.all().length !== 1) throw new Error('Expected one authorized message'); const current = $input.first().json; const context = $('Authorized context').item.json; return chunkReply(standardReply(current.reply || current.output), context.transport).map(json => ({ json, pairedItem: { item: 0 } }));"
+      },
+      "position": [
+        3750,
+        100
+      ],
+      "keep": "Code in JavaScript"
+    },
+    {
+      "name": "Reply channel",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $json.transport.channel === 'whatsapp' ? 0 : 1 }}",
+        "numberOutputs": 2
+      },
+      "position": [
+        4000,
+        100
+      ]
+    },
+    {
+      "name": "Format WhatsApp reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Pure channel adapters. Their callers must be the authenticated native triggers.\nfunction normalizeWhatsApp(event) {\n  const accountId = String(event?.metadata?.phone_number_id || '');\n  if (!/^\\d+$/.test(accountId) || !Array.isArray(event?.messages)) return [];\n  return event.messages.flatMap(message => {\n    const sender = String(message.from || '');\n    if (!/^\\d+$/.test(sender) || !message.id) return [];\n    const kind = ['voice', 'audio'].includes(message.type) ? 'audio'\n      : ['text', 'image', 'document'].includes(message.type) ? message.type : 'unsupported';\n    const media = message[message.type] || {};\n    return [{ version: 1, message: {\n      id: String(message.id), kind,\n      text: String(message.text?.body || media.caption || ''),\n      attachments: media.id ? [{ id: String(media.id), mimeType: media.mime_type || null, fileName: media.filename || null }] : [],\n    }, localeHint: null, transport: {\n      channel: 'whatsapp', senderId: sender, recipientId: sender,\n      accountId, messageId: String(message.id),\n    } }];\n  });\n}\n\nfunction normalizeTelegram(update) {\n  const message = update?.message;\n  // Financial conversations are private. Groups, bot senders and edited updates\n  // must not reuse a private user's identity or leak financial replies to a group.\n  if (!message || message.chat?.type !== 'private' || message.from?.is_bot) return [];\n  const sender = String(message.from?.id || '');\n  const recipient = String(message.chat?.id || '');\n  if (!/^\\d+$/.test(sender) || recipient !== sender || message.message_id === undefined) return [];\n  const media = message.voice || message.audio || message.photo?.at(-1) || message.document;\n  const kind = message.voice || message.audio ? 'audio' : message.photo ? 'image'\n    : message.document ? 'document' : typeof message.text === 'string' ? 'text' : 'unsupported';\n  return [{ version: 1, message: {\n    id: `${update.update_id}:${message.message_id}`, kind,\n    text: String(message.text || message.caption || ''),\n    attachments: media?.file_id ? [{ id: String(media.file_id), mimeType: media.mime_type || null, fileName: media.file_name || null }] : [],\n  }, localeHint: message.from.language_code || null, transport: {\n    channel: 'telegram', senderId: sender, recipientId: recipient,\n    accountId: null, messageId: String(message.message_id),\n  } }];\n}\n\nfunction supportedLocale(value) {\n  const code = String(value || '').toLowerCase().split(/[-_]/)[0];\n  return ['es', 'en', 'pt'].includes(code) ? code : null;\n}\n\nfunction detectTextLocale(text) {\n  const input = String(text || '').toLowerCase();\n  const explicit = input.match(/^\\/(?:lang|language|idioma|start)\\s+(es|en|pt)\\b/);\n  if (explicit) return explicit[1];\n  const words = input.match(/[\\p{L}]+/gu) || [];\n  const dictionaries = {\n    es: ['hola', 'buenas', 'quiero', 'necesito', 'gasté', 'gasto', 'cuánto', 'hogar', 'ingresos', 'ayuda', 'registrarme', 'gracias', 'español'],\n    en: ['hello', 'hi', 'please', 'spent', 'spend', 'income', 'expense', 'register', 'account', 'help', 'thanks', 'balance', 'english'],\n    pt: ['oi', 'olá', 'bom', 'obrigado', 'obrigada', 'quero', 'preciso', 'gastei', 'despesa', 'receita', 'família', 'cadastro', 'ajuda', 'português'],\n  };\n  const scores = Object.entries(dictionaries).map(([locale, dictionary]) => ({ locale, score: words.filter(word => dictionary.includes(word)).length }));\n  scores.sort((a, b) => b.score - a.score);\n  return scores[0].score > 0 && scores[0].score > scores[1].score ? scores[0].locale : null;\n}\n\nfunction selectLocale(envelope, profileLocale) {\n  return detectTextLocale(envelope.message.text) || supportedLocale(profileLocale) || supportedLocale(envelope.localeHint);\n}\n\nfunction authorizeContext(envelope, httpResponse) {\n  const status = httpResponse?.statusCode ?? 200;\n  const body = httpResponse?.body ?? httpResponse;\n  const healthy = status >= 200 && status < 300 && body?.success === true;\n  const registered = healthy && body.registered === true && typeof body.user?.id === 'string';\n  return {\n    ...envelope,\n    state: registered ? 'registered' : healthy && body.registered === false ? 'unregistered' : 'unavailable',\n    locale: selectLocale(envelope, registered ? body.user.locale : null),\n    user: registered ? body.user : null,\n  };\n}\n\nfunction genericReply(context, reason = context.state) {\n  const catalog = {\n    unregistered: {\n      es: 'Para usar el asistente, crea tu cuenta en la app y vincula este medio de contacto. Si ya tienes cuenta, verifica que este contacto esté vinculado.',\n      en: 'To use the assistant, create an account in the app and link this contact method. If you already have an account, make sure this contact is linked.',\n      pt: 'Para usar o assistente, crie sua conta no app e vincule este meio de contato. Se já tem uma conta, verifique se este contato está vinculado.',\n    },\n    unavailable: {\n      es: 'No pudimos verificar tu cuenta en este momento. Inténtalo más tarde.',\n      en: 'We could not verify your account right now. Please try again later.',\n      pt: 'Não foi possível verificar sua conta agora. Tente novamente mais tarde.',\n    },\n    unsupported: {\n      es: 'Envíame tu consulta como texto, audio, imagen o documento.',\n      en: 'Please send your question as text, audio, an image or a document.',\n      pt: 'Envie sua pergunta como texto, áudio, imagem ou documento.',\n    },\n  };\n  const messages = catalog[reason];\n  if (!messages) throw new Error('Unknown generic reply');\n  const text = context.locale ? messages[context.locale] : ['es', 'en', 'pt'].map(locale => messages[locale]).join('\\n\\n');\n  return { text };\n}\n\nfunction assistantInput(context, content) {\n  if (context.state !== 'registered') throw new Error('Unregistered users cannot reach the assistant');\n  const text = typeof content === 'string' && content.trim() ? content : context.message.text;\n  // This is the ONLY object serialized into the model prompt. No provider IDs,\n  // routing, webhook headers, token, raw event or signature is included.\n  return {\n    message: { text, kind: context.message.kind, attachments: context.message.attachments.map(file => ({ mimeType: file.mimeType, fileName: file.fileName })) },\n    user: { name: context.user.name, households: context.user.households || [] },\n    locale: context.locale,\n  };\n}\n\nfunction standardReply(output) {\n  const text = typeof output === 'string' ? output : output?.text;\n  if (typeof text !== 'string' || !text.trim()) throw new Error('EMPTY_ASSISTANT_REPLY');\n  return { text };\n}\n\nfunction chunkReply(reply, transport) {\n  const result = [];\n  let remaining = standardReply(reply).text;\n  while (remaining.length) {\n    let end = Math.min(4000, remaining.length);\n    // Avoid cutting an emoji surrogate pair in half. The conservative limit also\n    // fits both channels' text limits, without truncating a financial report.\n    if (end < remaining.length && /[\\uD800-\\uDBFF]/.test(remaining[end - 1])) end--;\n    result.push({ reply: { text: remaining.slice(0, end) }, transport });\n    remaining = remaining.slice(end);\n  }\n  return result;\n}\n\nfunction whatsappReply(item) {\n  if (item.transport.channel !== 'whatsapp') throw new Error('Wrong outbound adapter');\n  const to = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(to)) throw new Error('Invalid recipient');\n  return { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { body: standardReply(item.reply).text } };\n}\n\nfunction telegramReply(item) {\n  if (item.transport.channel !== 'telegram') throw new Error('Wrong outbound adapter');\n  const chatId = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(chatId)) throw new Error('Invalid recipient');\n  // Explicit HTML with escaped text avoids accidental Markdown/HTML parse errors.\n  const text = standardReply(item.reply).text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  return { chatId, text };\n}\n\nreturn { json: { transport: $input.item.json.transport, body: whatsappReply($input.item.json) } };"
+      },
+      "position": [
+        4250,
+        0
+      ]
+    },
+    {
+      "name": "Format Telegram reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Pure channel adapters. Their callers must be the authenticated native triggers.\nfunction normalizeWhatsApp(event) {\n  const accountId = String(event?.metadata?.phone_number_id || '');\n  if (!/^\\d+$/.test(accountId) || !Array.isArray(event?.messages)) return [];\n  return event.messages.flatMap(message => {\n    const sender = String(message.from || '');\n    if (!/^\\d+$/.test(sender) || !message.id) return [];\n    const kind = ['voice', 'audio'].includes(message.type) ? 'audio'\n      : ['text', 'image', 'document'].includes(message.type) ? message.type : 'unsupported';\n    const media = message[message.type] || {};\n    return [{ version: 1, message: {\n      id: String(message.id), kind,\n      text: String(message.text?.body || media.caption || ''),\n      attachments: media.id ? [{ id: String(media.id), mimeType: media.mime_type || null, fileName: media.filename || null }] : [],\n    }, localeHint: null, transport: {\n      channel: 'whatsapp', senderId: sender, recipientId: sender,\n      accountId, messageId: String(message.id),\n    } }];\n  });\n}\n\nfunction normalizeTelegram(update) {\n  const message = update?.message;\n  // Financial conversations are private. Groups, bot senders and edited updates\n  // must not reuse a private user's identity or leak financial replies to a group.\n  if (!message || message.chat?.type !== 'private' || message.from?.is_bot) return [];\n  const sender = String(message.from?.id || '');\n  const recipient = String(message.chat?.id || '');\n  if (!/^\\d+$/.test(sender) || recipient !== sender || message.message_id === undefined) return [];\n  const media = message.voice || message.audio || message.photo?.at(-1) || message.document;\n  const kind = message.voice || message.audio ? 'audio' : message.photo ? 'image'\n    : message.document ? 'document' : typeof message.text === 'string' ? 'text' : 'unsupported';\n  return [{ version: 1, message: {\n    id: `${update.update_id}:${message.message_id}`, kind,\n    text: String(message.text || message.caption || ''),\n    attachments: media?.file_id ? [{ id: String(media.file_id), mimeType: media.mime_type || null, fileName: media.file_name || null }] : [],\n  }, localeHint: message.from.language_code || null, transport: {\n    channel: 'telegram', senderId: sender, recipientId: recipient,\n    accountId: null, messageId: String(message.message_id),\n  } }];\n}\n\nfunction supportedLocale(value) {\n  const code = String(value || '').toLowerCase().split(/[-_]/)[0];\n  return ['es', 'en', 'pt'].includes(code) ? code : null;\n}\n\nfunction detectTextLocale(text) {\n  const input = String(text || '').toLowerCase();\n  const explicit = input.match(/^\\/(?:lang|language|idioma|start)\\s+(es|en|pt)\\b/);\n  if (explicit) return explicit[1];\n  const words = input.match(/[\\p{L}]+/gu) || [];\n  const dictionaries = {\n    es: ['hola', 'buenas', 'quiero', 'necesito', 'gasté', 'gasto', 'cuánto', 'hogar', 'ingresos', 'ayuda', 'registrarme', 'gracias', 'español'],\n    en: ['hello', 'hi', 'please', 'spent', 'spend', 'income', 'expense', 'register', 'account', 'help', 'thanks', 'balance', 'english'],\n    pt: ['oi', 'olá', 'bom', 'obrigado', 'obrigada', 'quero', 'preciso', 'gastei', 'despesa', 'receita', 'família', 'cadastro', 'ajuda', 'português'],\n  };\n  const scores = Object.entries(dictionaries).map(([locale, dictionary]) => ({ locale, score: words.filter(word => dictionary.includes(word)).length }));\n  scores.sort((a, b) => b.score - a.score);\n  return scores[0].score > 0 && scores[0].score > scores[1].score ? scores[0].locale : null;\n}\n\nfunction selectLocale(envelope, profileLocale) {\n  return detectTextLocale(envelope.message.text) || supportedLocale(profileLocale) || supportedLocale(envelope.localeHint);\n}\n\nfunction authorizeContext(envelope, httpResponse) {\n  const status = httpResponse?.statusCode ?? 200;\n  const body = httpResponse?.body ?? httpResponse;\n  const healthy = status >= 200 && status < 300 && body?.success === true;\n  const registered = healthy && body.registered === true && typeof body.user?.id === 'string';\n  return {\n    ...envelope,\n    state: registered ? 'registered' : healthy && body.registered === false ? 'unregistered' : 'unavailable',\n    locale: selectLocale(envelope, registered ? body.user.locale : null),\n    user: registered ? body.user : null,\n  };\n}\n\nfunction genericReply(context, reason = context.state) {\n  const catalog = {\n    unregistered: {\n      es: 'Para usar el asistente, crea tu cuenta en la app y vincula este medio de contacto. Si ya tienes cuenta, verifica que este contacto esté vinculado.',\n      en: 'To use the assistant, create an account in the app and link this contact method. If you already have an account, make sure this contact is linked.',\n      pt: 'Para usar o assistente, crie sua conta no app e vincule este meio de contato. Se já tem uma conta, verifique se este contato está vinculado.',\n    },\n    unavailable: {\n      es: 'No pudimos verificar tu cuenta en este momento. Inténtalo más tarde.',\n      en: 'We could not verify your account right now. Please try again later.',\n      pt: 'Não foi possível verificar sua conta agora. Tente novamente mais tarde.',\n    },\n    unsupported: {\n      es: 'Envíame tu consulta como texto, audio, imagen o documento.',\n      en: 'Please send your question as text, audio, an image or a document.',\n      pt: 'Envie sua pergunta como texto, áudio, imagem ou documento.',\n    },\n  };\n  const messages = catalog[reason];\n  if (!messages) throw new Error('Unknown generic reply');\n  const text = context.locale ? messages[context.locale] : ['es', 'en', 'pt'].map(locale => messages[locale]).join('\\n\\n');\n  return { text };\n}\n\nfunction assistantInput(context, content) {\n  if (context.state !== 'registered') throw new Error('Unregistered users cannot reach the assistant');\n  const text = typeof content === 'string' && content.trim() ? content : context.message.text;\n  // This is the ONLY object serialized into the model prompt. No provider IDs,\n  // routing, webhook headers, token, raw event or signature is included.\n  return {\n    message: { text, kind: context.message.kind, attachments: context.message.attachments.map(file => ({ mimeType: file.mimeType, fileName: file.fileName })) },\n    user: { name: context.user.name, households: context.user.households || [] },\n    locale: context.locale,\n  };\n}\n\nfunction standardReply(output) {\n  const text = typeof output === 'string' ? output : output?.text;\n  if (typeof text !== 'string' || !text.trim()) throw new Error('EMPTY_ASSISTANT_REPLY');\n  return { text };\n}\n\nfunction chunkReply(reply, transport) {\n  const result = [];\n  let remaining = standardReply(reply).text;\n  while (remaining.length) {\n    let end = Math.min(4000, remaining.length);\n    // Avoid cutting an emoji surrogate pair in half. The conservative limit also\n    // fits both channels' text limits, without truncating a financial report.\n    if (end < remaining.length && /[\\uD800-\\uDBFF]/.test(remaining[end - 1])) end--;\n    result.push({ reply: { text: remaining.slice(0, end) }, transport });\n    remaining = remaining.slice(end);\n  }\n  return result;\n}\n\nfunction whatsappReply(item) {\n  if (item.transport.channel !== 'whatsapp') throw new Error('Wrong outbound adapter');\n  const to = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(to)) throw new Error('Invalid recipient');\n  return { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { body: standardReply(item.reply).text } };\n}\n\nfunction telegramReply(item) {\n  if (item.transport.channel !== 'telegram') throw new Error('Wrong outbound adapter');\n  const chatId = String(item.transport.recipientId || '');\n  if (!/^\\d+$/.test(chatId)) throw new Error('Invalid recipient');\n  // Explicit HTML with escaped text avoids accidental Markdown/HTML parse errors.\n  const text = standardReply(item.reply).text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  return { chatId, text };\n}\n\nreturn { json: { transport: $input.item.json.transport, telegram: telegramReply($input.item.json) } };"
+      },
+      "position": [
+        4250,
+        250
+      ]
+    },
+    {
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v26.0/{{ $json.transport.accountId }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {
+          "timeout": 15000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 250
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "position": [
+        4500,
+        0
+      ],
+      "credential": {
+        "key": "httpHeaderAuth",
+        "id": "IewFQldhEIETRHZE",
+        "name": "Header Auth Meta 1"
+      },
+      "keep": "Response to Whatsapp"
+    },
+    {
+      "name": "Send Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.telegram.chatId }}",
+        "text": "={{ $json.telegram.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "position": [
+        4500,
+        250
+      ],
+      "credential": {
+        "key": "telegramApi",
+        "id": "5QPZfZspne7yifAe",
+        "name": "Telegram account 2"
+      }
+    },
+    {
+      "name": "Reply complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: { completed: true } }];"
+      },
+      "position": [
+        4750,
+        100
+      ]
+    },
+    {
+      "name": "Family MCP client",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.4,
+      "parameters": {
+        "endpointUrl": "https://dev-n8n.kplian.com/mcp/family-finance-lab",
+        "serverTransport": "httpStreamable",
+        "authentication": "multipleHeadersAuth",
+        "include": "all",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "position": [
+        3250,
+        -700
+      ],
+      "credential": {
+        "key": "httpMultipleHeadersAuth",
+        "id": "KY5EZMF56w8Zf31U",
+        "name": "Multiple Headers Auth account"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "Family MCP client",
+      "target": "AI Agent",
+      "sourceIndex": 0,
+      "connectionType": "ai_tool"
+    },
+    {
+      "source": "WhatsApp entry",
+      "target": "Normalize WhatsApp",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Telegram entry",
+      "target": "Normalize Telegram",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Normalize WhatsApp",
+      "target": "One message at a time",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Normalize Telegram",
+      "target": "One message at a time",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "One message at a time",
+      "target": "Resolve registration",
+      "sourceIndex": 1,
+      "connectionType": "main"
+    },
+    {
+      "source": "Resolve registration",
+      "target": "Authorized context",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Authorized context",
+      "target": "Registered user?",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Registered user?",
+      "target": "Content route",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Registered user?",
+      "target": "Registration reply",
+      "sourceIndex": 1,
+      "connectionType": "main"
+    },
+    {
+      "source": "Registration reply",
+      "target": "Standard reply",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Content route",
+      "target": "Assistant input",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Content route",
+      "target": "Media channel",
+      "sourceIndex": 1,
+      "connectionType": "main"
+    },
+    {
+      "source": "Content route",
+      "target": "Unsupported reply",
+      "sourceIndex": 2,
+      "connectionType": "main"
+    },
+    {
+      "source": "Unsupported reply",
+      "target": "Standard reply",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Media channel",
+      "target": "WhatsApp media metadata",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Media channel",
+      "target": "Telegram media download",
+      "sourceIndex": 1,
+      "connectionType": "main"
+    },
+    {
+      "source": "WhatsApp media metadata",
+      "target": "WhatsApp media download",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "WhatsApp media download",
+      "target": "Audio or attachment",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Telegram media download",
+      "target": "Audio or attachment",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Audio or attachment",
+      "target": "Transcribe audio",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Audio or attachment",
+      "target": "Assistant input",
+      "sourceIndex": 1,
+      "connectionType": "main"
+    },
+    {
+      "source": "Transcribe audio",
+      "target": "Assistant input",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Assistant input",
+      "target": "AI Agent",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "AI Agent",
+      "target": "Standard reply",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "DeepSeek Chat Model",
+      "target": "AI Agent",
+      "sourceIndex": 0,
+      "connectionType": "ai_languageModel"
+    },
+    {
+      "source": "Simple Memory",
+      "target": "AI Agent",
+      "sourceIndex": 0,
+      "connectionType": "ai_memory"
+    },
+    {
+      "source": "Standard response schema",
+      "target": "AI Agent",
+      "sourceIndex": 0,
+      "connectionType": "ai_outputParser"
+    },
+    {
+      "source": "Standard reply",
+      "target": "Reply channel",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Reply channel",
+      "target": "Format WhatsApp reply",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Reply channel",
+      "target": "Format Telegram reply",
+      "sourceIndex": 1,
+      "connectionType": "main"
+    },
+    {
+      "source": "Format WhatsApp reply",
+      "target": "Send WhatsApp",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Format Telegram reply",
+      "target": "Send Telegram",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Send WhatsApp",
+      "target": "Reply complete",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Send Telegram",
+      "target": "Reply complete",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    },
+    {
+      "source": "Reply complete",
+      "target": "One message at a time",
+      "sourceIndex": 0,
+      "connectionType": "main"
+    }
+  ],
+  "groups": [
+    {
+      "name": "WhatsApp input",
+      "description": "Verified Meta event to standard message. No AI or account creation.",
+      "nodeNames": [
+        "Normalize WhatsApp"
+      ]
+    },
+    {
+      "name": "Telegram input",
+      "description": "Verified private update to standard message. No AI or account creation.",
+      "nodeNames": [
+        "Normalize Telegram"
+      ]
+    },
+    {
+      "name": "Shared assistant",
+      "description": "Resolve account, localize generic replies, prepare media and run the channel-independent financial assistant.",
+      "nodeNames": [
+        "Resolve registration",
+        "Authorized context",
+        "Registered user?",
+        "Registration reply",
+        "Content route",
+        "Unsupported reply",
+        "Media channel",
+        "WhatsApp media metadata",
+        "WhatsApp media download",
+        "Telegram media download",
+        "Audio or attachment",
+        "Transcribe audio",
+        "Assistant input",
+        "AI Agent",
+        "DeepSeek Chat Model",
+        "Simple Memory",
+        "Standard response schema",
+        "Standard reply",
+        "Family MCP client"
+      ]
+    },
+    {
+      "name": "Channel delivery",
+      "description": "Standard reply to provider payload. Existing credentials; no automatic send retries.",
+      "nodeNames": [
+        "Reply channel",
+        "Format WhatsApp reply",
+        "Format Telegram reply",
+        "Send WhatsApp",
+        "Send Telegram",
+        "Reply complete"
+      ]
+    }
+  ]
+}

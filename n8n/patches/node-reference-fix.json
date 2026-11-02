@@ -1,0 +1,26 @@
+[
+  {
+    "nodeName": "get_budget_summary",
+    "parameters": {
+      "jsonBody": "={{ ({ p_whatsapp_phone: $('Webhook').first().json.body.entry[0].changes[0].value.messages[0].from.toString(), p_household_name: $fromAI('household_name', 'Nombre del hogar a consultar si el usuario lo menciona explícitamente, o null si no especifica ninguno') || null }) }}"
+    }
+  },
+  {
+    "nodeName": "add_user_to_household",
+    "parameters": {
+      "jsonBody": "={{ ({ p_admin_whatsapp_phone: $('Webhook').first().json.body.entry[0].changes[0].value.messages[0].from.toString(), p_target_full_name: $fromAI('target_full_name', 'Nombre completo de la persona a agregar'), p_target_whatsapp_phone: $fromAI('target_whatsapp_phone', 'Número de teléfono o contacto de la persona'), p_household_name: $fromAI('household_name', 'Nombre del hogar al que se le desea agregar, o null si es por defecto') || null, p_role: $fromAI('role', 'Rol en el hogar: member o admin, por defecto member') || 'member' }) }}"
+    }
+  },
+  {
+    "nodeName": "get_recent_transactions",
+    "parameters": {
+      "jsonBody": "={{ ({ p_whatsapp_phone: $('Webhook').first().json.body.entry[0].changes[0].value.messages[0].from.toString(), p_household_name: $fromAI('household_name', 'Nombre del hogar a filtrar opcionalmente, o null si quiere ver todos') || null, p_limit: $fromAI('limit', 'Cantidad máxima de transacciones a consultar, por defecto 10') || 10 }) }}"
+    }
+  },
+  {
+    "nodeName": "AI Agent",
+    "parameters": {
+      "text": "={{ $json.text || $('Code in JavaScript1').first().json.text || 'Analiza el contenido adjunto (imagen, audio o texto) para procesar la transacción, extraer ítems o responder al usuario.' }}"
+    }
+  }
+]
