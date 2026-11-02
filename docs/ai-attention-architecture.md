@@ -1,283 +1,384 @@
-# Arquitectura propuesta de atención mediante IA
+# AI Financial Assistant: Conversational Architecture
 
-> **Estado: propuesta de diseño, no implementada.** Alcance: recibir mensajes, entenderlos, conducir la conversación, llamar a las operaciones existentes y responder. No rediseña la app, la contabilidad ni las tablas financieras.
+> **Decision: target architecture selected by the project owner. Implementation is pending.**
+>
+> Scope: AI-assisted conversations, channel delivery, model routing, tools, memory, and supporting infrastructure. This document does not redesign the application or the accounting model, and does not provision AWS resources or migrate existing data.
 
-## 1. Qué problema queremos resolver
+## 1. What we are building
 
-Hoy “Hackathon - META” concentra recepción de WhatsApp, tratamiento de medios, un agente con numerosas herramientas y envío de respuestas. Al añadir funciones crecen tanto el diagrama como las decisiones que debe tomar el modelo.
+A conversational family financial assistant that records income and expenses, explains budgets and savings progress, manages goals and investments, and helps family members act within their permissions.
 
-La propuesta divide el trabajo por responsabilidades. No se trata de sustituir cada nodo por un agente: la mayoría de los pasos deben ser código predecible. La IA interviene para interpretar lenguaje y redactar, no para decidir permisos ni construir asientos.
+The entry point is WhatsApp, with Telegram supported through the same normalized message contract. Start with **one agent and scoped tool groups**, not a network of autonomous agents. Introduce subagents only when evaluations demonstrate that the single-agent design is insufficient.
 
-| Pieza | Responsabilidad en la atención | Qué delega |
-|---|---|---|
-| **n8n** | Entrada/salida de canales, descarga de adjuntos, transcripción y extracción de contenido mediante proveedores. Flujos pequeños por función. | La dirección de la conversación y las operaciones del negocio. |
-| **LangGraph** | Coordinar pasos, elegir módulo, mantener el estado, preguntar y reanudar operaciones pendientes. | Acceso a modelos y ejecución de operaciones financieras. |
-| **LangChain** | Adaptadores para modelos, herramientas y salidas estructuradas cuando sean útiles. Es una biblioteca del servicio conversacional. | No es un segundo coordinador ni otro servidor obligatorio. |
-| **Backend existente** | Identidad, permisos, validación de negocio, idempotencia y operaciones contables o de consulta. | No necesita interpretar conversaciones libres. |
+The selected production path is:
 
-**Un solo coordinador de conversación: LangGraph.** n8n no mantiene en paralelo otro agente decidiendo qué hacer con el mismo mensaje.
+**Channel → API Gateway / Lambda → SQS FIFO → worker containing LangGraph → channel API.**
 
-## 2. Vista general de la atención
+All model requests go through **LiteLLM**. Production inference can use **SGLang on an EC2 GPU**, with policy-controlled external fallbacks. PostgreSQL stores durable state and enforces business authorization. **n8n is not part of this target conversation path.** Existing workflows can remain during the transition, but must not also execute the same financial commands. **FastAPI is not required**; it may be introduced later for administrative endpoints or third-party callbacks.
+
+## 2. Overall architecture
 
 ```mermaid
 flowchart LR
-    U["Persona"] --> C["WhatsApp<br/>otros canales futuros"]
-    C --> NIN["n8n: entrada<br/>verificar evento y preparar contenido"]
-    NIN --> INBOX["Recepción duradera<br/>deduplicar y confirmar recepción"]
-    INBOX --> G["Servicio conversacional<br/>LangGraph"]
-    G <--> STATE[("Estado de conversación<br/>persistente")]
-    G --> LC["Adaptadores LangChain<br/>modelo y salida estructurada"]
-    G --> B["Operaciones existentes<br/>backend autorizado"]
-    G --> OUT["Bandeja de respuestas<br/>pendientes de entrega"]
-    OUT --> NOUT["n8n: enviar respuesta<br/>reintentos de entrega"]
-    NOUT --> C
-    C --> U
+    PERSON["Family member"] <--> CHANNEL["WhatsApp / Telegram"]
+    CHANNEL --> EDGE["API Gateway + Lambda<br/>verify, normalize, enqueue"]
+    EDGE --> QUEUE["SQS FIFO<br/>ordered message groups"]
+    QUEUE --> WORKER["Replicated worker process<br/>LangGraph runs inside"]
+    QUEUE --> DLQ["Dead-letter queue<br/>alarm and controlled replay"]
+    WORKER --> CHANNEL
+    WORKER <--> PG[("PostgreSQL / RDS<br/>identity, checkpoints, operations, memory")]
+    WORKER <--> S3[("S3<br/>private media and documents")]
+    WORKER --> TOOLS["Validated tool adapters<br/>business operations and MCP"]
+    TOOLS --> PG
+    TOOLS --> EXTERNAL["Authorized external integrations"]
+    WORKER --> GATEWAY["LiteLLM<br/>single model gateway"]
+    GATEWAY --> GPU["SGLang on EC2 GPU<br/>selected open-source model"]
+    GATEWAY --> CLOUD["Approved external providers<br/>policy-controlled fallback"]
+    SCHED["EventBridge Scheduler"] --> QUEUE
+    SECRETS["Secrets Manager"] -.-> EDGE
+    SECRETS -.-> WORKER
+    SECRETS -.-> GATEWAY
+    WORKER -.-> TRACE["Langfuse<br/>traces and evaluations"]
+    GATEWAY -.-> TRACE
 ```
 
-El backend se muestra solo como una frontera: la arquitectura de IA utiliza sus operaciones, no las reimplementa.
+The worker is a long-running container that consumes messages. LangGraph is a Python library inside that process, **not a separate agent server**. LiteLLM and SGLang are separate model-serving components. LangChain is optional: the worker can use an OpenAI-compatible client against LiteLLM without adopting LangChain agents.
 
-La recepción HTTP confirma pronto que el evento quedó guardado. Un worker procesa después la conversación. Si hay que esperar una respuesta del usuario, se guarda el estado y se libera el worker; no se deja una ejecución HTTP abierta durante horas.
+The worker sends channel responses directly to Meta or Telegram. Neither channel is used to execute an actual bank transfer or exchange order in this design: investment and vault operations record internal movements in our financial system.
 
-Los formatos de entrada convergen antes de llegar al grafo:
+## 3. Ingress: small, stateless, and database-free
+
+Lambda performs a limited set of deterministic operations:
+
+1. Answer Meta's GET verification challenge using the configured verification secret.
+2. Authenticate incoming events: verify WhatsApp's `X-Hub-Signature-256` against the **original raw request body** and app secret; validate Telegram's webhook secret token.
+3. Discard irrelevant events, including delivered/read status notifications.
+4. Normalize each actual message in a batched channel payload, preserving its identifier and order.
+5. Enqueue a small event containing text and/or media references, then return HTTP 200 immediately after SQS accepts it.
+
+Do not parse and reserialize the body before signature verification. Handle API Gateway's encoding correctly. Failed authentication is rejected; failed enqueueing must not return a success acknowledgment that loses the message.
+
+Lambda does not query PostgreSQL, download media, run a model, or wait for an agent response. Secrets live in Secrets Manager. Queue payloads never contain files, model credentials, or a model-selected family identity.
+
+Example normalized envelope, **proposed rather than an existing API contract**:
+
+```json
+{
+  "event_id": "whatsapp:business-account:channel-message-id",
+  "channel": "whatsapp",
+  "channel_account_id": "business-account",
+  "sender_ref": "verified-channel-sender",
+  "message_id": "channel-message-id",
+  "received_at": "2026-11-01T15:00:00Z",
+  "kind": "user_message",
+  "text": "I spent 50 BOB on groceries",
+  "media_ref": null,
+  "trace_id": "correlation-id"
+}
+```
+
+`sender_ref` means the sender extracted from an authenticated channel event, not a phone number supplied in the user's text. Unknown senders receive a controlled account-linking flow; a message alone cannot claim an existing user's identity.
+
+## 4. Queue ordering, retries, and debounce
+
+Use an SQS **FIFO** queue:
+
+- **MessageGroupId:** the user ordering key. Before database identity resolution, namespace the channel sender by channel and receiving account. The worker then resolves the canonical user and serializes their turns, including messages arriving through different channels.
+- **MessageDeduplicationId:** the channel's `message.id`, namespaced where necessary to avoid collisions between accounts/channels. System events have their own stable occurrence IDs.
+- **DLQ:** repeatedly failing events go to a dead-letter queue, with an alarm and a replay procedure. Inspect context before replaying an old financial request. Removing a poisoned event can create a gap in the user's sequence; do not silently continue a dependent action.
+- **Delivery semantics:** application handlers must tolerate replay. FIFO's short deduplication window does not replace persistent command idempotency.
+
+### Making the 2–3 second debounce work with FIFO
+
+The assistant should combine a short burst such as “I spent 50” → “on groceries” → “for our home” into one turn. A worker cannot hold the first FIFO message invisible and expect a later receive to provide more messages from the same group. Consequently, implement **two internal stages inside the same worker deployment**:
 
 ```mermaid
 flowchart TD
-    EVENT["Evento de WhatsApp"] --> VERIFY["Validar procedencia<br/>y separar mensajes de estados"]
-    VERIFY --> TYPE{"Tipo de contenido"}
-    TYPE -->|Texto| TEXT["Extraer texto"]
-    TYPE -->|Audio| AUDIO["Descargar y transcribir"]
-    TYPE -->|Imagen o documento| FILE["Extraer contenido<br/>visión u OCR según formato"]
-    TYPE -->|No soportado| HELP["Responder qué formatos aceptamos"]
-    TEXT --> NORMAL["Mensaje normalizado"]
-    AUDIO --> NORMAL
-    FILE --> NORMAL
-    NORMAL --> GRAPH["Entrada al grafo conversacional"]
+    Q["SQS FIFO"] --> RECEIVE["Receive events in order"]
+    RECEIVE --> INBOX["Persist events in a durable inbox<br/>unique event IDs"]
+    INBOX --> ACK["Delete accepted SQS receipts"]
+    INBOX --> DEBOUNCE["Collect a user's short message burst<br/>2–3 second window, bounded maximum wait"]
+    DEBOUNCE --> LOCK["Acquire canonical-user processing lease"]
+    LOCK --> TURN["Run one conversation turn"]
+    TURN --> SAVE["Persist checkpoint, operation results<br/>and pending response"]
+    SAVE --> DELIVERY["Send directly to the channel API"]
+    DELIVERY --> NEXT["Release lease and process next turn"]
 ```
 
-Los adjuntos necesitan límites de tamaño/formato y referencia al archivo original. Una extracción dudosa se marca para aclaración; no se transforma automáticamente en una operación confirmada.
+The durable inbox is the recovery source after queue acknowledgment. Every replica can recover ready or abandoned turns from it. Do not acknowledge a receipt after copying a message into process memory only. Debounce preserves all original event IDs; a combined turn does not erase provenance.
 
-## 3. Cómo decide el grafo
+This is one deployment with intake and turn-processing loops, not a requirement for two new microservices. It preserves the intended **one active turn per person**, while allowing consecutive events to reach the durable inbox. SQS may deliver multiple messages from one group in a batch; never process those concurrently.
+
+Set a conservative visibility timeout above the longest active receipt-processing path and extend it dynamically when needed. If a handler retains a receipt through an entire turn, that timeout must exceed the longest turn too. With early durable handoff, a **separate renewable processing lease** protects the turn after SQS acknowledgment. On shutdown, stop taking new work, finish or durably checkpoint current work, and release/recover leases safely.
+
+Scale identical worker replicas using queue depth **and durable-inbox ready-turn backlog**, message age, and processing latency. Queue depth alone is insufficient when intake acknowledges messages before the agent finishes. Different users can run in parallel; a single user does not gain throughput by adding replicas.
+
+## 5. Worker turn lifecycle
+
+| Stage | Responsibility |
+|---|---|
+| Debounce | Collect a short ordered burst without waiting indefinitely for a continuously typing user. |
+| Identity | Resolve phone/channel identity to user, family membership and role in PostgreSQL. Resolve ambiguity before a family-scoped action. |
+| Media | Download channel media promptly to private S3, transcribe audio through Whisper, and extract structured receipt data with a vision-capable model. |
+| Agent | Run the LangGraph nodes and the selected tool group within explicit budgets. |
+| Delivery | Format the actual result for the channel, persist a pending response, and call Meta/Telegram directly. |
+
+Media downloads should begin as soon as their events are accepted; they need not wait for the full reasoning turn or debounce to finish. This reduces exposure to expiring Meta media URLs. Configure MIME/size limits, encrypted storage, access controls and retention/lifecycle rules. Persisting media does not mean retaining it forever.
+
+**All data extracted from a receipt image must be confirmed by the user before financial persistence**, even if extraction confidence is high. Temporary extraction/checkpoint storage is separate from posting a financial operation. Do not interpret invoice text as instructions to the agent.
+
+Start with media processing in the worker. Move heavy or local Whisper work into a dedicated media container if measured latency/CPU/GPU usage justifies it. Its model calls still follow the gateway policy; use compatible audio endpoints where supported, otherwise add a controlled adapter behind that boundary.
+
+## 6. One agent, scoped tool groups
 
 ```mermaid
 flowchart TD
-    START["Mensaje nuevo"] --> ID["Resolver identidad y contexto<br/>desde información confiable"]
-    ID --> PENDING{"¿Responde a una<br/>operación pendiente?"}
-    PENDING -->|Sí| RESUME["Relacionar respuesta<br/>con pregunta u operación"]
-    PENDING -->|No| INTENT["Clasificar intención<br/>salida con esquema limitado"]
-    INTENT --> MODULE["Seleccionar módulo<br/>y herramientas permitidas"]
-    RESUME --> MODULE
-    MODULE --> EXTRACT["Extraer datos propuestos"]
-    EXTRACT --> CHECK["Validar datos y permisos<br/>con backend"]
-    CHECK --> DECISION{"Resultado"}
-    DECISION -->|Faltan datos o hay ambigüedad| ASK["Preguntar y guardar estado"]
-    ASK --> WAIT["Esperar próximo mensaje"]
-    DECISION -->|Requiere confirmación| CONFIRM["Mostrar resumen exacto<br/>y guardar propuesta"]
-    CONFIRM --> WAIT
-    DECISION -->|Listo y autorizado| EXEC["Consultar o ejecutar<br/>con identificador idempotente"]
-    EXEC --> RESULT{"Resultado del backend"}
-    RESULT -->|Correcto| REPLY["Explicar resultado real"]
-    RESULT -->|Fallo| ERROR["Clasificar error<br/>sin repetir escrituras a ciegas"]
-    ERROR --> REPLY
-    REPLY --> SEND["Guardar respuesta para entrega"]
+    INPUT["Prepared turn and trusted runtime context"] --> PENDING{"Pending clarification<br/>or approval response?"}
+    PENDING -->|Yes| RESUME["Resolve proposal and authorized approver<br/>restore checkpoint"]
+    PENDING -->|No| CLASSIFY["Classify intent<br/>small fast model via LiteLLM"]
+    CLASSIFY --> GROUP["Select allowed tool group<br/>transactions, budgets, goals, investments,<br/>queries, documents, reminders"]
+    RESUME --> GROUP
+    GROUP --> LOOP["Bounded agent and tool loop<br/>step, token and cost limits"]
+    LOOP --> VALIDATE["Validate structured output<br/>and inspect tool results"]
+    VALIDATE --> DECISION{"Next action"}
+    DECISION -->|Missing information| CLARIFY["Ask a focused question<br/>checkpoint and release turn"]
+    DECISION -->|Low confidence or repairable structure| ESCALATE["Escalate to stronger model<br/>within remaining budget"]
+    ESCALATE --> LOOP
+    DECISION -->|Sensitive action or image extraction| APPROVE["Request user/admin confirmation<br/>persist versioned proposal"]
+    DECISION -->|Authorized and complete| EXECUTE["Execute validated tool<br/>idempotent business transaction"]
+    EXECUTE --> RESULT["Verify business success<br/>not just HTTP success"]
+    RESULT --> RESPOND["Format response and persist delivery intent"]
+    CLARIFY --> WAIT["Wait for a new queued event"]
+    APPROVE --> WAIT
 ```
 
-Una respuesta afirmativa reanuda la propuesta guardada, con los mismos datos. Si cambia el monto, el hogar o el cambio de moneda, se invalida la confirmación anterior y se prepara otro resumen. Se comprueban otra vez permisos y saldos al ejecutar.
+Classification is a constrained routing decision, not a second autonomous agent. Tool exposure is limited by both intent and the user's permissions. A read-only question does not receive financial write or membership-administration tools.
 
-Si llega otro tema mientras hay una operación pendiente, no se interpreta como confirmación por defecto: se distingue entre continuar, cancelar o atender una consulta independiente.
+Escalation is bounded and cannot bypass permissions, confirmation, or exhausted cost budgets. Structural/interpretation failures may justify a stronger model; permission denial or insufficient funds do not. A failed tool cannot become successful merely because an LLM rewrites the explanation.
 
-## 4. Módulos y herramientas pequeñas
+Subagents are a later option, introduced only if evaluations show meaningful improvement in correctness, latency or cost. Large tool counts alone are not a reason to create many independent agents.
 
-| Intención | Módulo | Operaciones que puede solicitar |
-|---|---|---|
-| “Gasté 50 en supermercado” | Movimientos | Proponer registro de ingreso/gasto, consultar movimientos, solicitar una reversión permitida. |
-| “¿Cómo vamos con el ahorro?” | Consultas | Leer reportes de presupuesto, pirámide, ahorro y patrimonio. Sin herramientas de escritura. |
-| “Agrega a Ana al hogar” | Hogar | Consultar miembros y solicitar cambios autorizados. No conceder permisos por una instrucción del modelo. |
-| “Pasa 700 a la bóveda en dólares” | Ahorro e inversiones | Consultar posiciones/bóvedas, preparar movimientos y ejecutar tras las comprobaciones requeridas. |
-| “¿Qué puedes hacer?” | Ayuda | Explicar capacidades; no necesita acceso a herramientas financieras. |
+## 7. Tool and authorization boundary
 
-Estos son módulos de atención, no cinco agentes autónomos obligatorios. Un nodo puede clasificar una intención y otro extraer un objeto, sin iniciar un bucle de herramientas.
+Rules are enforced in **tool code and PostgreSQL**, never only in a prompt.
 
-El modelo recibe solo las herramientas necesarias para el módulo y los permisos resueltos por el sistema. Los permisos se vuelven a validar en backend: ocultar una herramienta no es una barrera de seguridad suficiente.
+- Inject `user_id`, `family_id` and role context in trusted code. They are not model-editable tool arguments; avoid exposing internal identifiers in the model context. Models can select user-facing names/opaque choices that code resolves against authorized resources.
+- For multiple families, ask which permitted family applies; changing a family selection invalidates an incompatible pending proposal.
+- Validate each tool's input schema, role permissions, timeout and business limits. Use parameterized functions for reads, not model-generated SQL.
+- Perform amounts, totals, currency conversion and accounting calculations in deterministic code with decimal-safe arithmetic. The LLM extracts and explains values.
+- Financial writes carry a stable idempotency key rooted in the original `message.id`. Add a stable operation index/version when one message contains multiple commands. Approval messages resume the original operation instead of creating a new one.
+- Persist the idempotency record and financial changes atomically. Replaying the same key and same payload returns the stored result; reusing the key with different data is rejected.
+- Return structured errors with a useful explanation and retryability classification. Never send secrets or raw database traces to the model.
+- Prefer MCP for suitable external integrations, with explicit tool allowlists, credentials and timeouts. MCP does not authorize a tool by itself; financial writes retain the same local validation boundary.
 
-Los nombres de esta tabla son capacidades propuestas; no implican que ya existan endpoints nuevos con esos nombres.
+An agent restart, a graph checkpoint, or queue deduplication alone does not guarantee one financial write. Side effects must remain idempotent at the business transaction boundary.
 
-## 5. Ejemplo: gasto con hogar ambiguo
+## 8. Models: one gateway, configurable roles
 
-**Usuario:** “Gasté 50 en supermercado”. Pertenece a dos hogares.
+```mermaid
+flowchart LR
+    GRAPH["Worker / LangGraph nodes"] --> CLIENT["Single OpenAI-compatible client"]
+    CLIENT --> LITE["LiteLLM gateway<br/>routing, budgets, rates, retries, logs"]
+    LITE --> SMALL["classifier / extractor alias"]
+    LITE --> MEDIUM["tool-use alias"]
+    LITE --> STRONG["reasoning / escalation alias"]
+    LITE --> VISION["vision / receipt alias"]
+    LITE --> AUDIO["audio / transcription alias"]
+    SMALL --> LOCAL["SGLang<br/>approved local deployments"]
+    MEDIUM --> LOCAL
+    STRONG --> POLICY{"External fallback<br/>allowed for this data?"}
+    VISION --> POLICY
+    AUDIO --> POLICY
+    POLICY -->|Yes| PROVIDER["Approved external deployment"]
+    POLICY -->|No| CONTROL["Local capability or controlled failure"]
+```
+
+Aliases represent configurable roles, not a mandatory mapping of particular roles to external or local providers. Route each to a compatible approved deployment. **The worker never calls a model provider directly.** Network and credential boundaries should enforce that rule, not just developer convention.
+
+LiteLLM supplies provider-facing configuration, fallbacks, rate/cost limits, load balancing and request logs. Preserve a common correlation ID across worker, gateway and inference. Define which data classes may leave the infrastructure **before** enabling external fallback; never silently switch a private document to an unapproved provider.
+
+The target self-hosted inference option is **EC2 GPU, such as g5 or another compatible family, running SGLang** with the selected open-source model. Select GPU/VRAM from the actual model, precision, concurrency and context-length measurements. RadixAttention/prefix caching can reuse common prompts and tool definitions; structured generation supports well-formed outputs, but does not establish semantic correctness or authorization.
+
+Changing a compatible model or engine is intended to be a configuration/alias change rather than an agent rewrite. Tool-calling, vision/audio support, output schemas, latency and accuracy must still pass compatibility checks and evaluations. A string change is not an exemption from testing.
+
+**Ollama is for local development only.** Introduce the always-on GPU deployment after measuring actual usage: at low traffic an approved hosted API can be cheaper than a GPU running continuously.
+
+## 9. State, memory, documents and audit
+
+PostgreSQL runs in a container during development and **RDS in the target production deployment**, with encryption, backups and least-privilege access. This decision does not itself migrate the current Supabase business database or replace its authentication; those integration/migration steps must be planned separately.
+
+| Storage concern | Responsibility |
+|---|---|
+| Business data | Existing families, users, roles, transactions, income, expenses, budgets, goals and investments. Existing financial rules remain authoritative. |
+| Conversation checkpoints | A separate schema for LangGraph state, pending questions, versioned approvals and resume references. |
+| Durable inbox and delivery state | Accepted events, stable operation keys, processing leases, responses awaiting delivery and recovery information. |
+| Rolling history summary | Compact older context while preserving unresolved proposals and references to authoritative results. |
+| Long-term memory | An asynchronous extraction job with deduplication, provenance and update/deletion controls. Do not treat memory as proof of a balance or permission. |
+| Family documents | Private S3 content with PostgreSQL/vector metadata, hybrid search and reranking. Filter by family before retrieval and reranking. |
+| Audit | Actor, family, action, timestamps, operation ID, result and the exact confirmation/approver where required. |
+
+Enforce family isolation using RLS and a least-privileged database role for agent operations. Role labels such as admin, member and child are mapped by trusted authorization code; do not assume all of those policies are already implemented. Set per-request family context transactionally and prevent connection-pool context leakage. The agent must not receive a broad privileged key as a substitute for this boundary.
+
+A LangGraph checkpoint stores conversation progress; it is not the financial ledger. Persistent balances and calculations come from business functions, not a reconstructed chat history. Summary generation must not remove an unresolved approval or reinterpret an already executed command.
+
+Redis is optional for rate limits or hot state if PostgreSQL is insufficient. It is not required for the initial deployment and must not become the sole source of financial or approval state.
+
+## 10. Example: a short burst becomes one expense
+
+**Messages:** “I spent 50” → “on groceries” → “for the family”.
 
 ```mermaid
 sequenceDiagram
-    actor U as Persona
-    participant N as n8n
-    participant G as LangGraph
-    participant M as Modelo mediante LangChain
-    participant B as Backend existente
-    participant S as Estado persistente
-    U->>N: Gasté 50 en supermercado
-    N->>G: Mensaje normalizado e ID del evento
-    G->>B: Resolver usuario y hogares permitidos
-    B-->>G: Dos hogares
-    G->>M: Extraer gasto, concepto y monto
-    M-->>G: Propuesta: gasto de 50
-    G->>S: Guardar propuesta y pregunta pendiente
-    G-->>N: ¿En cuál de tus hogares?
-    N-->>U: Pregunta con opciones permitidas
-    U->>N: En el hogar de casa
-    N->>G: Nuevo evento de la misma conversación
-    G->>S: Recuperar propuesta
-    G->>B: Validar hogar y registrar una vez
-    B-->>G: Operación guardada e identificador
-    G-->>N: Confirmación basada en el resultado
-    N-->>U: Registré 50 BOB en supermercado
+    actor U as Family member
+    participant L as Lambda
+    participant Q as SQS FIFO
+    participant W as Worker with LangGraph
+    participant P as PostgreSQL
+    participant M as LiteLLM
+    U->>L: Three authenticated channel messages
+    L->>Q: Three ordered events with original message IDs
+    L-->>U: Channel webhook acknowledged after enqueue
+    Q->>W: Ordered receipt batches
+    W->>P: Persist each event before acknowledging its receipt
+    W->>W: Debounce and acquire the canonical-user lease
+    W->>P: Resolve identity, allowed family and role
+    W->>M: Classify and extract the combined request
+    M-->>W: Expense proposal: groceries, 50 BOB
+    W->>P: Validate and post with a stable operation key
+    P-->>W: Committed result and operation ID
+    W->>P: Persist response intent
+    W-->>U: Expense recorded: 50 BOB on groceries
 ```
 
-La moneda y la fecha por defecto salen del contexto verificado y la zona horaria del hogar, no de una fecha inventada por el modelo. Un nombre de hogar se resuelve contra los hogares autorizados. Los UUID de usuario/hogar no se aceptan como autoridad por venir de la IA.
+Acknowledgment refers to the channel's webhook delivery, not a chat response saying the expense is already recorded. For a simple explicit expense, another confirmation is needed only when policy requires it. Defaults such as date, timezone and currency come from code and verified context, not model guesses.
 
-Un gasto simple explícitamente solicitado puede registrarse sin una segunda pregunta si todos sus datos están claros. La política de confirmación se define por operación, no se deja a criterio libre del modelo.
+If two authorized families match, checkpoint the proposal and ask which one. Do not select a family arbitrarily. An audio transcript that is ambiguous also requires clarification.
 
-## 6. Ejemplo: ahorro generado frente a dinero transferido
+## 11. Example: receipt image and administrator approval
 
-**Usuario:** “¿Cumplimos nuestra meta de ahorro este mes?”.
+**A child sends a receipt for an amount requiring administrator approval.** Both the extracted data and the authorization must be checked.
 
 ```mermaid
 sequenceDiagram
-    actor U as Persona
-    participant G as LangGraph
-    participant M as Modelo mediante LangChain
-    participant B as Reportes del backend
-    U->>G: ¿Cumplimos la meta este mes?
-    G->>M: Clasificar consulta y periodo
-    M-->>G: Reporte de ahorro del mes actual
-    G->>B: Consultar hogar autorizado y periodo
-    B-->>G: Meta 2000; ingresos 10000; gastos 8000; ahorro 2000
-    B-->>G: Transferido a inversiones 2000, mostrado aparte
-    G-->>U: Meta alcanzada hasta hoy: 2000 de 2000 BOB
+    actor C as Child / member
+    actor A as Family administrator
+    participant Q as Shared SQS FIFO queue
+    participant W as Worker with LangGraph
+    participant S as Private S3
+    participant M as LiteLLM vision route
+    participant P as PostgreSQL
+    C->>Q: Verified receipt event via Lambda
+    Q->>W: Member event
+    W->>S: Persist media promptly
+    W->>M: Extract structured receipt data
+    M-->>W: Items, amount and extraction warnings
+    W->>P: Checkpoint proposal; no financial write
+    W-->>C: Please confirm the extracted items and total
+    C->>Q: Confirmation through the same channel ingress
+    Q->>W: Member confirmation event
+    W->>P: Validate confirmation and check role/threshold policy
+    W->>P: Persist pending administrator approval
+    W-->>A: Approval request with exact operation summary
+    Note over W,P: Release the turn; do not hold an SQS receipt while waiting
+    A->>Q: Approval event through the same authenticated ingress
+    Q->>W: Administrator event in the administrator's message group
+    W->>P: Verify approver membership and proposal version
+    W->>P: Resume original thread and execute once
+    P-->>W: Recorded result
+    W-->>C: Receipt recorded after approval
 ```
 
-El backend calcula los importes. La IA los explica, sin volver a calcular saldos desde el historial del chat.
+The administrator has their own FIFO group. Trusted code links their reply to the original pending proposal and resumes the original LangGraph thread under its processing lock. An approval event must carry or resolve an operation reference; a bare “yes” cannot approve one of several ambiguous requests. Never group an administrator's message under a child identity supplied by the model.
 
-- Si los 2.000 se invirtieron al principio del mes, no son un gasto.
-- Si siguen en disponible al terminar el mes, también son ahorro generado.
-- Si en febrero se invierten 2.000 ahorrados en enero, son una transferencia de febrero, no ahorro nuevo de febrero.
+Do not hold the child's processing lease while waiting for the administrator. Recheck membership, required role, proposal expiry and payload version at execution time. A changed total requires a new confirmation. Both the member's extraction confirmation and the administrator's authorization are audited.
 
-La atención consulta los reportes existentes (`f_monthly_pyramid_dashboard` y, para meses cerrados, `f_closed_month_savings_report`). Estas llamadas se harían con contexto autorizado; no se propone llamar una RPC dependiente de `auth.uid()` usando una clave privilegiada sin resolver la identidad del usuario.
+## 12. Example: savings progress is not investment cash flow
 
-## 7. Ejemplo: mover disponible a una bóveda en USD
+**Question:** “Have we reached our savings goal this month?”.
 
-**Usuario:** “Pasa 700 bolivianos a la bóveda Viaje en dólares”. La bóveda ya existe.
+The query tool reads the existing authorized report. With expected income of 10,000 BOB and a 20% savings allocation, the goal is 2,000 BOB. Actual income of 10,000 minus actual expenses of 8,000 gives 2,000 generated savings: the goal is reached **so far**.
 
-```mermaid
-sequenceDiagram
-    actor U as Persona
-    participant G as LangGraph
-    participant B as Backend existente
-    participant S as Estado persistente
-    U->>G: Pasa 700 BOB a Viaje en dólares
-    G->>B: Consultar bóveda, permisos y disponible
-    B-->>G: Destino USD y saldo disponible
-    G-->>U: ¿Qué cambio quieres usar: manual o referencia online?
-    U->>G: Usa 7 BOB por dólar
-    G->>B: Validar y preparar importes
-    B-->>G: Salen 700 BOB y entran 100 USD
-    G->>S: Guardar propuesta con ID, versión y vencimiento
-    G-->>U: Confirma: 700 BOB a Viaje, recibes 100 USD, cambio 7
-    U->>G: Confirmo
-    G->>S: Recuperar propuesta confirmada
-    G->>B: Revalidar y ejecutar con el mismo ID
-    B-->>G: Movimiento registrado
-    G-->>U: Transferencia registrada; no es un gasto
-```
+The response distinguishes:
 
-Si se usa una cotización online, se guarda su referencia y fecha y se pide confirmar los importes. Si vence la propuesta o cambia el precio aplicable, se prepara y confirma una nueva. El cambio del ejemplo es ilustrativo.
+- **Generated this month:** actual income minus actual expenses.
+- **Moved this month:** cash transferred to investments or vaults, shown separately.
+- **Available now:** accumulated free cash across all months.
 
-Esta operación es un **registro interno en nuestro sistema**, no una transferencia bancaria ni una compra real en un exchange. Integrar movimientos reales de fondos requeriría otro diseño de autorización y ejecución.
+Investing the money early does not make it an expense. Leaving it in available cash still counts as generated savings. Investing January's surplus during February does not create new February savings. The tool returns these numbers; the model explains them without reconstructing accounts from chat history.
 
-## 8. Ejemplo: mensaje repetido o fallo al responder
+For an internal vault movement, code prepares the exact proposal. Example: 700 BOB into an existing USD vault at a user-confirmed 7 BOB/USD means 100 USD credited. Persist the original request key, rate, amounts, destination, version and expiry. A confirmation resumes that proposal, revalidates the balance/permissions, and uses the same operation key. This rate is illustrative, not a live quotation.
+
+## 13. Example: duplicate delivery and uncertain outcomes
 
 ```mermaid
 flowchart TD
-    EVENT["Llega un mensaje"] --> KEY["Identificar evento<br/>canal, cuenta receptora e ID del mensaje"]
-    KEY --> SEEN{"¿Evento ya recibido?"}
-    SEEN -->|Sí| EXISTING["Recuperar estado o resultado<br/>sin crear otra operación"]
-    SEEN -->|No| SAVE["Guardar evento y trabajo pendiente"]
-    SAVE --> PROCESS["Procesar conversación"]
-    PROCESS --> COMMAND["Ejecutar comando<br/>con clave idempotente"]
-    COMMAND --> RESULT["Guardar resultado y respuesta pendiente"]
-    RESULT --> SEND["n8n intenta entregar respuesta"]
-    SEND --> DELIVERY{"¿Entrega confirmada?"}
-    DELIVERY -->|Sí| DONE["Marcar respuesta entregada"]
-    DELIVERY -->|Fallo temporal| RETRY["Reintentar solo la entrega"]
+    EVENT["New or repeated event"] --> INBOX["Insert into durable inbox<br/>unique channel event key"]
+    INBOX --> EXISTING{"Already accepted?"}
+    EXISTING -->|Yes| LOOKUP["Recover pending state or result<br/>do not create a fresh command"]
+    EXISTING -->|No| TURN["Prepare or resume a turn"]
+    TURN --> COMMAND["Execute financial operation<br/>stable original-message operation key"]
+    COMMAND --> UNCERTAIN{"Outcome known?"}
+    UNCERTAIN -->|Timeout| CHECK["Look up operation status<br/>before any write retry"]
+    CHECK --> UNCERTAIN
+    UNCERTAIN -->|Committed| OUT["Persist response intent"]
+    UNCERTAIN -->|Rejected| ERROR["Explain structured business error"]
+    OUT --> SEND["Worker calls channel API"]
+    SEND --> DELIVERY{"Delivery confirmed?"}
+    DELIVERY -->|Yes| DONE["Mark delivered"]
+    DELIVERY -->|Temporary failure| RETRY["Retry delivery only<br/>with bounded backoff"]
     RETRY --> SEND
 ```
 
-Tres controles diferentes:
+Queue deduplication, database idempotency and outbound delivery recovery solve different problems. Persist an operation intent before the write; after a crash recover the committed result by its key. Persisting or recovering the response must not trigger another financial write.
 
-1. **Evento:** evita reprocesar el mismo webhook.
-2. **Operación:** la BD devuelve el resultado existente si se repite el mismo comando. Un mensaje puede contener varias operaciones; cada una necesita su propio identificador estable.
-3. **Respuesta:** si falla WhatsApp después de guardar un gasto, se reintenta enviar la respuesta, no registrar el gasto.
+If a channel accepted a response but the acknowledgment was lost, a retry can still duplicate the chat message unless the channel provides a suitable deduplication guarantee. Do not claim end-to-end exactly-once delivery. External MCP side effects also need their own idempotency/status strategy before enabling automatic retries.
 
-El checkpoint de LangGraph no garantiza por sí solo que una operación externa se ejecute una vez. La idempotencia debe llegar hasta la transacción del backend. Un timeout después de una escritura exige consultar su estado antes de repetirla.
+## 14. Scheduled events, operations and observability
 
-La entrega de mensajes también puede quedar incierta tras un timeout. Una bandeja de salida facilita recuperarla, pero no permite prometer entrega exactamente una vez si el proveedor no ofrece esa garantía.
+**EventBridge Scheduler** produces reminders, monthly summaries and other proactive events that reenter the same queue as trusted system events. SQS is a delivery queue, not a long-term reminder database. System event IDs must distinguish scheduled occurrences while remaining stable on retry. Configure the FIFO integration's group/deduplication requirements and verify them in an integration test.
 
-## 9. Contexto, límites y errores
+At send time, enforce WhatsApp's current customer-service window and approved-template requirements; a scheduled event does not grant permission to send arbitrary free-form messages. Recheck family membership and reminder consent when a schedule fires, rather than retaining stale authorization from its creation.
 
-La infraestructura de atención necesitaría persistencia propia, separada de los saldos financieros. Es una propuesta: este documento no añade tablas ni migraciones.
+**Langfuse** provides self-hostable turn traces, latency by stage, model usage/cost and evaluation results. Carry `trace_id` from Lambda to queue, worker, tools and model gateway. Record failures such as tool schema errors, authorization denial, timeouts and exhausted budgets. Redact secrets and minimize financial/chat content in logs and traces; use explicit retention and access controls.
 
-| Dato | Para qué sirve |
+Evaluate real, consented/redacted conversations against every model, prompt or tool change before production. Include multilingual turns, ambiguous amounts/dates, child/admin interactions, receipt mistakes, family switching and injected instructions in documents. Measure end-to-end and per-stage latency before optimizing or introducing more agents.
+
+| Failure | Required behavior |
 |---|---|
-| Identidad verificada del canal | Relacionar el remitente con un usuario autorizado. Un teléfono escrito en el mensaje no autentica a nadie. |
-| Conversación y hogar seleccionado | Continuar la conversación sin mezclar familias. Revalidar permisos al cambiar de hogar. |
-| Intención y datos propuestos | Preguntar únicamente lo que falta, sin volver a interpretar todo. |
-| Operación pendiente, versión y vencimiento | Relacionar una confirmación con una propuesta concreta. |
-| Idioma, zona horaria y moneda | Respuestas consistentes; cálculos y fechas resueltos por el sistema. |
-| IDs de evento, operación y correlación | Evitar duplicados y seguir la atención de extremo a extremo. |
-| Checkpoint y respuesta pendiente | Reanudar tras un reinicio y recuperar la entrega. |
+| Unauthenticated webhook | Reject before enqueueing. |
+| Failed queue publish | Do not acknowledge the event as successfully accepted. |
+| Repeated message or confirmation | Reuse durable state and the original operation result. |
+| Unknown sender or family | Account linking or clarification; no inferred financial access. |
+| Invalid structured output | Bounded repair/escalation; no unvalidated write. |
+| Permission denial / insufficient funds | Explain and stop; a stronger model cannot override policy. |
+| Receipt extraction | Always obtain confirmation before posting. |
+| Expired or modified proposal | Rebuild and request new approval. |
+| Model/provider unavailable | Approved fallback within policy and budget, otherwise a controlled failure. |
+| Worker restart | Recover inbox, checkpoint, processing lease and operation status. |
+| Channel send failure after commit | Retry delivery, never repeat the financial write. |
+| Repeated poison event | DLQ, alarm and reviewed recovery. |
 
-Serializar el procesamiento por conversación evita que dos mensajes simultáneos confirmen propuestas diferentes. Entre hogares/conversaciones independientes sí puede haber concurrencia. Si hay dos acciones pendientes, “sí” no basta: se debe identificar cuál confirma.
+## 15. Delivery roadmap
 
-Los esquemas, límites de herramientas y permisos se comprueban en código. El contenido del usuario y de los adjuntos se trata como datos, no como instrucciones para cambiar permisos. Las credenciales permanecen en el servidor o en credenciales de n8n; no se incluyen en prompts ni estados de conversación.
+1. Lambda + SQS FIFO + worker: authenticated ingress and an echo round trip using a test channel.
+2. Identity, family isolation/RLS, durable inbox, processing leases and financial idempotency. Reuse current domain rules; plan any database migration separately.
+3. One LangGraph agent, one transaction tool group, and the PostgreSQL checkpointer.
+4. LiteLLM as the only model boundary, before live model integration; stages 3 and 4 can be developed together.
+5. Audio and images, with mandatory confirmation for image-extracted financial data.
+6. Langfuse and the first evaluation set based on representative conversations.
+7. Small-model classifier, scoped tool groups, bounded loops and stronger-model escalation.
+8. Asynchronous long-term memory extraction and family-scoped document RAG.
+9. SGLang GPU inference with compatible aliases and policy-controlled external fallback, once cost/load measurements justify it.
+10. TTS, scheduled reminders and cross-user administrator approval.
 
-| Resultado | Comportamiento propuesto |
-|---|---|
-| Falta información | Pregunta breve y estado pendiente. |
-| JSON o esquema inválido | Corrección acotada de extracción; no repetir una escritura. |
-| Sin permisos | Explicación clara y detener la operación. |
-| Proveedor temporalmente caído | Reintento limitado con espera; alternativa o mensaje de fallo. |
-| Backend responde `success: false` | No confirmar éxito aunque HTTP o n8n hayan terminado correctamente. |
-| Límite de pasos alcanzado | Detener el bucle y dar una salida útil; registrar causa y correlación. |
+During migration, route each real incoming event to exactly one financial executor: the existing workflow or this worker. Shadow comparisons use simulated/read-only operations. Do not turn on both writers for the same channel event.
 
-Los registros técnicos deben indicar módulo, duración, uso del modelo, errores e identificadores. Evitar copiar tokens, adjuntos completos o conversaciones financieras innecesarias a logs. La retención de mensajes y checkpoints debe definirse antes de producción.
+Before each stage is enabled, test duplicate webhooks beyond FIFO's deduplication window, worker termination at each commit boundary, debounce under message bursts, concurrent cross-channel messages, replayed approvals, role changes while waiting, model fallback privacy restrictions, and delivery retries after a successful financial commit.
 
-## 10. Cómo introducirlo sin rehacer todo
+## References
 
-1. Separar en n8n entrada, preparación de contenido y salida. Normalizar los datos de WhatsApp y eliminar referencias heredadas a Telegram en ese recorrido.
-2. Introducir un servicio conversacional TypeScript con LangGraph. Empezar por **consultas**, sin operaciones de escritura.
-3. Añadir movimientos, con extracción estructurada, identidad verificada y protección contra duplicados. Reutilizar operaciones existentes y adaptar su autenticación donde sea necesario.
-4. Incorporar administración del hogar y ahorro/inversiones con propuestas y confirmaciones explícitas.
-5. Migrar cada intención por separado. Para un mensaje real, elegir un único ejecutor: el flujo antiguo o el nuevo, nunca ambos con permisos de escritura. Las comparaciones en paralelo deben ser de solo lectura o simuladas.
-
-Se podría alojar este servicio junto al backend o como proceso independiente. No hace falta dividirlo en muchos microservicios. LangChain se usa donde simplifique adaptadores; no es obligatorio añadir otra capa si una llamada estructurada directa basta.
-
-Antes de activar cada módulo, probar:
-
-| Caso | Resultado esperado |
-|---|---|
-| Gasto completo | Un registro y confirmación del resultado real. |
-| Dos hogares | Preguntar destino; no elegir uno arbitrariamente. |
-| Audio ambiguo o ticket ilegible | Pedir aclaración antes de registrar. |
-| Mismo webhook dos veces | Una sola operación. |
-| Confirmación repetida | Recuperar la operación original. |
-| Reinicio mientras espera confirmación | Recuperar propuesta y continuar sin duplicados. |
-| Dos mensajes simultáneos | Procesamiento ordenado por conversación. |
-| Timeout tras guardar | Consultar operación existente antes de reintentar. |
-| Caída de WhatsApp tras guardar | Reintentar entrega sin volver a registrar. |
-| Invertir ahorros anteriores | Reportar transferencia sin aumentar ahorro generado del mes. |
-| Herramienta devuelve error de autorización | Detener escritura y explicar el problema. |
-| Usuario cambia el monto tras confirmar | Nueva propuesta y nueva confirmación. |
-
-## Referencias
-
-- [LangGraph: coordinación de pasos deterministas y decisiones del modelo](https://docs.langchain.com/oss/javascript/langgraph/overview).
-- [LangGraph: pausas, checkpoints y reanudación](https://docs.langchain.com/oss/javascript/langgraph/interrupts).
-- [n8n: dividir workflows en componentes pequeños](https://docs.n8n.io/flow-logic/subworkflows/).
+- [SQS FIFO delivery and message-group behavior](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/FIFO-queues-understanding-logic.html).
+- [SQS FIFO deduplication window and key terms](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/FIFO-key-terms.html).
+- [LangGraph interrupts and persistent resumption](https://docs.langchain.com/oss/python/langgraph/interrupts).
+- [LiteLLM gateway and provider-independent routing](https://docs.litellm.ai/docs/simple_proxy).
+- [SGLang inference serving and prefix caching](https://docs.sglang.ai/).
