@@ -33,8 +33,10 @@ export default function PyramidStep({ householdId, currency, finishing, onFinish
   const label = (template: Template, level: Level) => t(`pyramid.levels.${template.code}.${level.code}.name`, { defaultValue: level.name || level.code });
   const description = (template: Template, level: Level) => t(`pyramid.levels.${template.code}.${level.code}.description`, { defaultValue: level.description || '' });
   const title = (template: Template) => t(`pyramid.templates.${template.code}.name`, { defaultValue: template.name || template.code });
-  const chartWidth = Math.max(90, Math.min(280, (Math.min(width - 48, 768) - 40) * 0.42));
-  const layerHeight = Math.max(136, 130 * fontScale);
+  const stacked = width < 720;
+  const contentWidth = Math.min(Math.max(width - 48, 280), 920);
+  const chartWidth = stacked ? Math.max(240, Math.min(contentWidth - 40, 420)) : Math.max(240, Math.min(440, contentWidth * 0.5));
+  const layerHeight = Math.max(164, 156 * fontScale);
 
   function choose(template: Template) {
     setSelectedId(template.id);
@@ -113,18 +115,19 @@ export default function PyramidStep({ householdId, currency, finishing, onFinish
       {selected ? <View className="rounded-3xl bg-white p-5">
         <Text className="mb-5 text-lg font-bold text-pine">{customMode ? t('pyramid.customTitle') : title(selected)}</Text>
         {[...levels].reverse().map((level, index) => {
-          const size = chartWidth * (0.45 + 0.55 * index / Math.max(1, levels.length - 1));
-          const inset = chartWidth * 0.55 / (2 * Math.max(1, levels.length - 1));
+          const span = Math.max(1, levels.length - 1);
+          const size = chartWidth * (0.62 + 0.38 * index / span);
+          const inset = chartWidth * 0.38 / (2 * span);
           const raw = percentages[level.code] ?? '';
           const valid = percentageUnits(raw) !== null;
           const valueIndex = levels.findIndex(item => item.id === level.id);
           const allocation = allocations[valueIndex];
-          return <View key={level.code} className="flex-row items-center gap-3" style={{ minHeight: layerHeight }}>
+          return <View key={level.code} className={stacked ? 'items-center py-3' : 'flex-row items-center gap-4'} style={stacked ? undefined : { minHeight: layerHeight }}>
             <View style={{ width: chartWidth, alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' }}>
               <View style={{ width: size, height: layerHeight - 8, borderLeftWidth: inset, borderRightWidth: inset, borderBottomWidth: layerHeight - 8, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: level.color?.trim() || '#5797BA' }} />
               <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }}><Text style={{ color: 'white', fontWeight: '800', fontSize: Math.min(23, Math.max(14, size * 0.25)) }}>{valid ? `${raw.replace(',', '.')}%` : '—'}</Text></View>
             </View>
-            <View className="flex-1 py-3">
+            <View className={stacked ? 'mt-3 w-full' : 'flex-1 py-3'}>
               <Text className="font-bold text-pine">{label(selected, level)}</Text>
               <Text className="mt-1 text-xs leading-4 text-sage">{description(selected, level)}</Text>
               <Text className="mt-2 text-base font-extrabold text-pine">{typeof allocation === 'number' ? money(allocation) : '—'}</Text>

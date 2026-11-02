@@ -1,3 +1,4 @@
+import WhatsAppCard from '../whatsapp/WhatsAppCard';
 import './i18n';
 import IncomeSourcesStep from './IncomeSourcesStep';
 import AssetsStep from './AssetsStep';
@@ -13,7 +14,7 @@ import type { HouseholdRow, HouseholdMemberRow } from '../../lib/budget-schema';
 import { supabase } from '../../lib/supabase';
 import { signOut } from '../../lib/auth';
 
-type StepId = 'home' | 'members' | 'healthAsk' | 'health' | 'income' | 'assets' | 'pyramid' | 'mealPlan';
+type StepId = 'home' | 'members' | 'whatsapp' | 'healthAsk' | 'health' | 'income' | 'assets' | 'pyramid' | 'mealPlan';
 type MemberType = 'dad' | 'mom' | 'son' | 'other';
 type Member = HouseholdMemberRow & { fullName: string };
 const memberTypes: MemberType[] = ['dad', 'mom', 'son', 'other'];
@@ -40,13 +41,14 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const steps: StepId[] = ['home', 'members', 'healthAsk', ...(healthOptIn ? ['health' as const] : []), 'income', 'assets', 'pyramid', ...(healthOptIn ? ['mealPlan' as const] : [])];
+  const steps: StepId[] = ['home', 'members', ...(!household || household.created_by === userId ? ['whatsapp' as const] : []), 'healthAsk', ...(healthOptIn ? ['health' as const] : []), 'income', 'assets', 'pyramid', ...(healthOptIn ? ['mealPlan' as const] : [])];
   const stepIndex = steps.indexOf(step);
   const go = (offset: number) => { setError(null); setStep(steps[Math.min(steps.length - 1, Math.max(0, stepIndex + offset))]); };
   const wide = step === 'pyramid' || step === 'mealPlan';
   const copy: Record<StepId, [string, string]> = {
     home: ['homeTitle', 'homeSubtitle'],
     members: ['membersTitle', 'membersSubtitle'],
+    whatsapp: ['whatsappTitle', 'whatsappSubtitle'],
     healthAsk: ['healthAsk.title', 'healthAsk.subtitle'],
     health: ['health.title', 'health.subtitle'],
     income: ['income.title', 'income.subtitle'],
@@ -235,6 +237,8 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
                 </Pressable>
               </View>
             </View>
+          ) : step === 'whatsapp' ? (
+            <View className="mt-8"><WhatsAppCard userId={userId} onboarding onContinue={() => go(1)} /></View>
           ) : step === 'healthAsk' ? (
             <View className="mt-8 gap-4">
               <Pressable disabled={busy} onPress={() => void chooseHealth(true)} accessibilityRole="radio"
@@ -271,7 +275,7 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
             accessibilityRole="button" className={`mt-8 items-center rounded-2xl bg-pine py-4 ${busy || loading ? 'opacity-50' : ''}`}>
             {busy ? <ActivityIndicator color="white" /> : <Text className="text-base font-bold text-white">{t('continue')}</Text>}
           </Pressable> : null}
-          {step === 'members' || step === 'healthAsk' ? <Pressable disabled={busy} onPress={() => go(-1)} accessibilityRole="button" className="mt-3 items-center p-3">
+          {step === 'members' || step === 'whatsapp' || step === 'healthAsk' ? <Pressable disabled={busy} onPress={() => go(-1)} accessibilityRole="button" className="mt-3 items-center p-3">
             <Text className="font-semibold text-sage">{t('back')}</Text>
           </Pressable> : null}
         </View>

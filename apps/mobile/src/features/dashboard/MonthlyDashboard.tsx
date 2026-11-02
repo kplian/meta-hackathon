@@ -20,7 +20,8 @@ export default function MonthlyDashboard({ householdId, householdName }: { house
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refresh, setRefresh] = useState(0);
-  const [chartWidth, setChartWidth] = useState(140);
+  const [chartWidth, setChartWidth] = useState(280);
+  const [stacked, setStacked] = useState(false);
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setError(false); setData(null);
@@ -56,28 +57,29 @@ export default function MonthlyDashboard({ householdId, householdName }: { house
           </View>
         </View>
         {data.estimated_income <= 0 ? <Text className="rounded-xl bg-[#FFF1E6] p-4 text-sm leading-5 text-pine">{t('noIncome')}</Text> : null}
-        {!data.levels.length ? <Text className="rounded-2xl bg-white p-5 text-pine">{t('noPlan')}</Text> : <View className="rounded-3xl bg-white p-4" onLayout={event => setChartWidth(Math.max(80, Math.min(300, event.nativeEvent.layout.width * 0.4 - 16)))}>
+        {!data.levels.length ? <Text className="rounded-2xl bg-white p-5 text-pine">{t('noPlan')}</Text> : <View className="rounded-3xl bg-white p-4" onLayout={event => { const width = event.nativeEvent.layout.width; const narrow = width < 640; setStacked(narrow); setChartWidth(narrow ? Math.max(240, width - 8) : Math.min(480, Math.max(280, width * 0.5))); }}>
           {[...visibleLevels].reverse().map((level, index) => {
             const saving = level.code === 'saving';
             const amount = saving && data.savings ? data.savings.generated : level.spent;
             const used = level.allocated > 0 ? Math.max(0, amount) / level.allocated * 100 : null;
             const over = !saving && amount > level.allocated;
             const color = over ? '#B53D35' : level.color?.trim() || '#5797BA';
-            const shapeWidth = chartWidth * (0.45 + 0.55 * index / Math.max(1, visibleLevels.length - 1));
-            const inset = chartWidth * 0.55 / (2 * Math.max(1, visibleLevels.length - 1));
+            const span = Math.max(1, visibleLevels.length - 1);
+            const shapeWidth = chartWidth * (0.62 + 0.38 * index / span);
+            const inset = chartWidth * 0.38 / (2 * span);
             const savingAchieved = data.savings?.achieved ?? (level.allocated > 0 && amount >= level.allocated);
             const savingGap = data.savings?.gap ?? Math.max(0, level.allocated - amount);
-            return <View key={level.code} className="flex-row items-center gap-3 py-1">
-              <View style={{ width: chartWidth, alignItems: 'center', alignSelf: 'stretch', justifyContent: 'center', minHeight: 146 }}>
-                <View style={{ width: shapeWidth, height: 138, overflow: 'hidden' }}>
-                  <View style={{ position: 'absolute', width: shapeWidth, height: 138, borderLeftWidth: inset, borderRightWidth: inset, borderBottomWidth: 138, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: color, opacity: 0.2 }} />
-                  <View style={{ position: 'absolute', bottom: 0, width: shapeWidth, height: 138 * Math.min(1, Math.max(0, used === null ? (over ? 1 : 0) : used / 100)), overflow: 'hidden' }}>
-                    <View style={{ position: 'absolute', bottom: 0, width: shapeWidth, height: 138, borderLeftWidth: inset, borderRightWidth: inset, borderBottomWidth: 138, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: color }} />
+            return <View key={level.code} className={stacked ? 'items-center py-3' : 'flex-row items-center gap-4 py-1'}>
+              <View style={{ width: chartWidth, alignItems: 'center', alignSelf: 'stretch', justifyContent: 'center', minHeight: 176 }}>
+                <View style={{ width: shapeWidth, height: 168, overflow: 'hidden' }}>
+                  <View style={{ position: 'absolute', width: shapeWidth, height: 168, borderLeftWidth: inset, borderRightWidth: inset, borderBottomWidth: 168, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: color, opacity: 0.2 }} />
+                  <View style={{ position: 'absolute', bottom: 0, width: shapeWidth, height: 168 * Math.min(1, Math.max(0, used === null ? (over ? 1 : 0) : used / 100)), overflow: 'hidden' }}>
+                    <View style={{ position: 'absolute', bottom: 0, width: shapeWidth, height: 168, borderLeftWidth: inset, borderRightWidth: inset, borderBottomWidth: 168, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: color }} />
                   </View>
-                  <View style={{ position: 'absolute', top: 52, left: 0, right: 0, alignItems: 'center' }}><Text style={{ color: (used !== null && used >= 65) || (used === null && over) ? '#FFFFFF' : '#0B3D2E', fontWeight: '800', fontSize: 18 }}>{used === null ? '—' : `${percent(used)}%`}</Text></View>
+                  <View style={{ position: 'absolute', top: 66, left: 0, right: 0, alignItems: 'center' }}><Text style={{ color: (used !== null && used >= 65) || (used === null && over) ? '#FFFFFF' : '#0B3D2E', fontWeight: '800', fontSize: 22 }}>{used === null ? '—' : `${percent(used)}%`}</Text></View>
                 </View>
               </View>
-              <View className="flex-1 py-3"><Text className="font-bold text-pine">{t(level.code, { defaultValue: level.name })}</Text><Text className="mt-1 text-xs leading-5 text-sage">{t('allocation', { percent: percent(level.percentage), amount: money(level.allocated) })}</Text><Text className="mt-2 text-lg font-extrabold text-pine">{money(amount)}</Text><Text className="mt-1 text-xs font-semibold" style={{ color: over ? '#B53D35' : '#52695E' }}>{used === null ? '—' : saving ? savingsText('progress', { percent: percent(used) }) : t('used', { percent: percent(used) })}</Text><Text className="mt-1 text-xs leading-5" style={{ color: over ? '#B53D35' : '#52695E' }}>{saving ? (data.savings?.achieved ? savingsText('achieved') : savingsText('gap', { amount: money(data.savings?.gap ?? 0) })) : t(over ? 'over' : 'remaining', { amount: money(Math.abs(level.allocated - level.spent)) })}</Text></View>
+              <View className={stacked ? 'mt-3 w-full' : 'flex-1 py-3'}><Text className="font-bold text-pine">{t(level.code, { defaultValue: level.name })}</Text><Text className="mt-1 text-xs leading-5 text-sage">{t('allocation', { percent: percent(level.percentage), amount: money(level.allocated) })}</Text><Text className="mt-2 text-lg font-extrabold text-pine">{money(amount)}</Text><Text className="mt-1 text-xs font-semibold" style={{ color: over ? '#B53D35' : '#52695E' }}>{used === null ? '—' : saving ? savingsText('progress', { percent: percent(used) }) : t('used', { percent: percent(used) })}</Text><Text className="mt-1 text-xs leading-5" style={{ color: over ? '#B53D35' : '#52695E' }}>{saving ? (data.savings?.achieved ? savingsText('achieved') : savingsText('gap', { amount: money(data.savings?.gap ?? 0) })) : t(over ? 'over' : 'remaining', { amount: money(Math.abs(level.allocated - level.spent)) })}</Text></View>
             </View>;
           })}
         </View>}

@@ -1,3 +1,4 @@
+import WhatsAppCard from '../features/whatsapp/WhatsAppCard';
 import InvestmentsScreen from '../features/investments/InvestmentsScreen';
 import { useEffect, useState } from 'react';
 import {
@@ -443,6 +444,8 @@ export default function HomeScreen({ session }: { session: Session }) {
                   <Text className="text-sm text-sage">{email}</Text>
                 </View>
               </View>
+
+              <WhatsAppCard userId={session.user.id} />
 
               {/* Language Preference Card */}
               <View className="rounded-2xl bg-[#F4FAF6] p-4 gap-2.5">

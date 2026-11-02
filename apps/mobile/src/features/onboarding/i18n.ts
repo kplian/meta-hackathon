@@ -3,6 +3,8 @@ import i18n from '../../i18n';
 // Feature-owned translations avoid editing shared locale catalogs.
 const resources = {
   "es": {
+    "whatsappTitle": "Tu WhatsApp",
+    "whatsappSubtitle": "Puedes agregar tu número ahora o hacerlo después desde Perfil.",
     "step": "Paso {{step}} de {{total}}",
     "homeTitle": "Dale un nombre a tu hogar",
     "homeSubtitle": "Un espacio para organizar juntos lo que más importa. Puedes cambiar el nombre cuando quieras.",
@@ -274,6 +276,8 @@ const resources = {
     }
   },
   "en": {
+    "whatsappTitle": "Your WhatsApp",
+    "whatsappSubtitle": "Add your number now or later in Profile.",
     "step": "Step {{step}} of {{total}}",
     "homeTitle": "Give your household a name",
     "homeSubtitle": "A space to organize what matters together. You can change the name any time.",
@@ -545,6 +549,8 @@ const resources = {
     }
   },
   "pt": {
+    "whatsappTitle": "Seu WhatsApp",
+    "whatsappSubtitle": "Adicione seu número agora ou depois em Perfil.",
     "step": "Etapa {{step}} de {{total}}",
     "homeTitle": "Dê um nome ao seu lar",
     "homeSubtitle": "Um espaço para organizar juntos o que importa. Você pode mudar o nome quando quiser.",
