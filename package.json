@@ -19,6 +19,8 @@
     "db:pull": "supabase db pull",
     "db:types": "node scripts/generate-database-types.mjs",
     "db:types:cloud": "supabase gen types typescript --linked --schema budget,public,storage > packages/database-types/src/database.types.ts",
+    "functions:deploy": "supabase functions deploy asset-market",
+    "functions:deploy:all": "supabase functions deploy",
     "n8n:up": "docker compose up -d",
     "n8n:down": "docker compose down",
     "n8n:logs": "docker compose logs -f n8n",
