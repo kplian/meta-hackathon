@@ -45,103 +45,40 @@ flowchart TB
 
 **The four branches are tool groups, not four agents.** The agent only receives the tools relevant to the request and the user's permissions. The worker sends the final response directly to WhatsApp or Telegram; the diagram follows the request direction for readability.
 
-## Physical deployment — what runs where
+## Physical components — simple view
 
-**Proposed initial AWS placement, not deployed infrastructure.** Boxes represent hosting boundaries: AWS region → VPC/private network → EC2 machine → Docker containers. Managed AWS services do not run inside our Docker hosts.
+Each box shows **the component, where it runs, and its responsibility**.
 
 ```mermaid
 flowchart TB
-    CHANNELS["WhatsApp / Telegram APIs"]
-    PROVIDERS["Approved external model providers<br/>Fallback only through LiteLLM"]
+    LAMBDA["Lambda · AWS-managed<br/>Receives and verifies channel messages<br/>Sends accepted messages to the queue"]
+    SQS["SQS FIFO · AWS-managed<br/>Queues messages in order<br/>Buffers traffic and handles delivery retries"]
+    WORKER["Worker + LangGraph · Docker container on CPU EC2<br/>Understands requests, selects tools and checks permissions<br/>Manages confirmations and sends channel replies"]
+    LITE["LiteLLM Proxy · Docker container on CPU EC2<br/>Routes every model request<br/>Controls model selection, limits and fallbacks"]
+    MODEL["SGLang + model · Docker container on GPU EC2<br/>Runs the selected AI model<br/>Returns interpretations and proposed tool calls"]
+    POSTGRES["PostgreSQL · Amazon RDS<br/>Stores users, families and financial records<br/>Persists conversation state and enforces data access"]
+    FILES["S3 · AWS-managed storage<br/>Stores private audio, images and documents"]
 
-    subgraph AWS["AWS account / region"]
-        direction TB
-        subgraph MANAGED["AWS-managed services — no EC2 or Docker to maintain"]
-            direction LR
-            INGRESS["API Gateway + Lambda<br/>Public HTTPS ingress and verification"]
-            FIFO["SQS FIFO + dead-letter queue<br/>Ordered events and retry isolation"]
-            SCHEDULER["EventBridge Scheduler<br/>Scheduled reminder events"]
-            S3STORE["Private S3 buckets<br/>Media, documents and trace objects"]
-            SECRETSTORE["Secrets Manager<br/>Credentials and API secrets"]
-            MONITOR["CloudWatch<br/>Infrastructure logs and alarms"]
-        end
+    LAMBDA --> SQS --> WORKER
+    WORKER --> LITE --> MODEL
+    WORKER --> POSTGRES
+    WORKER --> FILES
 
-        subgraph VPC["VPC — private subnets / security groups"]
-            direction TB
-            subgraph APPSERVER["EC2 A — Application server / CPU"]
-                subgraph APPDOCKER["Docker Compose"]
-                    WORKER["Worker container<br/>Python + LangGraph + tools<br/>Inbox, media and direct channel replies"]
-                    LITELLM["LiteLLM container<br/>Model gateway, routing and limits"]
-                end
-            end
-
-            subgraph GPUSERVER["EC2 B — Inference server / GPU"]
-                subgraph GPUDOCKER["Docker + NVIDIA runtime"]
-                    SGLANG["SGLang container<br/>Selected open-source model"]
-                end
-                MODELSTORE["EBS volume<br/>Model weights and cache"]
-            end
-
-            subgraph OBSSERVER["EC2 C — Observability server / CPU"]
-                subgraph OBSDOCKER["Docker Compose — Langfuse stack"]
-                    LANGFUSE["Langfuse web + worker containers<br/>Traces, costs and evaluations"]
-                    SUPPORT["ClickHouse + Redis containers<br/>Langfuse analytics and background work"]
-                end
-                OBSSTORE["Persistent EBS volume<br/>ClickHouse data and backups policy"]
-            end
-
-            RDSSTORE[("Amazon RDS for PostgreSQL<br/>Business data, inbox and checkpoints<br/>Separate databases for observability/gateway")]
-        end
-    end
-
-    CHANNELS --> INGRESS
-    INGRESS --> FIFO
-    SCHEDULER --> FIFO
-    FIFO -->|Worker polls| WORKER
-    FIFO -.->|DLQ alarm| MONITOR
-    WORKER -->|Direct response| CHANNELS
-    WORKER --> LITELLM
-    LITELLM --> SGLANG
-    LITELLM -->|Approved fallback| PROVIDERS
-    SGLANG --- MODELSTORE
-    WORKER --> RDSSTORE
-    WORKER --> S3STORE
-    WORKER -.-> LANGFUSE
-    LITELLM -.-> LANGFUSE
-    LANGFUSE --> SUPPORT
-    LANGFUSE --> RDSSTORE
-    LANGFUSE --> S3STORE
-    SUPPORT --- OBSSTORE
-    LITELLM -->|Gateway configuration / usage| RDSSTORE
-    SECRETSTORE -.-> INGRESS
-    SECRETSTORE -.-> WORKER
-    SECRETSTORE -.-> LITELLM
-
-    classDef managed fill:#F7F1E8,stroke:#EADFCF,color:#172B25;
-    classDef application fill:#EEF2FF,stroke:#C7D2FE,color:#172B25;
+    classDef transport fill:#F8FAFC,stroke:#D6DFE5,color:#172B25;
+    classDef agent fill:#EEF2FF,stroke:#D8E1FF,color:#172B25;
+    classDef proxy fill:#EAF3F8,stroke:#D6E7F0,color:#172B25;
     classDef inference fill:#EAF4EE,stroke:#D2E8DA,color:#172B25;
-    classDef observability fill:#F3EDFA,stroke:#E1D4EF,color:#172B25;
-    classDef storage fill:#EAF3F8,stroke:#D6E7F0,color:#172B25;
-    class INGRESS,FIFO,SCHEDULER,SECRETSTORE,MONITOR managed;
-    class WORKER,LITELLM application;
-    class SGLANG inference;
-    class LANGFUSE,SUPPORT observability;
-    class RDSSTORE,S3STORE,MODELSTORE,OBSSTORE storage;
+    classDef storage fill:#F7F1E8,stroke:#EADFCF,color:#172B25;
+    class LAMBDA,SQS transport;
+    class WORKER agent;
+    class LITE proxy;
+    class MODEL inference;
+    class POSTGRES,FILES storage;
 ```
 
-| Physical boundary | What runs there |
-|---|---|
-| **EC2 A · CPU · Docker Compose** | Two containers: our worker and LiteLLM. LangGraph and tool code live **inside the worker**, not in more servers. |
-| **EC2 B · GPU · Docker + NVIDIA runtime** | SGLang inference container, with model weights/cache on EBS. Select a compatible GPU, such as g5, after measuring model memory requirements. |
-| **EC2 C · CPU · Docker Compose** | Self-hosted Langfuse: web, background worker, ClickHouse and Redis containers. This Redis serves Langfuse; an application Redis remains optional. |
-| **RDS · managed PostgreSQL** | Application data and a separate checkpoint schema. Langfuse and LiteLLM use separate databases/users; never reuse the agent's financial database permissions. |
-| **S3, SQS, Lambda, API Gateway, Scheduler, Secrets Manager, CloudWatch** | AWS-managed resources. They are not containers on any of those EC2 machines. |
+**Placement:** the worker and LiteLLM can share one CPU EC2, in separate containers. SGLang runs on a separate GPU EC2. Lambda, SQS, RDS and S3 are managed AWS services, not containers on those machines. LangGraph runs inside the worker; it is not another server.
 
-Only the channel ingress is public. EC2 services and RDS remain private; outbound channel/provider requests use controlled egress, AWS service access uses appropriate endpoints/egress, and the Langfuse UI is reached through private administrative access. Infrastructure logs go to CloudWatch; model/conversation traces go to Langfuse. Dashed arrows show supporting paths rather than additional conversation steps. Service IAM roles determine which secrets each component can read; the diagram abbreviates those relationships.
-
-**Starting footprint: three EC2 machines plus managed AWS services.** The GPU can be deferred while using approved hosted models through LiteLLM. This initial single-host-per-role layout is not highly available: application replicas and independent gateway scaling come later; RDS availability and backup settings are configured separately. Local stateful containers require persistent volumes and tested backups. Docker Compose does not provide cross-host failover by itself.
-
-This is the target placement for the selected design. Moving existing Supabase data/authentication to RDS remains a separate migration decision; this diagram does not make that migration happen.
+Arrows show the main dependencies. Model results return through LiteLLM, and the worker replies directly to WhatsApp or Telegram. Additional operational services remain in the [technical details](ai-attention-architecture-details.md).
 
 ## Responsibilities around the agent
 
@@ -170,5 +107,3 @@ This is the target placement for the selected design. Moving existing Supabase d
 The model interprets and explains. **Code and the database control permissions, amounts and financial writes.**
 
 [Detailed implementation notes, recovery flows and delivery roadmap](ai-attention-architecture-details.md).
-
-Deployment references: [Langfuse Docker Compose](https://langfuse.com/self-hosting/deployment/docker-compose), [SGLang Docker installation](https://docs.sglang.ai/get_started/install.html).
