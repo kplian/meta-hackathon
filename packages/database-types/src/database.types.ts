@@ -777,14 +777,14 @@ isOneToOne: false
                   ]
                 },"thousehold": {
                   Row: {
-                    "auxiliar_id": string | null,"business_type_id": string,"created_at": string,"created_by": string | null,"currency": string | null,"deleted_at": string | null,"deleted_by": string | null,"financial_pyramid_id": string | null,"id": string,"name": string,"preferences": Json | null,"setup_completed_at": string | null,"status": string | null,"updated_at": string | null,"updated_by": string | null
+                    "auxiliar_id": string | null,"business_type_id": string,"created_at": string,"created_by": string | null,"country_code": string | null,"currency": string | null,"deleted_at": string | null,"deleted_by": string | null,"financial_pyramid_id": string | null,"id": string,"name": string,"preferences": Json | null,"setup_completed_at": string | null,"status": string | null,"updated_at": string | null,"updated_by": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "auxiliar_id"?: string | null,"business_type_id": string,"created_at"?: string,"created_by"?: string | null,"currency"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"financial_pyramid_id"?: string | null,"id"?: string,"name": string,"preferences"?: Json | null,"setup_completed_at"?: string | null,"status"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null
+                    "auxiliar_id"?: string | null,"business_type_id": string,"created_at"?: string,"created_by"?: string | null,"country_code"?: string | null,"currency"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"financial_pyramid_id"?: string | null,"id"?: string,"name": string,"preferences"?: Json | null,"setup_completed_at"?: string | null,"status"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null
                   }
                   Update: {
-                    "auxiliar_id"?: string | null,"business_type_id"?: string,"created_at"?: string,"created_by"?: string | null,"currency"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"financial_pyramid_id"?: string | null,"id"?: string,"name"?: string,"preferences"?: Json | null,"setup_completed_at"?: string | null,"status"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null
+                    "auxiliar_id"?: string | null,"business_type_id"?: string,"created_at"?: string,"created_by"?: string | null,"country_code"?: string | null,"currency"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"financial_pyramid_id"?: string | null,"id"?: string,"name"?: string,"preferences"?: Json | null,"setup_completed_at"?: string | null,"status"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null
                   }
                   Relationships: [
                     {

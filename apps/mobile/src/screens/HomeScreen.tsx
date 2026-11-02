@@ -445,7 +445,7 @@ export default function HomeScreen({ session }: { session: Session }) {
                 </View>
               </View>
 
-              <WhatsAppCard userId={session.user.id} />
+              <WhatsAppCard userId={session.user.id} householdCountry={activeHousehold?.country_code} />
 
               {/* Language Preference Card */}
               <View className="rounded-2xl bg-[#F4FAF6] p-4 gap-2.5">
