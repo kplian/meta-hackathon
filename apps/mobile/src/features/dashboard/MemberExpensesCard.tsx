@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
@@ -43,7 +43,10 @@ export default function MemberExpensesCard({ householdId, refresh }: { household
             const path = `M 120 120 L ${120 + 112 * Math.cos(start)} ${120 + 112 * Math.sin(start)} A 112 112 0 ${angle > Math.PI ? 1 : 0} 1 ${120 + 112 * Math.cos(end)} ${120 + 112 * Math.sin(end)} Z`;
             start = end;
             const label = `${name(group)}: ${money(group.amount)} · ${percentage(group.percentage)}`;
-            return angle >= Math.PI * 2 - 1e-8 ? <Circle key={group.id} cx={120} cy={120} r={112} fill={color(group, index)} onPress={() => setSelected(group.id)} accessibilityLabel={label} /> : <Path key={group.id} d={path} fill={color(group, index)} stroke="white" strokeWidth={2} onPress={() => setSelected(group.id)} accessibilityLabel={label} />;
+            const pressProps = Platform.OS === 'web'
+              ? ({ onClick: () => setSelected(group.id) } as Record<string, unknown>)
+              : { onPress: () => setSelected(group.id) };
+            return angle >= Math.PI * 2 - 1e-8 ? <Circle key={group.id} cx={120} cy={120} r={112} fill={color(group, index)} {...pressProps} accessibilityLabel={label} /> : <Path key={group.id} d={path} fill={color(group, index)} stroke="white" strokeWidth={2} {...pressProps} accessibilityLabel={label} />;
           })}
         </Svg></View> : <Text className="mt-4 text-sm text-red-700">{t('memberExpensesInvalid')}</Text>}
         {data.groups.map((group, index) => <Pressable key={group.id} accessibilityRole="button" accessibilityState={{ selected: selected === group.id }} onPress={() => setSelected(group.id)} className={`mt-1 flex-row flex-wrap items-center gap-2 rounded-xl px-2 py-3 ${selected === group.id ? 'bg-mint' : 'bg-[#F4FAF6]'}`}>

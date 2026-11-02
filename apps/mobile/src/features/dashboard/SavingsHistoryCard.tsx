@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
 import Svg, { G, Line, Rect, Text as SvgText } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
@@ -60,7 +60,9 @@ export default function SavingsHistoryCard({ householdId, refresh }: { household
                 height={Math.max(height, 1)}
                 fill={isNegative ? '#B53D35' : '#21815E'}
                 opacity={isSelected ? 1 : 0.65}
-                onPress={() => setSelected(month.month)}
+                {...(Platform.OS === 'web'
+                  ? ({ onClick: () => setSelected(month.month) } as Record<string, unknown>)
+                  : { onPress: () => setSelected(month.month) })}
                 accessibilityLabel={label}
               />
               <SvgText x={x + 15} y={190} textAnchor="middle" fontSize={12} fill="#52695E">

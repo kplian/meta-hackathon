@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
@@ -46,7 +46,10 @@ export default function WealthCard({ householdId, refresh }: { householdId: stri
               start = end;
               const onPress = () => setSelected(asset.id);
               const label = `${asset.alias || asset.name}: ${money(asset.value_usd)}, ${percentage(asset.percentage)}`;
-              return angle >= Math.PI * 2 - 1e-8 ? <Circle key={asset.id} cx={120} cy={120} r={112} fill={colors[index % colors.length]} onPress={onPress} accessibilityLabel={label} /> : <Path key={asset.id} d={path} fill={colors[index % colors.length]} stroke="white" strokeWidth={2} onPress={onPress} accessibilityLabel={label} />;
+              const pressProps = Platform.OS === 'web'
+                ? ({ onClick: onPress } as Record<string, unknown>)
+                : { onPress };
+              return angle >= Math.PI * 2 - 1e-8 ? <Circle key={asset.id} cx={120} cy={120} r={112} fill={colors[index % colors.length]} {...pressProps} accessibilityLabel={label} /> : <Path key={asset.id} d={path} fill={colors[index % colors.length]} stroke="white" strokeWidth={2} {...pressProps} accessibilityLabel={label} />;
             })}
           </Svg>
           {selected ? <Text accessibilityLiveRegion="polite" className="mt-3 text-center font-semibold text-pine">{report.assets.filter(asset => asset.id === selected).map(asset => `${asset.alias || asset.name} · ${money(asset.value_usd)} · ${percentage(asset.percentage)}`).join('')}</Text> : null}

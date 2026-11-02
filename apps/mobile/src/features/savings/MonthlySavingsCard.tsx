@@ -13,8 +13,9 @@ export function MonthlySavingsSummary({ data }: { data: SavingsMonth }) {
   const money = (amount: number) => new Intl.NumberFormat(i18n.language, { style: 'currency', currency: data.currency }).format(amount);
   const s = data.savings;
   if (!isSavings(s)) return <Text accessibilityRole="alert" className="rounded-2xl bg-white p-5 text-pine">{t('backendUpdate')}</Text>;
+  const { generated, target } = s;
   const month = (value: string) => new Date(`${value}-01T12:00:00`).toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' });
-  const progress = s.target > 0 ? Math.max(0, Math.min(100, s.generated / s.target * 100)) : 0;
+  const progress = target > 0 ? Math.max(0, Math.min(100, generated / target * 100)) : 0;
   return <View className="rounded-3xl border border-[#D3E8DC] bg-white p-5" testID="monthly-savings-summary">
     <Text accessibilityRole="header" className="text-lg font-bold text-pine">{t('title')} · {month(data.month)}</Text>
     <View className="mt-4 flex-row flex-wrap gap-5">
