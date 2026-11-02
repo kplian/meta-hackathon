@@ -1,3 +1,5 @@
+import CountryPicker from '../whatsapp/CountryPicker';
+import { supportedCountry, detectCountry, type CountryCode } from '../whatsapp/countries';
 import WhatsAppCard from '../whatsapp/WhatsAppCard';
 import './i18n';
 import IncomeSourcesStep from './IncomeSourcesStep';
@@ -33,6 +35,7 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
     return typeof prefs.health_opt_in === 'boolean' ? prefs.health_opt_in : null;
   });
   const [householdId, setHouseholdId] = useState(household?.id ?? null);
+  const [country, setCountry] = useState<CountryCode | undefined>(() => supportedCountry(household?.country_code) ?? detectCountry());
   const [name, setName] = useState(household?.name ?? '');
   const [currency, setCurrency] = useState(household?.currency?.trim() || 'BOB');
   const [members, setMembers] = useState<Member[]>([]);
@@ -95,7 +98,7 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
     await run(async () => {
       if (householdId) {
         const result = await supabase.schema('budget').from('thousehold')
-          .update({ name: name.trim(), currency: currency.trim(), updated_at: new Date().toISOString(), updated_by: userId })
+          .update({ country_code: country ?? null, name: name.trim(), currency: currency.trim(), updated_at: new Date().toISOString(), updated_by: userId })
           .eq('id', householdId).select('id').single();
         if (result.error) throw result.error;
       } else {
@@ -104,6 +107,8 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
         const data = result.data as { success: boolean; household_id: string; message?: string };
         if (!data.success) throw new Error(data.message ?? t('saveError'));
         setHouseholdId(data.household_id);
+        const location = await supabase.schema('budget').from('thousehold').update({ country_code: country ?? null }).eq('id', data.household_id).select('id').single();
+        if (location.error) throw location.error;
       }
       setStep('members');
     });
@@ -196,6 +201,9 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
               <TextInput value={name} onChangeText={setName} maxLength={100} editable={!busy}
                 accessibilityLabel={t('homeName')} placeholder={t('homePlaceholder')}
                 className="rounded-xl border border-[#D3E8DC] bg-[#F4FAF6] px-4 py-3 text-base text-pine" />
+              <Text className="mb-2 mt-6 font-semibold text-pine">{t('homeCountry')}</Text>
+              <CountryPicker value={country} onChange={setCountry} disabled={busy} callingCode={false} />
+              <Text className="mt-2 text-sm text-sage">{t('countryHelp')}</Text>
               <Text className="mb-2 mt-6 font-semibold text-pine">{t('homeCurrency')}</Text>
               <Text className="mb-3 text-sm leading-5 text-sage">{t('currencyHelp')}</Text>
               <View className="mb-3 flex-row flex-wrap gap-2">
@@ -238,7 +246,7 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
               </View>
             </View>
           ) : step === 'whatsapp' ? (
-            <View className="mt-8"><WhatsAppCard userId={userId} onboarding onContinue={() => go(1)} /></View>
+            <View className="mt-8"><WhatsAppCard userId={userId} householdCountry={country} onboarding onContinue={() => go(1)} /></View>
           ) : step === 'healthAsk' ? (
             <View className="mt-8 gap-4">
               <Pressable disabled={busy} onPress={() => void chooseHealth(true)} accessibilityRole="radio"

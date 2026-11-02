@@ -3,6 +3,8 @@ import i18n from '../../i18n';
 // Feature-owned translations avoid editing shared locale catalogs.
 const resources = {
   "es": {
+    "homeCountry": "País del hogar",
+    "countryHelp": "Revisa el país sugerido según tu dispositivo. Puedes cambiarlo.",
     "whatsappTitle": "Tu WhatsApp",
     "whatsappSubtitle": "Puedes agregar tu número ahora o hacerlo después desde Perfil.",
     "step": "Paso {{step}} de {{total}}",
@@ -276,6 +278,8 @@ const resources = {
     }
   },
   "en": {
+    "homeCountry": "Household country",
+    "countryHelp": "Review the country suggested by your device. You can change it.",
     "whatsappTitle": "Your WhatsApp",
     "whatsappSubtitle": "Add your number now or later in Profile.",
     "step": "Step {{step}} of {{total}}",
@@ -549,6 +553,8 @@ const resources = {
     }
   },
   "pt": {
+    "homeCountry": "País do lar",
+    "countryHelp": "Confira o país sugerido pelo dispositivo. Você pode alterá-lo.",
     "whatsappTitle": "Seu WhatsApp",
     "whatsappSubtitle": "Adicione seu número agora ou depois em Perfil.",
     "step": "Etapa {{step}} de {{total}}",
