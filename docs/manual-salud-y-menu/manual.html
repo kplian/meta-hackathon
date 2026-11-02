@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Manual de usuario · Salud y menú</title>
+<style>
+body{font-family:-apple-system,Helvetica,Arial,sans-serif;color:#1F2D27;font-size:11pt;line-height:1.45;margin:0}
+h1{color:#0B3D2E;font-size:22pt;margin:0 0 4px}
+h2{color:#0B3D2E;font-size:15pt;margin:22px 0 6px;page-break-after:avoid}
+.meta{color:#5F7269;margin-bottom:14px}
+img{width:100%;border:1px solid #D3E8DC;border-radius:8px;margin:8px 0;page-break-inside:avoid}
+table{border-collapse:collapse;width:100%;margin:8px 0;font-size:10pt;page-break-inside:avoid}
+th,td{border:1px solid #D3E8DC;padding:5px 7px;text-align:left;vertical-align:top}
+th{background:#E9F5EE}
+@page{size:A4;margin:16mm}
+</style></head><body>
+<h1>Manual de usuario · Salud y menú</h1>
+<div class="meta">31 de octubre de 2026 · Meta Hackathon · AI Family Budget</div>
+
+<h2>Qué es Salud y menú</h2>
+<p>Salud y menú arma el menú de la semana, la lista de compras y actividades físicas para tu familia, sin pasarte del presupuesto de supermercado. Lo hace un asistente de inteligencia artificial (Llama, de Meta) a partir de lo que cuentes de cada integrante.</p>
+<p>Para que funcione bien necesitas dos cosas:</p>
+<ul>
+<li><b>El perfil de salud de cada integrante</b>: alergias, tipo de alimentación, gustos y actividad física. Las alergias nunca aparecen en el menú.</li>
+<li><b>Un presupuesto de supermercado</b> en el módulo de presupuestos. Si no lo tienes, puedes escribir cuánto quieres gastar esa semana.</li>
+</ul>
+<p>Puedes usarlo desde la app o escribiéndole al asistente por WhatsApp.</p>
+
+<h2>Cómo entrar</h2>
+<p>Abre el menú lateral (☰, arriba a la izquierda) y toca <b>Salud y menú</b>, en la sección BUDGET. La pantalla tiene dos partes: <b>Perfiles de la familia</b> arriba y <b>Menú de la semana</b> abajo.</p>
+<img src="01-entrar.jpg" alt="Pantalla Salud y menú">
+<p>El botón ↻ de la esquina recarga los datos si alguien cambió algo desde otro dispositivo o desde WhatsApp.</p>
+
+<h2>Completar el perfil de cada integrante</h2>
+<p>Toca <b>Editar</b> en la tarjeta del integrante, completa lo que sepas y toca <b>Guardar</b>. Ningún campo es obligatorio: puedes empezar con las alergias y sumar el resto después.</p>
+<img src="02-editor-perfil.jpg" alt="Editor del perfil de salud">
+<table>
+<tr><th>Campo</th><th>Qué poner</th><th>Ejemplo</th></tr>
+<tr><td>Año de nacimiento</td><td>Para adaptar porciones y actividades a la edad</td><td>2013</td></tr>
+<tr><td>Alergias</td><td>Separadas por coma. Nunca aparecerán en el menú</td><td>maní, mariscos</td></tr>
+<tr><td>Alimentación</td><td>Toca las que apliquen</td><td>Sin lactosa, Vegetariana</td></tr>
+<tr><td>Le gusta / No le gusta</td><td>Comidas, separadas por coma</td><td>pollo, sopas / hígado</td></tr>
+<tr><td>Actividad física</td><td>Baja, Moderada o Alta</td><td>Alta</td></tr>
+<tr><td>Deportes y actividades</td><td>Separados por coma</td><td>fútbol, yoga</td></tr>
+<tr><td>Objetivo</td><td>Uno solo</td><td>Comer más sano</td></tr>
+<tr><td>Notas</td><td>Cualquier detalle extra</td><td>Entrena martes y jueves</td></tr>
+</table>
+<p>Al guardar, la tarjeta muestra la edad y las etiquetas del perfil. Las alergias aparecen en rojo con el símbolo ⚠.</p>
+<img src="03-perfiles-guardados.jpg" alt="Perfiles guardados">
+<p>Solo el administrador del hogar puede editar perfiles.</p>
+
+<h2>Generar el menú de la semana</h2>
+<ol>
+<li>Revisa la línea verde: muestra cuánto gastaste en supermercado este mes y cuánto se sugiere para esta semana (lo que queda del mes dividido por las semanas que faltan).</li>
+<li>En <b>Presupuesto para la semana</b>, deja el sugerido o escribe otro monto.</li>
+<li>En <b>¿Algún pedido?</b>, escribe lo que quieras, por ejemplo "menos carne", "cenas rápidas" o "aprovechar el arroz que tenemos". Es opcional.</li>
+<li>Toca <b>Generar menú</b>. Tarda unos segundos.</li>
+</ol>
+<p>Si ya hay un menú, el botón dice <b>Generar otro</b> y reemplaza el de esa semana.</p>
+
+<h2>Leer el resultado</h2>
+<p>Arriba ves el <b>costo estimado</b> de la semana frente a tu presupuesto, y una etiqueta: <b>Dentro del presupuesto</b> (verde) o <b>Supera el presupuesto</b> (roja). Debajo, un resumen corto y los días: toca un día para ver desayuno, almuerzo y cena con sus ingredientes.</p>
+<img src="04-menu-resultado.jpg" alt="Costo estimado y comidas del lunes">
+<p>Más abajo están la <b>lista de compras</b>, con cantidad y precio estimado de cada producto, y las <b>actividades sugeridas</b> para la familia, con su costo o "Gratis". El costo de la semana es la suma de la lista de compras.</p>
+<img src="05-compras-actividades.jpg" alt="Lista de compras y actividades">
+<p>Los precios son estimaciones del asistente; los reales dependen de dónde compres.</p>
+
+<h2>Por WhatsApp</h2>
+<p>El asistente de WhatsApp usa los mismos perfiles y menús que la app. Esta parte todavía se está conectando en el bot; los ejemplos muestran cómo funcionará.</p>
+<table>
+<tr><th>Le escribes</th><th>Qué hace</th></tr>
+<tr><td>"Lucas es alérgico al maní"</td><td>Lo guarda en el perfil de Lucas y lo confirma</td></tr>
+<tr><td>"Ana juega vóley los sábados"</td><td>Agrega la actividad a su perfil</td></tr>
+<tr><td>"Armame el menú de la semana, con cenas rápidas"</td><td>Genera el menú y responde con el resumen, el costo, las comidas de hoy y una actividad</td></tr>
+<tr><td>"Tenemos 250 Bs para la comida de esta semana"</td><td>Genera el menú con ese presupuesto</td></tr>
+<tr><td>"¿Qué cocino hoy?"</td><td>Muestra las comidas del día del menú actual</td></tr>
+<tr><td>"Pasame la lista de compras"</td><td>Envía la lista con cantidades y precios</td></tr>
+</table>
+<p>Por WhatsApp no se manda la semana entera de una vez: el asistente ofrece los otros días si los pides.</p>
+
+<h2>Preguntas frecuentes y mensajes</h2>
+<table>
+<tr><th>Mensaje o pregunta</th><th>Qué significa</th><th>Qué hacer</th></tr>
+<tr><td>¿Puede aparecer un alérgeno en el menú?</td><td>No. Si el asistente propone algo con un alérgeno, se corrige solo; si no puede, el menú no se guarda</td><td>Nada; revisa que las alergias estén bien escritas</td></tr>
+<tr><td>"El menú propuesto incluía un alérgeno y lo descartamos"</td><td>El asistente no logró un menú sin ese alérgeno</td><td>Toca Generar otra vez</td></tr>
+<tr><td>Etiqueta "Supera el presupuesto"</td><td>Ni con un segundo intento entró en el monto</td><td>Sube el presupuesto o pide "más barato" en el pedido</td></tr>
+<tr><td>"No hay presupuesto de supermercado definido"</td><td>El hogar no tiene límite en la categoría Supermercado</td><td>Escribe el monto de la semana o carga el límite en Budget</td></tr>
+<tr><td>"No se pudo guardar. Solo el administrador..."</td><td>Tu usuario no es administrador del hogar</td><td>Pídele al administrador que edite el perfil</td></tr>
+<tr><td>"El asistente de IA no está configurado"</td><td>Falta la clave de Llama en el servidor</td><td>Avisar al equipo técnico</td></tr>
+<tr><td>"Demasiados pedidos seguidos"</td><td>Se generaron más de 10 menús en un minuto</td><td>Esperar un minuto</td></tr>
+</table>
+<p>El menú y las actividades son sugerencias. No reemplazan la indicación de un médico o nutricionista.</p>
+</body></html>

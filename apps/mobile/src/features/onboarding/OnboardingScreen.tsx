@@ -2,6 +2,8 @@ import './i18n';
 import IncomeSourcesStep from './IncomeSourcesStep';
 import AssetsStep from './AssetsStep';
 import PyramidStep from './PyramidStep';
+import HealthStep from './HealthStep';
+import MealPlanStep from './MealPlanStep';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +13,7 @@ import type { HouseholdRow, HouseholdMemberRow } from '../../lib/budget-schema';
 import { supabase } from '../../lib/supabase';
 import { signOut } from '../../lib/auth';
 
+type StepId = 'home' | 'members' | 'healthAsk' | 'health' | 'income' | 'assets' | 'pyramid' | 'mealPlan';
 type MemberType = 'dad' | 'mom' | 'son' | 'other';
 type Member = HouseholdMemberRow & { fullName: string };
 const memberTypes: MemberType[] = ['dad', 'mom', 'son', 'other'];
@@ -23,7 +26,11 @@ interface Props {
 
 export default function OnboardingScreen({ household, userId, onComplete }: Props) {
   const { t } = useTranslation('onboarding');
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [step, setStep] = useState<StepId>('home');
+  const [healthOptIn, setHealthOptIn] = useState<boolean | null>(() => {
+    const prefs = (household?.preferences ?? {}) as Record<string, unknown>;
+    return typeof prefs.health_opt_in === 'boolean' ? prefs.health_opt_in : null;
+  });
   const [householdId, setHouseholdId] = useState(household?.id ?? null);
   const [name, setName] = useState(household?.name ?? '');
   const [currency, setCurrency] = useState(household?.currency?.trim() || 'BOB');
@@ -33,6 +40,20 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const steps: StepId[] = ['home', 'members', 'healthAsk', ...(healthOptIn ? ['health' as const] : []), 'income', 'assets', 'pyramid', ...(healthOptIn ? ['mealPlan' as const] : [])];
+  const stepIndex = steps.indexOf(step);
+  const go = (offset: number) => { setError(null); setStep(steps[Math.min(steps.length - 1, Math.max(0, stepIndex + offset))]); };
+  const wide = step === 'pyramid' || step === 'mealPlan';
+  const copy: Record<StepId, [string, string]> = {
+    home: ['homeTitle', 'homeSubtitle'],
+    members: ['membersTitle', 'membersSubtitle'],
+    healthAsk: ['healthAsk.title', 'healthAsk.subtitle'],
+    health: ['health.title', 'health.subtitle'],
+    income: ['income.title', 'income.subtitle'],
+    assets: ['assets.title', 'assets.subtitle'],
+    pyramid: ['pyramid.title', 'pyramid.subtitle'],
+    mealPlan: ['mealPlan.title', 'mealPlan.subtitle'],
+  };
 
   async function loadMembers(id: string) {
     const result = await supabase.schema('budget').from('thousehold_member')
@@ -46,7 +67,7 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
   }
 
   useEffect(() => {
-    if (step !== 2 || !householdId) return;
+    if (step !== 'members' || !householdId) return;
     let cancelled = false;
     setLoading(true);
     loadMembers(householdId).catch(() => {
@@ -82,7 +103,7 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
         if (!data.success) throw new Error(data.message ?? t('saveError'));
         setHouseholdId(data.household_id);
       }
-      setStep(2);
+      setStep('members');
     });
   }
 
@@ -109,11 +130,21 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
     });
   }
 
-  function continueToIncome() {
+  function continueFromMembers() {
     if (memberName.trim()) { setError(t('unsavedMember')); return; }
     if (loading || !members.length) return;
-    setError(null);
-    setStep(3);
+    go(1);
+  }
+
+  async function chooseHealth(value: boolean) {
+    if (!householdId) return;
+    const id = householdId;
+    await run(async () => {
+      const r = await supabase.rpc('f_set_household_preference', { p_household_id: id, p_key: 'health_opt_in', p_value: value });
+      if (r.error) throw r.error;
+      setHealthOptIn(value);
+      setStep(value ? 'health' : 'income');
+    });
   }
 
   async function finish() {
@@ -143,7 +174,7 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
   return (
     <SafeAreaView className="flex-1 bg-mint" testID="onboarding-screen">
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="flex-grow px-6 py-8">
-        <View className={`w-full self-center ${step === 5 ? 'max-w-3xl' : 'max-w-xl'}`}>
+        <View className={`w-full self-center ${wide ? 'max-w-3xl' : 'max-w-xl'}`}>
           <View className="mb-8 flex-row items-center justify-between">
             <Text className="text-xl font-extrabold text-pine">Budget</Text>
             <Pressable disabled={busy} onPress={() => void signOut()} accessibilityRole="button">
@@ -151,12 +182,12 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
             </Pressable>
           </View>
           <View className="mb-8 flex-row gap-2">
-            {[1, 2, 3, 4, 5].map(value => <View key={value} className={`h-1.5 flex-1 rounded-full ${step >= value ? 'bg-pine' : 'bg-[#CCDFD3]'}`} />)}
+            {steps.map((id, i) => <View key={id} className={`h-1.5 flex-1 rounded-full ${stepIndex >= i ? 'bg-pine' : 'bg-[#CCDFD3]'}`} />)}
           </View>
-          <Text className="text-xs font-bold uppercase tracking-widest text-sage">{t('step', { step })}</Text>
-          <Text className="mt-3 text-3xl font-extrabold text-pine">{t(step === 1 ? 'homeTitle' : step === 2 ? 'membersTitle' : step === 3 ? 'income.title' : step === 4 ? 'assets.title' : 'pyramid.title')}</Text>
-          <Text className="mt-3 text-base leading-6 text-sage">{t(step === 1 ? 'homeSubtitle' : step === 2 ? 'membersSubtitle' : step === 3 ? 'income.subtitle' : step === 4 ? 'assets.subtitle' : 'pyramid.subtitle')}</Text>
-          {step === 1 ? (
+          <Text className="text-xs font-bold uppercase tracking-widest text-sage">{t('step', { step: stepIndex + 1, total: steps.length })}</Text>
+          <Text className="mt-3 text-3xl font-extrabold text-pine">{t(copy[step][0])}</Text>
+          <Text className="mt-3 text-base leading-6 text-sage">{t(copy[step][1])}</Text>
+          {step === 'home' ? (
             <View className="mt-8 rounded-3xl bg-white p-6">
               <Ionicons name="home-outline" size={32} color="#0B3D2E" />
               <Text className="mb-2 mt-5 font-semibold text-pine">{t('homeName')}</Text>
@@ -179,7 +210,7 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
                 accessibilityLabel={t('homeCurrency')} placeholder="BOB"
                 className="rounded-xl border border-[#D3E8DC] bg-[#F4FAF6] px-4 py-3 text-base text-pine" />
             </View>
-          ) : step === 2 ? (
+          ) : step === 'members' ? (
             <View className="mt-6 gap-4">
               <Text className="font-semibold text-pine">{name.trim()}</Text>
               {loading ? <ActivityIndicator color="#0B3D2E" /> : members.map((member) => (
@@ -204,22 +235,43 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
                 </Pressable>
               </View>
             </View>
+          ) : step === 'healthAsk' ? (
+            <View className="mt-8 gap-4">
+              <Pressable disabled={busy} onPress={() => void chooseHealth(true)} accessibilityRole="radio"
+                accessibilityState={{ checked: healthOptIn === true, disabled: busy }}
+                className={`rounded-3xl border bg-white p-5 ${healthOptIn === true ? 'border-pine' : 'border-[#D3E8DC]'} ${busy ? 'opacity-50' : ''}`}>
+                <Ionicons name="nutrition-outline" size={28} color="#0B3D2E" />
+                <Text className="mt-3 text-lg font-bold text-pine">{t('healthAsk.yes')}</Text>
+                <Text className="mt-1 text-sm leading-5 text-sage">{t('healthAsk.yesHelp')}</Text>
+              </Pressable>
+              <Pressable disabled={busy} onPress={() => void chooseHealth(false)} accessibilityRole="radio"
+                accessibilityState={{ checked: healthOptIn === false, disabled: busy }}
+                className={`rounded-3xl border bg-white p-5 ${healthOptIn === false ? 'border-pine' : 'border-[#D3E8DC]'} ${busy ? 'opacity-50' : ''}`}>
+                <Ionicons name="arrow-forward-circle-outline" size={28} color="#0B3D2E" />
+                <Text className="mt-3 text-lg font-bold text-pine">{t('healthAsk.no')}</Text>
+                <Text className="mt-1 text-sm leading-5 text-sage">{t('healthAsk.noHelp')}</Text>
+              </Pressable>
+              <Text className="text-xs text-sage">{t('healthAsk.later')}</Text>
+            </View>
           ) : householdId ? (
-            step === 3 ? <IncomeSourcesStep householdId={householdId} userId={userId}
+            step === 'health' ? <HealthStep householdId={householdId} finishing={busy} onFinish={async () => go(1)} onBack={() => go(-1)} />
+            : step === 'income' ? <IncomeSourcesStep householdId={householdId} userId={userId}
               currency={currency.trim()} members={members} finishing={busy}
-              onFinish={() => { setError(null); setStep(4); return Promise.resolve(); }} onBack={() => { setStep(2); setError(null); }} />
-              : step === 4 ? <AssetsStep householdId={householdId} currency={currency.trim()} finishing={busy}
-                onFinish={() => { setError(null); setStep(5); return Promise.resolve(); }}
-                onBack={() => { setStep(3); setError(null); }} />
-              : <PyramidStep householdId={householdId} currency={currency.trim()} finishing={busy} onFinish={finish}
-                onBack={() => { setStep(4); setError(null); }} onEditIncome={() => { setStep(3); setError(null); }} />
+              onFinish={async () => go(1)} onBack={() => go(-1)} />
+            : step === 'assets' ? <AssetsStep householdId={householdId} currency={currency.trim()} finishing={busy}
+              onFinish={async () => go(1)} onBack={() => go(-1)} />
+            : step === 'pyramid' ? <PyramidStep householdId={householdId} currency={currency.trim()} finishing={busy}
+              onFinish={healthOptIn ? async () => go(1) : finish} onBack={() => go(-1)}
+              onEditIncome={() => { setError(null); setStep('income'); }} />
+            : step === 'mealPlan' ? <MealPlanStep householdId={householdId} currency={currency.trim()} finishing={busy} onFinish={finish} onBack={() => go(-1)} />
+            : null
           ) : null}
           {error ? <Text accessibilityRole="alert" className="mt-4 text-sm text-red-700">{error}</Text> : null}
-          {step < 3 ? <Pressable disabled={busy || loading} onPress={() => void (step === 1 ? saveName() : continueToIncome())}
+          {step === 'home' || step === 'members' ? <Pressable disabled={busy || loading} onPress={() => void (step === 'home' ? saveName() : continueFromMembers())}
             accessibilityRole="button" className={`mt-8 items-center rounded-2xl bg-pine py-4 ${busy || loading ? 'opacity-50' : ''}`}>
             {busy ? <ActivityIndicator color="white" /> : <Text className="text-base font-bold text-white">{t('continue')}</Text>}
           </Pressable> : null}
-          {step === 2 ? <Pressable disabled={busy} onPress={() => { setStep(1); setError(null); }} accessibilityRole="button" className="mt-3 items-center p-3">
+          {step === 'members' || step === 'healthAsk' ? <Pressable disabled={busy} onPress={() => go(-1)} accessibilityRole="button" className="mt-3 items-center p-3">
             <Text className="font-semibold text-sage">{t('back')}</Text>
           </Pressable> : null}
         </View>

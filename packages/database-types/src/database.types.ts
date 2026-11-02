@@ -5,8 +5,6 @@ export type Database = {
 
   "budget": {
           Tables: {
-
-
             "taccount": {
                   Row: {
                     "account_type_id": string,"business_type_id": string | null,"code": string,"created_at": string | null,"created_by": string | null,"currency": string,"deleted_at": string | null,"deleted_by": string | null,"household_id": string | null,"id": string,"is_postable": boolean,"name": string,"parent_id": string | null,"required_auxiliar_type_id": string | null,"requires_auxiliar": boolean,"status": string | null,"updated_at": string | null,"updated_by": string | null
@@ -763,6 +761,20 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"thealth_option": {
+                  Row: {
+                    "code": string,"exclusions": (string)[],"hard": boolean,"icon": string,"implies_allergen": string | null,"keywords": (string)[],"kind": string,"labels": NonNullable<Json>,"prompt_rule": string | null,"sort_order": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "code": string,"exclusions"?: (string)[],"hard"?: boolean,"icon": string,"implies_allergen"?: string | null,"keywords"?: (string)[],"kind": string,"labels": NonNullable<Json>,"prompt_rule"?: string | null,"sort_order": number
+                  }
+                  Update: {
+                    "code"?: string,"exclusions"?: (string)[],"hard"?: boolean,"icon"?: string,"implies_allergen"?: string | null,"keywords"?: (string)[],"kind"?: string,"labels"?: NonNullable<Json>,"prompt_rule"?: string | null,"sort_order"?: number
+                  }
+                  Relationships: [
+
+                  ]
                 },"thousehold": {
                   Row: {
                     "auxiliar_id": string | null,"business_type_id": string,"created_at": string,"created_by": string | null,"currency": string | null,"deleted_at": string | null,"deleted_by": string | null,"financial_pyramid_id": string | null,"id": string,"name": string,"preferences": Json | null,"setup_completed_at": string | null,"status": string | null,"updated_at": string | null,"updated_by": string | null
@@ -1065,6 +1077,46 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"tmeal_plan": {
+                  Row: {
+                    "activities": NonNullable<Json>,"budget_amount": number | null,"created_at": string,"created_by": string | null,"currency": string,"days": NonNullable<Json>,"estimated_cost": number,"household_id": string,"id": string,"model": string | null,"shopping_list": NonNullable<Json>,"source": string,"status": string,"summary": string | null,"user_request": string | null,"week_start": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "activities"?: NonNullable<Json>,"budget_amount"?: number | null,"created_at"?: string,"created_by"?: string | null,"currency": string,"days": NonNullable<Json>,"estimated_cost"?: number,"household_id": string,"id"?: string,"model"?: string | null,"shopping_list"?: NonNullable<Json>,"source"?: string,"status"?: string,"summary"?: string | null,"user_request"?: string | null,"week_start": string
+                  }
+                  Update: {
+                    "activities"?: NonNullable<Json>,"budget_amount"?: number | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"days"?: NonNullable<Json>,"estimated_cost"?: number,"household_id"?: string,"id"?: string,"model"?: string | null,"shopping_list"?: NonNullable<Json>,"source"?: string,"status"?: string,"summary"?: string | null,"user_request"?: string | null,"week_start"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "tmeal_plan_household_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "thousehold"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"tmember_health_profile": {
+                  Row: {
+                    "activities": (string)[],"activity_level": string | null,"allergies": (string)[],"birth_year": number | null,"conditions": (string)[],"created_at": string,"created_by": string | null,"diet": (string)[],"dislikes": (string)[],"health_goal": string | null,"height_cm": number | null,"household_member_id": string,"id": string,"likes": (string)[],"notes": string | null,"updated_at": string | null,"updated_by": string | null,"weight_kg": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "activities"?: (string)[],"activity_level"?: string | null,"allergies"?: (string)[],"birth_year"?: number | null,"conditions"?: (string)[],"created_at"?: string,"created_by"?: string | null,"diet"?: (string)[],"dislikes"?: (string)[],"health_goal"?: string | null,"height_cm"?: number | null,"household_member_id": string,"id"?: string,"likes"?: (string)[],"notes"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"weight_kg"?: number | null
+                  }
+                  Update: {
+                    "activities"?: (string)[],"activity_level"?: string | null,"allergies"?: (string)[],"birth_year"?: number | null,"conditions"?: (string)[],"created_at"?: string,"created_by"?: string | null,"diet"?: (string)[],"dislikes"?: (string)[],"health_goal"?: string | null,"height_cm"?: number | null,"household_member_id"?: string,"id"?: string,"likes"?: (string)[],"notes"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"weight_kg"?: number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "tmember_health_profile_member_fkey"
+      columns: ["household_member_id"]
+isOneToOne: true
+      referencedRelation: "thousehold_member"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"tmessage": {
                   Row: {
                     "created_at": string,"created_by": string | null,"default_translation": string | null,"deleted_at": string | null,"deleted_by": string | null,"description": string | null,"id": string,"key": string,"status": string | null,"updated_at": string | null,"updated_by": string | null
@@ -1180,6 +1232,32 @@ isOneToOne: false
     },{
       foreignKeyName: "tmodel_response_updated_by_fkey"
       columns: ["updated_by"]
+isOneToOne: false
+      referencedRelation: "tuser"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"treport_link": {
+                  Row: {
+                    "created_at": string,"expires_at": string,"household_id": string,"last_opened_at": string | null,"open_count": number,"period_month": string,"token": string,"user_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"expires_at": string,"household_id": string,"last_opened_at"?: string | null,"open_count"?: number,"period_month": string,"token": string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"expires_at"?: string,"household_id"?: string,"last_opened_at"?: string | null,"open_count"?: number,"period_month"?: string,"token"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "treport_link_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "thousehold"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "treport_link_user_id_fkey"
+      columns: ["user_id"]
 isOneToOne: false
       referencedRelation: "tuser"
       referencedColumns: ["id"]
@@ -1385,32 +1463,6 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"treport_link": {
-                  Row: {
-                    "created_at": string,"expires_at": string,"household_id": string,"last_opened_at": string | null,"open_count": number,"period_month": string,"token": string,"user_id": string | null
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "created_at"?: string,"expires_at": string,"household_id": string,"last_opened_at"?: string | null,"open_count"?: number,"period_month": string,"token": string,"user_id"?: string | null
-                  }
-                  Update: {
-                    "created_at"?: string,"expires_at"?: string,"household_id"?: string,"last_opened_at"?: string | null,"open_count"?: number,"period_month"?: string,"token"?: string,"user_id"?: string | null
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "treport_link_household_id_fkey"
-      columns: ["household_id"]
-isOneToOne: false
-      referencedRelation: "thousehold"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "treport_link_user_id_fkey"
-      columns: ["user_id"]
-isOneToOne: false
-      referencedRelation: "tuser"
-      referencedColumns: ["id"]
-    }
-                  ]
                 },"tuser": {
                   Row: {
                     "created_at": string,"created_by": string | null,"deleted_at": string | null,"deleted_by": string | null,"email_user": string,"full_name": string,"id": string,"locale": string,"role": string,"status": string | null,"timezone": string,"updated_at": string | null,"updated_by": string | null
@@ -1545,36 +1597,59 @@ isOneToOne: false
                 }
           }
           Functions: {
-"f_get_report":
-{ Args: { "p_token": string }; Returns: Json
+            "f_category_month_status":
+{ Args: { "p_household_id": string,"p_keys": (string)[] }; Returns: Json
                            },
-
-"f_create_report_link":
-{ Args: { "p_household_id": string,"p_month"?: string,"p_ttl_minutes"?: number,"p_user_id"?: string }; Returns: Json
-                           },
-
-            "f_check_journal":
+"f_check_journal":
 { Args: { "p_id": string }; Returns: undefined
+                           },
+"f_clean_tags":
+{ Args: { "p_value": Json }; Returns: (string)[]
                            },
 "f_create_household":
 { Args: { "p_channel_code": string,"p_currency"?: string,"p_name": string }; Returns: Json
                            } |
 { Args: { "p_auxiliar_id"?: string,"p_business_type_id"?: string,"p_currency"?: string,"p_name": string,"p_preferences"?: Json,"p_user_id"?: string }; Returns: Json
                            },
+"f_create_report_link":
+{ Args: { "p_household_id": string,"p_month"?: string,"p_ttl_minutes"?: number,"p_user_id"?: string }; Returns: Json
+                           },
 "f_ensure_asset_chart":
 { Args: { "p_household_id": string }; Returns: undefined
+                           },
+"f_get_report":
+{ Args: { "p_token": string }; Returns: Json
                            },
 "f_get_user_households":
 { Args: { "p_channel_code": string }; Returns: Json
                            },
+"f_health_access":
+{ Args: { "p_household_id": string,"p_write"?: boolean }; Returns: boolean
+                           },
+"f_health_rules":
+{ Args: { "p_household_id": string }; Returns: Json
+                           },
+"f_household_forbidden":
+{ Args: { "p_household_id": string }; Returns: {
+              "code": string,"exclusions": (string)[],"keywords": (string)[]
+            }[]
+                           },
 "f_is_household_member":
 { Args: { "p_admin"?: boolean,"p_household": string }; Returns: boolean
+                           },
+"f_map_codes":
+{ Args: { "p_kind": string,"p_values": (string)[] }; Returns: (string)[]
+                           },
+"f_norm_text":
+{ Args: { "p": string }; Returns: string
                            },
 "f_operating_available":
 { Args: { "p_account": string,"p_household": string }; Returns: number
                            },
 "f_period_income_expenses":
-{ Args: { "p_home": string,"p_start": string,"p_end": string }; Returns: { "income": number,"expenses": number }[]
+{ Args: { "p_end": string,"p_home": string,"p_start": string }; Returns: {
+              "expenses": number,"income": number
+            }[]
                            },
 "f_provision_household":
 { Args: { "p_household_id": string }; Returns: Json
@@ -1584,6 +1659,9 @@ isOneToOne: false
                            },
 "f_register_transaction":
 { Args: { "p_amount"?: number,"p_auxiliar_id"?: string,"p_category"?: string,"p_concept": string,"p_external_reference"?: string,"p_household_id": string,"p_items"?: Json,"p_operation_code"?: string,"p_recorded_via"?: string,"p_source_text"?: string,"p_transaction_date"?: string,"p_type"?: string,"p_user_id"?: string }; Returns: Json
+                           },
+"f_text_mentions":
+{ Args: { "p_exclusions": (string)[],"p_keywords": (string)[],"p_text": string }; Returns: string
                            },
 "f_vault_balance":
 { Args: { "p_auxiliar": string }; Returns: number
@@ -1603,14 +1681,6 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-"f_get_report":
-{ Args: { "p_token": string }; Returns: Json
-                           },
-
-"f_create_report_link":
-{ Args: { "p_household_id": string,"p_month"?: string,"p_ttl_minutes"?: number,"p_user_id"?: string }; Returns: Json
-                           },
-
             "f_add_household_member":
 { Args: { "p_household_id": string,"p_member_type"?: string,"p_name": string }; Returns: string
                            },
@@ -1623,8 +1693,23 @@ isOneToOne: false
 "f_create_household":
 { Args: { "p_auxiliar_id"?: string,"p_business_type_id"?: string,"p_currency"?: string,"p_name": string,"p_preferences"?: Json,"p_user_id"?: string }; Returns: Json
                            },
+"f_create_report_link":
+{ Args: { "p_household_id": string,"p_month"?: string,"p_ttl_minutes"?: number,"p_user_id"?: string }; Returns: Json
+                           },
 "f_create_saving_vault":
 { Args: { "p_currency": string,"p_goal"?: number | string,"p_household_id": string,"p_name": string,"p_request_id": string }; Returns: string
+                           },
+"f_food_budget_suggestion":
+{ Args: { "p_household_id": string,"p_share"?: number }; Returns: Json
+                           },
+"f_get_family_health_context":
+{ Args: { "p_household_id": string }; Returns: Json
+                           },
+"f_get_meal_plan":
+{ Args: { "p_household_id": string,"p_week_start"?: string }; Returns: Json
+                           },
+"f_get_report":
+{ Args: { "p_token": string }; Returns: Json
                            },
 "f_household_wealth_report":
 { Args: { "p_household_id": string }; Returns: Json
@@ -1639,7 +1724,7 @@ isOneToOne: false
 { Args: { "p_household_id": string,"p_timezone"?: string }; Returns: Json
                            },
 "f_move_investment":
-{ Args: { "p_destination": Json,"p_destination_quantity": number | string | string,"p_household_id": string,"p_note"?: string,"p_request_id": string,"p_settlement_usd"?: number | string,"p_source": Json,"p_source_quantity": number | string | string,"p_usd_per_household_unit"?: number | string }; Returns: string
+{ Args: { "p_destination": Json,"p_destination_quantity": number | string,"p_household_id": string,"p_note"?: string,"p_request_id": string,"p_settlement_usd"?: number | string,"p_source": Json,"p_source_quantity": number | string,"p_usd_per_household_unit"?: number | string }; Returns: string
                            },
 "f_post_asset_valuation":
 { Args: { "p_valuation_id": string }; Returns: string
@@ -1659,17 +1744,29 @@ isOneToOne: false
 "f_remove_household_asset":
 { Args: { "p_position_id": string }; Returns: undefined
                            },
+"f_save_meal_plan":
+{ Args: { "p_budget"?: number,"p_household_id": string,"p_model"?: string,"p_plan": Json,"p_source"?: string,"p_user_request"?: string,"p_week_start": string }; Returns: Json
+                           },
 "f_saving_vaults":
 { Args: { "p_household_id": string }; Returns: Json
                            },
 "f_select_household_pyramid":
 { Args: { "p_customized"?: boolean,"p_household_id": string,"p_percentages": Json,"p_template_id": string }; Returns: string
                            },
+"f_set_food_budget":
+{ Args: { "p_household_id": string,"p_monthly_limit": number }; Returns: Json
+                           },
+"f_set_household_preference":
+{ Args: { "p_household_id": string,"p_key": string,"p_value": Json }; Returns: Json
+                           },
 "f_transfer_saving_vault":
 { Args: { "p_destination": Json,"p_destination_amount": number | string,"p_household_id": string,"p_household_per_usd"?: number | string,"p_note"?: string,"p_rate_as_of"?: string,"p_request_id": string,"p_source": Json,"p_source_amount": number | string }; Returns: string
                            },
 "f_upsert_asset_quote":
 { Args: { "p_exchange": string,"p_kind": string,"p_price": number,"p_quoted_at": string,"p_source"?: string,"p_symbol": string }; Returns: string
+                           },
+"f_upsert_member_health_profile":
+{ Args: { "p_member_id": string,"p_profile": Json }; Returns: Json
                            }
           }
           Enums: {

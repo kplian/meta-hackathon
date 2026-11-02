@@ -98,6 +98,8 @@ export const pt = {
     householdSubtitle: 'Lares e espaços de despesas compartilhadas',
     auxiliarLabel: 'Bolsa de despesas/receitas',
     auxiliarSubtitle: 'Bolsas de despesas, receitas e entidades auxiliares vinculadas ao lar',
+    healthLabel: 'Saúde e cardápio',
+    healthSubtitle: 'Perfis de saúde, cardápio semanal e atividades',
   },
   dashboard: {
     activeHousehold: 'Lar Ativo',

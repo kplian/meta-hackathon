@@ -98,6 +98,8 @@ export const es = {
     householdSubtitle: 'Hogares y espacios de gasto común',
     auxiliarLabel: 'Bolsa de gastos/ingresos',
     auxiliarSubtitle: 'Bolsas de gastos, ingresos y cuentas auxiliares vinculadas al hogar',
+    healthLabel: 'Salud y menú',
+    healthSubtitle: 'Perfiles de salud, menú semanal y actividades',
   },
   dashboard: {
     activeHousehold: 'Hogar Activo',

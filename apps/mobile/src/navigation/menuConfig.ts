@@ -20,6 +20,7 @@ export type ViewId =
   | 'household'
   | 'budget'
   | 'auxiliar'
+  | 'health'
   | 'investments';
 
 export type BottomTabId = 'dashboard' | 'journal' | 'profile';
@@ -179,6 +180,13 @@ export const DRAWER_SECTIONS: DrawerMenuSection[] = [
         labelKey: NAV_CONSTANTS.AUXILIAR_LABEL,
         iconFamily: 'ionicons',
         iconName: 'swap-horizontal-outline',
+      },
+      {
+        id: 'health',
+        label: 'Health & meals',
+        labelKey: NAV_CONSTANTS.HEALTH_LABEL,
+        iconFamily: 'ionicons',
+        iconName: 'nutrition-outline',
       },
     ],
   },
@@ -368,6 +376,13 @@ export const VIEW_META: Record<
     subtitleKey: NAV_CONSTANTS.AUXILIAR_SUBTITLE,
     category: 'BUDGET',
     table: 'tauxiliar',
+  },
+  health: {
+    title: 'Health & meals',
+    titleKey: NAV_CONSTANTS.HEALTH_LABEL,
+    subtitle: 'Perfiles de salud, menú semanal y actividades',
+    subtitleKey: NAV_CONSTANTS.HEALTH_SUBTITLE,
+    category: 'BUDGET',
   },
 };
 

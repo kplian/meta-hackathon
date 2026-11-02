@@ -98,6 +98,8 @@ export const en = {
     householdSubtitle: 'Households and shared expense spaces',
     auxiliarLabel: 'Income / Expense Pot',
     auxiliarSubtitle: 'Income, expense pots, and auxiliary entities linked to the household',
+    healthLabel: 'Health & meals',
+    healthSubtitle: 'Health profiles, weekly menu and activities',
   },
   dashboard: {
     activeHousehold: 'Active Household',
