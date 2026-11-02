@@ -33,6 +33,7 @@
     "mobile:typecheck": "npm run typecheck --workspace apps/mobile",
     "local:setup": "supabase start && node scripts/setup-local.mjs",
     "market:serve": "supabase functions serve asset-market --env-file .env",
+    "market:deploy": "node scripts/deploy-asset-market.mjs",
     "test:market": "node --experimental-strip-types --test tests/asset-market.test.mjs tests/asset-refresh.test.mjs tests/asset-quotes.test.mjs",
     "assets:refresh": "node scripts/refresh-asset-valuations.mjs",
     "test:pyramid": "node --experimental-strip-types --test tests/pyramid-calculations.test.mjs",

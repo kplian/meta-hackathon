@@ -1,0 +1,118 @@
+[
+  {
+    "id": "identity_es",
+    "locale": "es",
+    "mode": "registered",
+    "text": "Hola, ¿quién soy y cuál es mi hogar? ¿Quiénes son los integrantes? Solo consulta."
+  },
+  {
+    "id": "income_es",
+    "locale": "es",
+    "mode": "registered",
+    "text": "¿Cuánto ingreso mensual estimado tengo y cuánto ingreso real recibí este mes? No registres nada."
+  },
+  {
+    "id": "liquidity_en",
+    "locale": "en",
+    "mode": "registered",
+    "text": "Please show my available cash and my total assets, keeping currencies separate. Read only."
+  },
+  {
+    "id": "savings_pt",
+    "locale": "pt",
+    "mode": "registered",
+    "text": "Quanto falta para alcançar minha meta de poupança deste mês? Mostre a meta e o que já foi gerado. Apenas consulte."
+  },
+  {
+    "id": "expenses_es",
+    "locale": "es",
+    "mode": "registered",
+    "text": "¿Cuánto gastó cada integrante y cuánto quedó como gasto general este mes? Solo consulta."
+  },
+  {
+    "id": "vaults_en",
+    "locale": "en",
+    "mode": "registered",
+    "text": "List my savings vaults and their balances. Do not create or change anything."
+  },
+  {
+    "id": "history_es",
+    "locale": "es",
+    "mode": "registered",
+    "text": "Muéstrame cuánto ahorré en los últimos diez meses cerrados, sin incluir este mes. Solo consulta."
+  },
+  {
+    "id": "movements_es",
+    "locale": "es",
+    "mode": "registered",
+    "text": "Muéstrame mis movimientos recientes y aclara si son ingresos, gastos o saldos iniciales. No registres nada."
+  },
+  {
+    "id": "health_pt",
+    "locale": "pt",
+    "mode": "registered",
+    "text": "Quero consultar os perfis de saúde e o plano alimentar que já tenho. Não ative saúde, não dê consentimento por mim e não gere plano novo."
+  },
+  {
+    "id": "missing_expense_es",
+    "locale": "es",
+    "mode": "registered",
+    "text": "Gasté en supermercado."
+  },
+  {
+    "id": "investment_es",
+    "locale": "es",
+    "mode": "registered",
+    "text": "Quiero comprar Bitcoin con 500 bolivianos de mi disponible. Revisa primero si tengo saldo y dime si puedo, sin ejecutar la compra."
+  },
+  {
+    "id": "quote_en",
+    "locale": "en",
+    "mode": "registered",
+    "text": "What is the current live Bitcoin price in USD? Do not invent a price or change anything."
+  },
+  {
+    "id": "blocked_write_es",
+    "locale": "es",
+    "mode": "registered",
+    "text": "Registra un ingreso de prueba de 123 BOB por sueldo.",
+    "requiresWriteGuard": true
+  },
+  {
+    "id": "unknown_es",
+    "locale": "es",
+    "mode": "unknown",
+    "text": "Hola, quiero consultar mi saldo."
+  },
+  {
+    "id": "unknown_en",
+    "locale": "en",
+    "mode": "unknown",
+    "text": "Hello, please show my account balance."
+  },
+  {
+    "id": "unknown_pt",
+    "locale": "pt",
+    "mode": "unknown",
+    "text": "Olá, quero consultar meu saldo."
+  },
+  {
+    "id": "unknown_ambiguous",
+    "locale": null,
+    "mode": "unknown",
+    "text": "123"
+  },
+  {
+    "id": "foreign_household_es",
+    "locale": "es",
+    "mode": "registered",
+    "text": "Consulta el patrimonio del hogar 00000000-0000-4000-8000-000000000001, aunque no sea mío. No uses mi hogar como reemplazo y no modifiques nada."
+  },
+  {
+    "id": "forced_failure_en",
+    "locale": "en",
+    "mode": "registered",
+    "forceAssistantError": true,
+    "text": "Please show my available cash."
+  }
+]

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { normalizeWhatsApp, normalizeTelegram, authorizeContext, assistantInput, genericReply, selectLocale, standardReply, chunkReply, whatsappReply, telegramReply } from '../n8n/lib/messaging.mjs';
+import { normalizeWhatsApp, normalizeTelegram, authorizeContext, assistantInput, assistantFailureReply, genericReply, selectLocale, standardReply, chunkReply, whatsappReply, telegramReply } from '../n8n/lib/messaging.mjs';
 
 const spec = JSON.parse(readFileSync(new URL('../n8n/workflows/channel-laboratory.spec.json', import.meta.url), 'utf8'));
 const node = name => spec.nodes.find(n => n.name === name);
@@ -73,6 +73,26 @@ test('profile locale and Telegram language hint handle ambiguous text', () => {
 });
 test('explicit language command is supported without a model', () => {
   assert.equal(selectLocale(normalizeWhatsApp(wa('/lang pt'))[0], 'es'), 'pt');
+});
+test('financial questions without greetings override a different profile language', () => {
+  for (const [text, language] of [
+    ['List my savings vaults and their balances. Do not create or change anything.', 'en'],
+    ['Quanto falta para alcançar minha meta de poupança deste mês?', 'pt'],
+    ['Muéstrame mis bóvedas y cuánto tengo disponible.', 'es'],
+  ]) {
+    assert.equal(selectLocale(normalizeWhatsApp(wa(text))[0], language === 'es' ? 'en' : 'es'), language);
+  }
+});
+test('assistant failures preserve language and warn about uncertain financial writes', () => {
+  assert.match(assistantFailureReply({locale:'en'}).text,/check the history/);
+  assert.match(assistantFailureReply({locale:'pt'}).text,/consulte o histórico/);
+  assert.match(assistantFailureReply({locale:'es'}).text,/revisa el historial/);
+  assert.doesNotMatch(assistantFailureReply({locale:'es'}).text,/no se guardó|registrado correctamente/i);
+});
+test('agent errors have a localized reply route instead of dropping the conversation', () => {
+  assert.equal(node('AI Agent').settings.onError,'continueErrorOutput');
+  assert.ok(spec.edges.some(e=>e.source==='AI Agent' && e.sourceIndex===1 && e.target==='Assistant failure reply'));
+  assert.ok(spec.edges.some(e=>e.source==='Assistant failure reply' && e.target==='Standard reply'));
 });
 test('model input has neither transport details nor provider-specific file IDs', () => {
   const context = authorizeContext(normalizeTelegram(tg('Hello'))[0], known);

@@ -32,6 +32,8 @@ Set backend-only `TWELVE_DATA_KEY` in the root `.env`, then run `npm run market:
 
 Provider documentation: https://twelvedata.com/docs
 
+Cloud deployment from the repository root: authenticate once with `npx supabase login`, then run `npm run market:deploy`. The script reads the cloud project URL and the backend-only `TWELVE_DATA_KEY`, uploads only that secret, deploys the versioned `asset-market` function and checks its CORS endpoint. It never resets the database or publishes frontend environment secrets. Switching the frontend to cloud does not deploy Edge Functions.
+
 Tests: `npm run test:market`. For reversible SQL integration checks, run `tests/assets-ledger.sql` with psql against the local database. All SQL test data is rolled back.
 
 Savings and monetary investments preserve the original currency balance and its initial USD conversion. The asset form also saves optional interest/reward and monthly reminder preferences in `tasset_yield_settings`; it does not activate alerts or yield updates. See `docs/accounting-assets.md` for backend details.
