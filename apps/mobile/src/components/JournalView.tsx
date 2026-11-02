@@ -265,6 +265,35 @@ export default function JournalView({
   // Items for budget.f_register_transaction (p_items)
   const [items, setItems] = useState<TransactionItemDraft[]>([]);
 
+  // Speed Dial and Attach modal states
+  const [isSpeedDialOpen, setIsSpeedDialOpen] = useState(false);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [photoConcept, setPhotoConcept] = useState('Supermercado Líder');
+  const [photoAmount, setPhotoAmount] = useState('145.50');
+  const [photoCategory, setPhotoCategory] = useState('');
+
+  const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [audioSeconds, setAudioSeconds] = useState(0);
+  const [audioTranscript, setAudioTranscript] = useState('Almuerzo de trabajo con cliente por 45');
+  const [audioConcept, setAudioConcept] = useState('Almuerzo de trabajo');
+  const [audioAmount, setAudioAmount] = useState('45.00');
+
+  // Audio recording timer simulation
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (isRecordingAudio) {
+      interval = setInterval(() => {
+        setAudioSeconds((sec) => sec + 1);
+      }, 1000);
+    } else {
+      setAudioSeconds(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isRecordingAudio]);
+
   const loadJournalData = async () => {
     setLoading(true);
     try {
@@ -530,6 +559,84 @@ export default function JournalView({
     const defaultCat = budgetTypes[0]?.category_key || budgetTypes[0]?.id || '';
     setItems([createEmptyItem(defaultCat, '')]);
     setIsModalOpen(true);
+  };
+
+  // Open Create Modal with prefilled draft (e.g. from Photo or Audio scan)
+  const handleOpenWithDraft = (params: {
+    concept: string;
+    amount: string;
+    category?: string;
+    externalReference?: string;
+    type?: 'expense' | 'income';
+  }) => {
+    setFormError(null);
+    setFormSuccess(null);
+    setTxType(params.type || 'expense');
+    setConcept(params.concept);
+    setOperationCode(`OP-${Date.now().toString().slice(-6)}`);
+    setExternalReference(params.externalReference || '');
+    setShowAdvanced(false);
+    const defaultCat =
+      params.category ||
+      budgetTypes[0]?.category_key ||
+      budgetTypes[0]?.id ||
+      '';
+    setItems([
+      {
+        id: `draft-${Date.now()}`,
+        concept: params.concept,
+        amount: params.amount,
+        category: defaultCat,
+      },
+    ]);
+    setIsModalOpen(true);
+  };
+
+  // Speed Dial FAB interactions
+  const handleFabPress = () => {
+    if (isSpeedDialOpen) {
+      setIsSpeedDialOpen(false);
+    } else {
+      handleOpenCreateModal();
+    }
+  };
+
+  const handleFabLongPress = () => {
+    setIsSpeedDialOpen((prev) => !prev);
+  };
+
+  const handleSelectText = () => {
+    setIsSpeedDialOpen(false);
+    handleOpenCreateModal();
+  };
+
+  const handleSelectPhoto = () => {
+    setIsSpeedDialOpen(false);
+    setIsPhotoModalOpen(true);
+  };
+
+  const handleSelectAudio = () => {
+    setIsSpeedDialOpen(false);
+    setIsAudioModalOpen(true);
+  };
+
+  const handleApplyPhoto = () => {
+    setIsPhotoModalOpen(false);
+    handleOpenWithDraft({
+      concept: photoConcept.trim() || 'Comprobante escaneado',
+      amount: photoAmount.trim() || '0',
+      category: photoCategory,
+      externalReference: 'Foto / Comprobante',
+    });
+  };
+
+  const handleApplyAudio = () => {
+    setIsAudioModalOpen(false);
+    handleOpenWithDraft({
+      concept: audioConcept.trim() || 'Nota de voz',
+      amount: audioAmount.trim() || '0',
+      externalReference: 'Nota de Audio',
+    });
   };
 
   const handleAddItem = () => {
@@ -1015,14 +1122,100 @@ export default function JournalView({
         )}
       </ScrollView>
 
-      {/* Floating Action Button (+) to open Create Transaction Modal */}
-      <Pressable
-        onPress={handleOpenCreateModal}
-        className="absolute bottom-5 right-5 h-16 w-16 items-center justify-center rounded-full bg-pine shadow-lg active:bg-pine-dark"
-        accessibilityLabel={t(JOURNAL_CONSTANTS.NEW_TRANSACTION_TITLE)}
+      {/* Dimmed backdrop when Speed Dial is active */}
+      {isSpeedDialOpen && (
+        <Pressable
+          onPress={() => setIsSpeedDialOpen(false)}
+          className="absolute inset-0 bg-black/60 z-40"
+          accessibilityLabel={t(COMMON_CONSTANTS.CLOSE)}
+        />
+      )}
+
+      {/* Floating Action Speed Dial Menu */}
+      <View
+        pointerEvents="box-none"
+        className="absolute bottom-5 right-5 items-end z-50"
       >
-        <Ionicons name="add" size={32} color="#FFFFFF" />
-      </Pressable>
+        {isSpeedDialOpen && (
+          <View className="items-end mb-4 gap-3.5">
+            {/* Audio Option */}
+            <Pressable
+              onPress={handleSelectAudio}
+              className="flex-row items-center justify-end active:opacity-80"
+              accessibilityRole="button"
+              accessibilityLabel={t(JOURNAL_CONSTANTS.ATTACH_AUDIO)}
+            >
+              <View className="rounded-full bg-white border border-[#DCEBE2] px-4 py-2 mr-3 shadow-md">
+                <Text className="text-sm font-extrabold text-pine tracking-wide">
+                  {t(JOURNAL_CONSTANTS.ATTACH_AUDIO)}
+                </Text>
+              </View>
+              <View className="h-14 w-14 rounded-full bg-[#0B5D3B] items-center justify-center shadow-lg border border-white/20">
+                <Ionicons name="mic-outline" size={26} color="#FFFFFF" />
+              </View>
+            </Pressable>
+
+            {/* Photo Option */}
+            <Pressable
+              onPress={handleSelectPhoto}
+              className="flex-row items-center justify-end active:opacity-80"
+              accessibilityRole="button"
+              accessibilityLabel={t(JOURNAL_CONSTANTS.ATTACH_PHOTO)}
+            >
+              <View className="rounded-full bg-white border border-[#DCEBE2] px-4 py-2 mr-3 shadow-md">
+                <Text className="text-sm font-extrabold text-pine tracking-wide">
+                  {t(JOURNAL_CONSTANTS.ATTACH_PHOTO)}
+                </Text>
+              </View>
+              <View className="h-14 w-14 rounded-full bg-pine items-center justify-center shadow-lg border border-white/20">
+                <Ionicons name="camera-outline" size={25} color="#FFFFFF" />
+              </View>
+            </Pressable>
+
+            {/* Text Option */}
+            <Pressable
+              onPress={handleSelectText}
+              className="flex-row items-center justify-end active:opacity-80"
+              accessibilityRole="button"
+              accessibilityLabel={t(JOURNAL_CONSTANTS.ATTACH_TEXT)}
+            >
+              <View className="rounded-full bg-white border border-[#DCEBE2] px-4 py-2 mr-3 shadow-md">
+                <Text className="text-sm font-extrabold text-pine tracking-wide">
+                  {t(JOURNAL_CONSTANTS.ATTACH_TEXT)}
+                </Text>
+              </View>
+              <View className="h-14 w-14 rounded-full bg-[#134E39] items-center justify-center shadow-lg border border-white/20">
+                <Ionicons name="document-text-outline" size={24} color="#FFFFFF" />
+              </View>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Main FAB (+) or (X) button: 
+            Press: opens modal if closed, closes dial if open.
+            Long Press (>= 1 second): toggles speed dial menu */}
+        <Pressable
+          onPress={handleFabPress}
+          onLongPress={handleFabLongPress}
+          delayLongPress={1000}
+          className={`h-16 w-16 items-center justify-center rounded-full shadow-2xl ${
+            isSpeedDialOpen
+              ? 'bg-white border-2 border-pine'
+              : 'bg-pine active:bg-pine-dark'
+          }`}
+          accessibilityLabel={
+            isSpeedDialOpen
+              ? t(COMMON_CONSTANTS.CLOSE)
+              : t(JOURNAL_CONSTANTS.NEW_TRANSACTION_TITLE)
+          }
+        >
+          {isSpeedDialOpen ? (
+            <Ionicons name="close" size={30} color="#0B3D2E" />
+          ) : (
+            <Ionicons name="add" size={32} color="#FFFFFF" />
+          )}
+        </Pressable>
+      </View>
 
       {/* Create Transaction Modal (Inserts into budget.ttransaction + budget.ttransaction_detail) */}
       <Modal
@@ -1319,6 +1512,329 @@ export default function JournalView({
                     </Text>
                   </>
                 )}
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Photo / Receipt Scanner Modal */}
+      <Modal
+        visible={isPhotoModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsPhotoModalOpen(false)}
+      >
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="max-h-[90%] rounded-t-3xl bg-[#F4FAF6] pt-4 pb-6 px-5">
+            {/* Modal Header */}
+            <View className="flex-row items-center justify-between pb-3 border-b border-[#DCEBE2]">
+              <View className="flex-row items-center">
+                <View className="h-10 w-10 rounded-full bg-pine items-center justify-center mr-3 shadow-sm">
+                  <Ionicons name="camera-outline" size={22} color="#FFFFFF" />
+                </View>
+                <View>
+                  <Text className="text-lg font-extrabold text-pine">
+                    {t(JOURNAL_CONSTANTS.PHOTO_MODAL_TITLE)}
+                  </Text>
+                  <Text className="text-[11px] text-sage">
+                    {t(JOURNAL_CONSTANTS.PHOTO_MODAL_DESC)}
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => setIsPhotoModalOpen(false)}
+                className="h-9 w-9 items-center justify-center rounded-full bg-[#E3F1E9]"
+              >
+                <Ionicons name="close" size={20} color="#0B3D2E" />
+              </Pressable>
+            </View>
+
+            <ScrollView className="mt-3" showsVerticalScrollIndicator={false} contentContainerClassName="gap-3.5 pb-4">
+              {/* Receipt Preview & Quick presets */}
+              <View className="rounded-2xl bg-white p-4 border border-[#E2EFE8]">
+                <Text className="text-xs font-bold text-pine uppercase tracking-wider mb-2">
+                  Presets de comprobante / recibo
+                </Text>
+                <View className="flex-row gap-2">
+                  <Pressable
+                    onPress={() => {
+                      setPhotoConcept('Supermercado Líder');
+                      setPhotoAmount('145.50');
+                      if (budgetTypes.length > 0) setPhotoCategory(budgetTypes[0].category_key || budgetTypes[0].id);
+                    }}
+                    className={`flex-1 rounded-xl p-3 border ${
+                      photoConcept.includes('Super')
+                        ? 'bg-[#E6F4EC] border-pine'
+                        : 'bg-[#F9FCFA] border-[#DCEBE2]'
+                    }`}
+                  >
+                    <Ionicons name="cart-outline" size={20} color="#0B3D2E" />
+                    <Text className="mt-1 text-xs font-bold text-pine">Supermercado</Text>
+                    <Text className="text-[11px] font-semibold text-[#0B5D3B]">
+                      {activeHousehold?.currency ?? 'BOB'} 145.50
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => {
+                      setPhotoConcept('Farmacia San Rafael');
+                      setPhotoAmount('68.00');
+                      if (budgetTypes.length > 1) setPhotoCategory(budgetTypes[1].category_key || budgetTypes[1].id);
+                    }}
+                    className={`flex-1 rounded-xl p-3 border ${
+                      photoConcept.includes('Farmacia')
+                        ? 'bg-[#E6F4EC] border-pine'
+                        : 'bg-[#F9FCFA] border-[#DCEBE2]'
+                    }`}
+                  >
+                    <Ionicons name="medical-outline" size={20} color="#0B3D2E" />
+                    <Text className="mt-1 text-xs font-bold text-pine">Farmacia</Text>
+                    <Text className="text-[11px] font-semibold text-[#0B5D3B]">
+                      {activeHousehold?.currency ?? 'BOB'} 68.00
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Scanned Receipt Simulation Box */}
+              <View className="rounded-2xl bg-white p-4 border border-dashed border-pine items-center justify-center py-5">
+                <View className="h-14 w-14 rounded-full bg-[#E6F4EC] items-center justify-center mb-2">
+                  <Ionicons name="scan-outline" size={28} color="#0B3D2E" />
+                </View>
+                <Text className="text-sm font-bold text-pine">Comprobante detectado</Text>
+                <Text className="text-xs text-[#5A6D64] text-center mt-1">
+                  Datos extraídos automáticamente del voucher
+                </Text>
+              </View>
+
+              {/* Editable Scanned Form */}
+              <View className="rounded-2xl bg-white p-4 border border-[#E2EFE8] gap-3">
+                <View>
+                  <Text className="text-[11px] font-bold text-sage mb-1">
+                    {t(JOURNAL_CONSTANTS.PHOTO_DETECTED_CONCEPT)}
+                  </Text>
+                  <TextInput
+                    value={photoConcept}
+                    onChangeText={setPhotoConcept}
+                    placeholder="Ej. Supermercado Líder"
+                    placeholderTextColor="#9AA5A1"
+                    className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2.5 text-xs text-pine font-medium"
+                  />
+                </View>
+
+                <View>
+                  <Text className="text-[11px] font-bold text-sage mb-1">
+                    {t(JOURNAL_CONSTANTS.PHOTO_DETECTED_AMOUNT)}
+                  </Text>
+                  <TextInput
+                    value={photoAmount}
+                    onChangeText={setPhotoAmount}
+                    keyboardType="numeric"
+                    placeholder="0.00"
+                    placeholderTextColor="#9AA5A1"
+                    className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2.5 text-xs text-pine font-bold"
+                  />
+                </View>
+              </View>
+
+              {/* Apply Action */}
+              <Pressable
+                onPress={handleApplyPhoto}
+                className="flex-row items-center justify-center rounded-2xl bg-pine py-4 shadow-sm active:bg-pine-dark"
+              >
+                <Ionicons name="arrow-forward-circle-outline" size={20} color="#FFFFFF" />
+                <Text className="ml-2 text-base font-extrabold text-white">
+                  {t(JOURNAL_CONSTANTS.APPLY_TO_TRANSACTION)}
+                </Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Audio / Voice Recording Modal */}
+      <Modal
+        visible={isAudioModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsAudioModalOpen(false)}
+      >
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="max-h-[90%] rounded-t-3xl bg-[#F4FAF6] pt-4 pb-6 px-5">
+            {/* Modal Header */}
+            <View className="flex-row items-center justify-between pb-3 border-b border-[#DCEBE2]">
+              <View className="flex-row items-center">
+                <View className="h-10 w-10 rounded-full bg-pine items-center justify-center mr-3 shadow-sm">
+                  <Ionicons name="mic-outline" size={22} color="#FFFFFF" />
+                </View>
+                <View>
+                  <Text className="text-lg font-extrabold text-pine">
+                    {t(JOURNAL_CONSTANTS.AUDIO_MODAL_TITLE)}
+                  </Text>
+                  <Text className="text-[11px] text-sage">
+                    {t(JOURNAL_CONSTANTS.AUDIO_MODAL_DESC)}
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => setIsAudioModalOpen(false)}
+                className="h-9 w-9 items-center justify-center rounded-full bg-[#E3F1E9]"
+              >
+                <Ionicons name="close" size={20} color="#0B3D2E" />
+              </Pressable>
+            </View>
+
+            <ScrollView className="mt-3" showsVerticalScrollIndicator={false} contentContainerClassName="gap-3.5 pb-4">
+              {/* Voice Recording Center Card */}
+              <View className="rounded-2xl bg-white p-5 border border-[#E2EFE8] items-center justify-center">
+                {/* Waveform indicator */}
+                <View className="flex-row items-center justify-center gap-1.5 h-10 mb-4">
+                  {[12, 24, 38, 20, 32, 16, 28, 40, 22, 14, 30, 18].map((h, i) => (
+                    <View
+                      key={i}
+                      style={{
+                        height: isRecordingAudio ? Math.max(8, h * (audioSeconds % 2 === 0 ? 1 : 0.6)) : 8,
+                        width: 4,
+                        borderRadius: 2,
+                        backgroundColor: isRecordingAudio ? '#0B3D2E' : '#DCEBE2',
+                      }}
+                    />
+                  ))}
+                </View>
+
+                {/* Big Mic Button */}
+                <Pressable
+                  onPress={() => setIsRecordingAudio((prev) => !prev)}
+                  className={`h-20 w-20 rounded-full items-center justify-center shadow-lg active:scale-95 ${
+                    isRecordingAudio
+                      ? 'bg-red-500 border-4 border-red-200'
+                      : 'bg-pine border-4 border-[#E6F4EC]'
+                  }`}
+                >
+                  <Ionicons
+                    name={isRecordingAudio ? 'stop' : 'mic'}
+                    size={36}
+                    color="#FFFFFF"
+                  />
+                </Pressable>
+
+                <Text className="mt-3 text-sm font-extrabold text-pine">
+                  {isRecordingAudio
+                    ? t(JOURNAL_CONSTANTS.AUDIO_RECORDING_STATUS)
+                    : t(JOURNAL_CONSTANTS.AUDIO_HOLD_OR_TAP)}
+                </Text>
+
+                <Text className="text-xs font-semibold text-[#0B5D3B] mt-1">
+                  00:{audioSeconds < 10 ? `0${audioSeconds}` : audioSeconds}
+                </Text>
+              </View>
+
+              {/* Sample Voice Prompts */}
+              <View className="rounded-2xl bg-white p-4 border border-[#E2EFE8]">
+                <Text className="text-xs font-bold text-pine uppercase tracking-wider mb-2">
+                  Ejemplos de voz
+                </Text>
+                <View className="gap-2">
+                  <Pressable
+                    onPress={() => {
+                      setAudioTranscript('Almuerzo de trabajo con cliente por 45');
+                      setAudioConcept('Almuerzo de trabajo');
+                      setAudioAmount('45.00');
+                    }}
+                    className={`rounded-xl p-3 border flex-row items-center justify-between ${
+                      audioConcept.includes('Almuerzo')
+                        ? 'bg-[#E6F4EC] border-pine'
+                        : 'bg-[#F9FCFA] border-[#DCEBE2]'
+                    }`}
+                  >
+                    <View className="flex-row items-center">
+                      <Ionicons name="restaurant-outline" size={18} color="#0B3D2E" />
+                      <Text className="ml-2 text-xs font-bold text-pine">
+                        {t(JOURNAL_CONSTANTS.AUDIO_SAMPLE_LUNCH)}
+                      </Text>
+                    </View>
+                    <Text className="text-xs font-bold text-[#0B5D3B]">45.00</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => {
+                      setAudioTranscript('Carga de combustible para el auto por 120');
+                      setAudioConcept('Combustible automotriz');
+                      setAudioAmount('120.00');
+                    }}
+                    className={`rounded-xl p-3 border flex-row items-center justify-between ${
+                      audioConcept.includes('Combustible')
+                        ? 'bg-[#E6F4EC] border-pine'
+                        : 'bg-[#F9FCFA] border-[#DCEBE2]'
+                    }`}
+                  >
+                    <View className="flex-row items-center">
+                      <Ionicons name="car-outline" size={18} color="#0B3D2E" />
+                      <Text className="ml-2 text-xs font-bold text-pine">
+                        {t(JOURNAL_CONSTANTS.AUDIO_SAMPLE_FUEL)}
+                      </Text>
+                    </View>
+                    <Text className="text-xs font-bold text-[#0B5D3B]">120.00</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Voice Transcript & Extracted Fields */}
+              <View className="rounded-2xl bg-white p-4 border border-[#E2EFE8] gap-3">
+                <View>
+                  <Text className="text-[11px] font-bold text-sage mb-1">
+                    {t(JOURNAL_CONSTANTS.AUDIO_TRANSCRIPT_LABEL)}
+                  </Text>
+                  <TextInput
+                    value={audioTranscript}
+                    onChangeText={(val) => {
+                      setAudioTranscript(val);
+                      const matched = val.match(/\d+(\.\d+)?/);
+                      if (matched) {
+                        setAudioAmount(matched[0]);
+                      }
+                    }}
+                    multiline
+                    numberOfLines={2}
+                    className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2 text-xs text-pine"
+                  />
+                </View>
+
+                <View className="flex-row gap-2">
+                  <View className="flex-1">
+                    <Text className="text-[11px] font-bold text-sage mb-1">
+                      Concepto
+                    </Text>
+                    <TextInput
+                      value={audioConcept}
+                      onChangeText={setAudioConcept}
+                      className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2 text-xs text-pine font-medium"
+                    />
+                  </View>
+                  <View className="w-28">
+                    <Text className="text-[11px] font-bold text-sage mb-1">
+                      Monto
+                    </Text>
+                    <TextInput
+                      value={audioAmount}
+                      onChangeText={setAudioAmount}
+                      keyboardType="numeric"
+                      className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2 text-xs text-pine font-bold"
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Apply Action */}
+              <Pressable
+                onPress={handleApplyAudio}
+                className="flex-row items-center justify-center rounded-2xl bg-pine py-4 shadow-sm active:bg-pine-dark"
+              >
+                <Ionicons name="arrow-forward-circle-outline" size={20} color="#FFFFFF" />
+                <Text className="ml-2 text-base font-extrabold text-white">
+                  {t(JOURNAL_CONSTANTS.APPLY_TO_TRANSACTION)}
+                </Text>
               </Pressable>
             </ScrollView>
           </View>
