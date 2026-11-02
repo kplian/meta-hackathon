@@ -1,0 +1,3 @@
+{
+  "jsCode": "return [{json:{\"caseId\":\"monthly_es\",\"failure\":null,\"assistant\":{\"message\":{\"text\":\"¿Cómo vamos con los ingresos, gastos y la meta de ahorro de este mes? Solo consulta.\",\"kind\":\"text\",\"attachments\":[]},\"user\":{\"name\":\"Alex\",\"households\":[{\"id\":\"00000000-0000-4000-8000-000000000001\",\"name\":\"Familia Test\",\"currency\":\"BOB\",\"role\":\"admin\"}]},\"locale\":\"es\"}}}];"
+}

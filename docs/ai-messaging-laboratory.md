@@ -97,7 +97,7 @@ changed. This is an existing feature gap, not a completed invitation/undo featur
 
 - `n8n/lib/messaging.mjs`: pure adapters, localization, neutral contracts and output
   formatting, tested without external services.
-- `n8n/prompts/financial_agent_standard_prompt.md`: channel-independent purpose.
+- `n8n/mcp/assistant-prompt.md`: current English role and MCP behavior; the old `financial_agent_standard_prompt.md` location is a historical pointer.
 - `n8n/scripts/build-channel-laboratory.mjs`: reproducible sanitized graph builder.
 - `n8n/workflows/channel-laboratory.spec.json`: generated graph with credential
   references only; no token values or embedded authorization headers.

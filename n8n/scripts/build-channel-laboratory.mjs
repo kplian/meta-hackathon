@@ -6,6 +6,7 @@ const root = new URL('../', import.meta.url);
 const library = readFileSync(new URL('lib/messaging.mjs', root), 'utf8').replace(/^export /gm, '');
 const policy = readFileSync(new URL('prompts/tool_error_policy.md', root), 'utf8');
 const purpose = readFileSync(new URL('mcp/assistant-prompt.md', root), 'utf8');
+const formatRepair = readFileSync(new URL('prompts/format_only_repair.md', root), 'utf8');
 const nodes = [];
 const edges = [];
 const credentials = {
@@ -74,7 +75,7 @@ nodes.find(n => n.name === 'AI Agent').settings = { onError: 'continueErrorOutpu
 code('Assistant failure reply', "return { json: { reply: assistantFailureReply($('Authorized context').item.json) } };", [3500, 500]);
 add('DeepSeek Chat Model', '@n8n/n8n-nodes-langchain.lmChatDeepSeek', 1, { model: 'deepseek-v4-pro', options: {} }, [3000, -400], undefined, 'DeepSeek Chat Model');
 add('Simple Memory', '@n8n/n8n-nodes-langchain.memoryBufferWindow', 1.4, { sessionIdType: 'customKey', sessionKey: "={{ 'messaging:mcp-v1:' + $('Authorized context').item.json.user.id }}", contextWindowLength: 5 }, [3250, -400], undefined, 'Simple Memory');
-add('Standard response schema', '@n8n/n8n-nodes-langchain.outputParserStructured', 1.3, { schemaType: 'manual', inputSchema: JSON.stringify({ type: 'object', properties: { text: { type: 'string', minLength: 1 } }, required: ['text'], additionalProperties: false }), autoFix: false }, [3500, -400]);
+add('Standard response schema', '@n8n/n8n-nodes-langchain.outputParserStructured', 1.3, { schemaType: 'manual', inputSchema: JSON.stringify({ type: 'object', properties: { text: { type: 'string', minLength: 1 } }, required: ['text'], additionalProperties: false }), autoFix: true, customizeRetryPrompt: true, prompt: formatRepair }, [3500, -400]);
 code('Standard reply', "if ($input.all().length !== 1) throw new Error('Expected one authorized message'); const current = $input.first().json; const context = $('Authorized context').item.json; return chunkReply(standardReply(current.reply || current.output), context.transport).map(json => ({ json, pairedItem: { item: 0 } }));", [3750, 100], 'Code in JavaScript', true);
 route('Reply channel', "={{ $json.transport.channel === 'whatsapp' ? 0 : 1 }}", 2, [4000, 100]);
 code('Format WhatsApp reply', 'return { json: { transport: $input.item.json.transport, body: whatsappReply($input.item.json) } };', [4250, 0]);
@@ -107,6 +108,7 @@ edge('Audio or attachment', 'Transcribe audio', 0); edge('Audio or attachment', 
 edge('Assistant input', 'AI Agent'); edge('AI Agent', 'Standard reply');
 edge('AI Agent', 'Assistant failure reply', 1); edge('Assistant failure reply', 'Standard reply');
 edge('DeepSeek Chat Model', 'AI Agent', 0, 'ai_languageModel'); edge('Simple Memory', 'AI Agent', 0, 'ai_memory'); edge('Standard response schema', 'AI Agent', 0, 'ai_outputParser');
+edge('DeepSeek Chat Model', 'Standard response schema', 0, 'ai_languageModel');
 edge('Standard reply', 'Reply channel'); edge('Reply channel', 'Format WhatsApp reply', 0); edge('Reply channel', 'Format Telegram reply', 1);
 edge('Format WhatsApp reply', 'Send WhatsApp'); edge('Format Telegram reply', 'Send Telegram');
 edge('Send WhatsApp', 'Reply complete'); edge('Send Telegram', 'Reply complete'); edge('Reply complete', 'One message at a time');
