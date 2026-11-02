@@ -102,6 +102,7 @@ export default function AccountsView({ currentUserId }: AccountsViewProps) {
           .from('taccount')
           .select('*')
           .is('deleted_at', null)
+          .is('household_id', null)
           .order('code', { ascending: true }),
         supabase
           .schema('budget')
@@ -154,10 +155,14 @@ export default function AccountsView({ currentUserId }: AccountsViewProps) {
     [accounts],
   );
 
-  // Filter accounts by business_type_id and search query
+  // Filter accounts by business_type_id and search query (excluding any household-specific accounts)
   const visibleAccounts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return accounts.filter((acc) => {
+      // Exclude records where household_id is not null
+      if (acc.household_id !== null && acc.household_id !== undefined) {
+        return false;
+      }
       if (
         selectedBusinessTypeFilter !== 'ALL' &&
         acc.business_type_id !== selectedBusinessTypeFilter

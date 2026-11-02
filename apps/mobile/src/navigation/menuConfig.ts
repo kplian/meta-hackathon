@@ -20,9 +20,43 @@ export type ViewId =
   | 'household'
   | 'budget'
   | 'auxiliar'
-  | 'health';
+  | 'health'
+  | 'investments';
 
 export type BottomTabId = 'dashboard' | 'journal' | 'profile';
+
+export type UserRole = 'admin' | 'advanced' | 'member';
+
+/**
+ * Filter drawer menu sections according to user role in budget.tuser:
+ * - 'admin': sees all sections (ADMIN, FOR BUSINESS, BUDGET)
+ * - 'advanced': hides ADMIN, sees FOR BUSINESS and BUDGET
+ * - 'member': sees only BUDGET
+ */
+export function getVisibleDrawerSections(role: string = 'member'): DrawerMenuSection[] {
+  const normalized = role.toLowerCase().trim();
+  if (normalized === 'admin') {
+    return DRAWER_SECTIONS;
+  }
+  if (normalized === 'advanced') {
+    return DRAWER_SECTIONS.filter((section) => section.title !== 'ADMIN');
+  }
+  // Default: 'member'
+  return DRAWER_SECTIONS.filter((section) => section.title === 'BUDGET');
+}
+
+/**
+ * Checks whether a given view is allowed for the specified user role.
+ */
+export function isViewAllowedForRole(viewId: ViewId, role: string = 'member'): boolean {
+  if (['dashboard', 'journal', 'profile', 'members'].includes(viewId)) {
+    return true;
+  }
+  const visibleSections = getVisibleDrawerSections(role);
+  return visibleSections.some((section) =>
+    section.items.some((item) => item.id === viewId)
+  );
+}
 
 export interface DrawerMenuItem {
   id: ViewId;
@@ -120,6 +154,13 @@ export const DRAWER_SECTIONS: DrawerMenuSection[] = [
     count: 4,
     items: [
       {
+        id: 'investments',
+        label: 'Savings and investment management',
+        labelKey: NAV_CONSTANTS.INVESTMENTS_LABEL,
+        iconFamily: 'ionicons',
+        iconName: 'trending-up-outline',
+      },
+      {
         id: 'household',
         label: 'Household',
         labelKey: NAV_CONSTANTS.HOUSEHOLD_LABEL,
@@ -135,7 +176,7 @@ export const DRAWER_SECTIONS: DrawerMenuSection[] = [
       },
       {
         id: 'auxiliar',
-        label: 'Auxiliar',
+        label: 'Income / Expense Pot',
         labelKey: NAV_CONSTANTS.AUXILIAR_LABEL,
         iconFamily: 'ionicons',
         iconName: 'swap-horizontal-outline',
@@ -321,10 +362,17 @@ export const VIEW_META: Record<
     category: 'BUDGET',
     table: 'thousehold',
   },
+  investments: {
+    title: 'Savings and investment management',
+    titleKey: NAV_CONSTANTS.INVESTMENTS_LABEL,
+    subtitle: 'Manage household savings and investments',
+    subtitleKey: NAV_CONSTANTS.INVESTMENTS_SUBTITLE,
+    category: 'BUDGET',
+  },
   auxiliar: {
-    title: 'Auxiliar',
+    title: 'Income / Expense Pot',
     titleKey: NAV_CONSTANTS.AUXILIAR_LABEL,
-    subtitle: 'Entidades auxiliares vinculadas al hogar',
+    subtitle: 'Bolsas de gastos, ingresos y cuentas auxiliares vinculadas al hogar',
     subtitleKey: NAV_CONSTANTS.AUXILIAR_SUBTITLE,
     category: 'BUDGET',
     table: 'tauxiliar',

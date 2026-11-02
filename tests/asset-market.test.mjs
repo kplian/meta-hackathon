@@ -29,6 +29,18 @@ test('Quote preserves provider timestamp and numeric price',async()=>{
  const result=await marketData({action:'quote',symbol:'USD-TEST'},'key',async()=>response({symbol:'USD-TEST',currency:'USD',close:'123.45',timestamp:1700000000}));
  assert.equal(result.quote.price,123.45);assert.equal(result.quote.asOf,'2023-11-14T22:13:20.000Z');
 });
+test('Crypto quote accepts USD from the returned pair when currency is omitted',async()=>{
+ const result=await marketData({action:'quote',symbol:'ADA/USD',exchange:''},'key',async()=>response({symbol:'ADA/USD',close:'0.1919',timestamp:1700000000}));
+ assert.equal(result.quote.currency,'USD');assert.equal(result.quote.price,0.1919);
+});
+test('Crypto quote rejects non-USD or mismatched provider symbols and explicit foreign currency',async()=>{
+ for(const [symbol,data,code] of [
+  ['ADA/EUR',{symbol:'ADA/EUR'},'usd_only'],
+  ['ADA/USD',{symbol:'ADA/USD',currency:'EUR'},'usd_only'],
+  ['BTC/USD',{symbol:'ADA/USD'},'invalid_quote'],
+  ['MISSING-CURRENCY',{symbol:'MISSING-CURRENCY'},'usd_only'],
+ ])await assert.rejects(marketData({action:'quote',symbol,exchange:'validation-'+code},'key',async()=>response({...data,close:'1',timestamp:1700000000})),e=>e.code===code);
+});
 test('Unavailable or rate-limited prices never invent a price',async()=>{
  await assert.rejects(marketData({action:'quote',symbol:'NO-TIMESTAMP'},'key',async()=>response({currency:'USD',close:'100'})),e=>e.code==='invalid_quote');
  await assert.rejects(marketData({action:'quote',symbol:'LIMIT'},'key',async()=>response({status:'error',code:429},429)),e=>e.code==='market_rate_limit');

@@ -99,16 +99,90 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"tasset_position": {
+                },"tasset_movement": {
                   Row: {
-                    "account_id": string,"alias": string | null,"asset_type_code": string,"auxiliar_id": string,"created_at": string,"created_by": string,"currency": string,"deleted_at": string | null,"deleted_by": string | null,"exchange": string | null,"household_id": string,"id": string,"initial_rate_as_of": string | null,"initial_rate_source": string | null,"institution": string | null,"maturity_date": string | null,"name": string,"opening_transaction_id": string | null,"opening_value_usd": number,"price_as_of": string | null,"price_basis": string,"price_provider": string | null,"quantity": number,"reference_unit_price_usd": number,"registration_options": Json | null,"request_id": string,"status": string,"symbol": string | null,"unit_code": string,"unit_kind": string
+                    "carrying_removed_usd": number | null,"created_at": string,"created_by": string,"destination_account_id": string | null,"destination_position_id": string | null,"destination_quantity": number,"household_id": string,"id": string,"operating_transaction_id": string | null,"patrimony_transaction_id": string | null,"payload": NonNullable<Json>,"realized_result_usd": number | null,"request_id": string,"settlement_usd": number | null,"source_account_id": string | null,"source_position_id": string | null,"source_quantity": number,"usd_per_household_unit": number | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "account_id": string,"alias"?: string | null,"asset_type_code": string,"auxiliar_id": string,"created_at"?: string,"created_by": string,"currency"?: string,"deleted_at"?: string | null,"deleted_by"?: string | null,"exchange"?: string | null,"household_id": string,"id"?: string,"initial_rate_as_of"?: string | null,"initial_rate_source"?: string | null,"institution"?: string | null,"maturity_date"?: string | null,"name": string,"opening_transaction_id"?: string | null,"opening_value_usd": number,"price_as_of"?: string | null,"price_basis": string,"price_provider"?: string | null,"quantity": number,"reference_unit_price_usd": number,"registration_options"?: Json | null,"request_id": string,"status"?: string,"symbol"?: string | null,"unit_code"?: string,"unit_kind"?: string
+                    "carrying_removed_usd"?: number | null,"created_at"?: string,"created_by": string,"destination_account_id"?: string | null,"destination_position_id"?: string | null,"destination_quantity": number,"household_id": string,"id"?: string,"operating_transaction_id"?: string | null,"patrimony_transaction_id"?: string | null,"payload": NonNullable<Json>,"realized_result_usd"?: number | null,"request_id": string,"settlement_usd"?: number | null,"source_account_id"?: string | null,"source_position_id"?: string | null,"source_quantity": number,"usd_per_household_unit"?: number | null
                   }
                   Update: {
-                    "account_id"?: string,"alias"?: string | null,"asset_type_code"?: string,"auxiliar_id"?: string,"created_at"?: string,"created_by"?: string,"currency"?: string,"deleted_at"?: string | null,"deleted_by"?: string | null,"exchange"?: string | null,"household_id"?: string,"id"?: string,"initial_rate_as_of"?: string | null,"initial_rate_source"?: string | null,"institution"?: string | null,"maturity_date"?: string | null,"name"?: string,"opening_transaction_id"?: string | null,"opening_value_usd"?: number,"price_as_of"?: string | null,"price_basis"?: string,"price_provider"?: string | null,"quantity"?: number,"reference_unit_price_usd"?: number,"registration_options"?: Json | null,"request_id"?: string,"status"?: string,"symbol"?: string | null,"unit_code"?: string,"unit_kind"?: string
+                    "carrying_removed_usd"?: number | null,"created_at"?: string,"created_by"?: string,"destination_account_id"?: string | null,"destination_position_id"?: string | null,"destination_quantity"?: number,"household_id"?: string,"id"?: string,"operating_transaction_id"?: string | null,"patrimony_transaction_id"?: string | null,"payload"?: NonNullable<Json>,"realized_result_usd"?: number | null,"request_id"?: string,"settlement_usd"?: number | null,"source_account_id"?: string | null,"source_position_id"?: string | null,"source_quantity"?: number,"usd_per_household_unit"?: number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "tasset_movement_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "tuser"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tasset_movement_destination_account_id_fkey"
+      columns: ["destination_account_id"]
+isOneToOne: false
+      referencedRelation: "taccount"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tasset_movement_destination_position_id_fkey"
+      columns: ["destination_position_id"]
+isOneToOne: false
+      referencedRelation: "tasset_position"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tasset_movement_destination_position_id_fkey"
+      columns: ["destination_position_id"]
+isOneToOne: false
+      referencedRelation: "vasset_current_value"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tasset_movement_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "thousehold"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tasset_movement_operating_transaction_id_fkey"
+      columns: ["operating_transaction_id"]
+isOneToOne: true
+      referencedRelation: "ttransaction"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tasset_movement_patrimony_transaction_id_fkey"
+      columns: ["patrimony_transaction_id"]
+isOneToOne: true
+      referencedRelation: "ttransaction"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tasset_movement_source_account_id_fkey"
+      columns: ["source_account_id"]
+isOneToOne: false
+      referencedRelation: "taccount"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tasset_movement_source_position_id_fkey"
+      columns: ["source_position_id"]
+isOneToOne: false
+      referencedRelation: "tasset_position"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tasset_movement_source_position_id_fkey"
+      columns: ["source_position_id"]
+isOneToOne: false
+      referencedRelation: "vasset_current_value"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"tasset_position": {
+                  Row: {
+                    "account_id": string,"alias": string | null,"asset_type_code": string,"auxiliar_id": string,"created_at": string,"created_by": string,"currency": string,"deleted_at": string | null,"deleted_by": string | null,"exchange": string | null,"household_id": string,"id": string,"initial_rate_as_of": string | null,"initial_rate_source": string | null,"institution": string | null,"instrument_quote_id": string | null,"maturity_date": string | null,"name": string,"opening_transaction_id": string | null,"opening_value_usd": number,"price_as_of": string | null,"price_basis": string,"price_provider": string | null,"quantity": number,"reference_unit_price_usd": number,"registration_kind": string,"registration_options": Json | null,"request_id": string,"status": string,"symbol": string | null,"unit_code": string,"unit_kind": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "account_id": string,"alias"?: string | null,"asset_type_code": string,"auxiliar_id": string,"created_at"?: string,"created_by": string,"currency"?: string,"deleted_at"?: string | null,"deleted_by"?: string | null,"exchange"?: string | null,"household_id": string,"id"?: string,"initial_rate_as_of"?: string | null,"initial_rate_source"?: string | null,"institution"?: string | null,"instrument_quote_id"?: string | null,"maturity_date"?: string | null,"name": string,"opening_transaction_id"?: string | null,"opening_value_usd": number,"price_as_of"?: string | null,"price_basis": string,"price_provider"?: string | null,"quantity": number,"reference_unit_price_usd": number,"registration_kind"?: string,"registration_options"?: Json | null,"request_id": string,"status"?: string,"symbol"?: string | null,"unit_code"?: string,"unit_kind"?: string
+                  }
+                  Update: {
+                    "account_id"?: string,"alias"?: string | null,"asset_type_code"?: string,"auxiliar_id"?: string,"created_at"?: string,"created_by"?: string,"currency"?: string,"deleted_at"?: string | null,"deleted_by"?: string | null,"exchange"?: string | null,"household_id"?: string,"id"?: string,"initial_rate_as_of"?: string | null,"initial_rate_source"?: string | null,"institution"?: string | null,"instrument_quote_id"?: string | null,"maturity_date"?: string | null,"name"?: string,"opening_transaction_id"?: string | null,"opening_value_usd"?: number,"price_as_of"?: string | null,"price_basis"?: string,"price_provider"?: string | null,"quantity"?: number,"reference_unit_price_usd"?: number,"registration_kind"?: string,"registration_options"?: Json | null,"request_id"?: string,"status"?: string,"symbol"?: string | null,"unit_code"?: string,"unit_kind"?: string
                   }
                   Relationships: [
                     {
@@ -148,12 +222,32 @@ isOneToOne: false
       referencedRelation: "thousehold"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "tasset_position_instrument_quote_id_fkey"
+      columns: ["instrument_quote_id"]
+isOneToOne: false
+      referencedRelation: "tasset_quote"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "tasset_position_opening_transaction_id_fkey"
       columns: ["opening_transaction_id"]
 isOneToOne: true
       referencedRelation: "ttransaction"
       referencedColumns: ["id"]
     }
+                  ]
+                },"tasset_quote": {
+                  Row: {
+                    "currency": string,"exchange": string,"id": string,"instrument_kind": string,"quoted_at": string | null,"source": string | null,"symbol": string,"unit_price_usd": number | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "currency"?: string,"exchange"?: string,"id"?: string,"instrument_kind": string,"quoted_at"?: string | null,"source"?: string | null,"symbol": string,"unit_price_usd"?: number | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "currency"?: string,"exchange"?: string,"id"?: string,"instrument_kind"?: string,"quoted_at"?: string | null,"source"?: string | null,"symbol"?: string,"unit_price_usd"?: number | null,"updated_at"?: string
+                  }
+                  Relationships: [
+
                   ]
                 },"tasset_type": {
                   Row: {
@@ -253,14 +347,14 @@ isOneToOne: false
                   ]
                 },"tauxiliar": {
                   Row: {
-                    "auxiliar_type_id": string,"code": string,"created_at": string | null,"created_by": string | null,"deleted_at": string | null,"deleted_by": string | null,"description": string | null,"household_id": string,"id": string,"name": string,"parent_id": string | null,"status": string | null,"updated_at": string | null,"updated_by": string | null
+                    "auxiliar_type_id": string,"code": string,"created_at": string | null,"created_by": string | null,"deleted_at": string | null,"deleted_by": string | null,"description": string | null,"household_id": string,"id": string,"name": string,"parent_id": string | null,"status": string | null,"updated_at": string | null,"updated_by": string | null,"vault_account_id": string | null,"vault_creation_request_id": string | null,"vault_goal_amount": number | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "auxiliar_type_id": string,"code": string,"created_at"?: string | null,"created_by"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"description"?: string | null,"household_id": string,"id"?: string,"name": string,"parent_id"?: string | null,"status"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null
+                    "auxiliar_type_id": string,"code": string,"created_at"?: string | null,"created_by"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"description"?: string | null,"household_id": string,"id"?: string,"name": string,"parent_id"?: string | null,"status"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"vault_account_id"?: string | null,"vault_creation_request_id"?: string | null,"vault_goal_amount"?: number | null
                   }
                   Update: {
-                    "auxiliar_type_id"?: string,"code"?: string,"created_at"?: string | null,"created_by"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"description"?: string | null,"household_id"?: string,"id"?: string,"name"?: string,"parent_id"?: string | null,"status"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null
+                    "auxiliar_type_id"?: string,"code"?: string,"created_at"?: string | null,"created_by"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"description"?: string | null,"household_id"?: string,"id"?: string,"name"?: string,"parent_id"?: string | null,"status"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"vault_account_id"?: string | null,"vault_creation_request_id"?: string | null,"vault_goal_amount"?: number | null
                   }
                   Relationships: [
                     {
@@ -298,6 +392,12 @@ isOneToOne: false
       columns: ["updated_by"]
 isOneToOne: false
       referencedRelation: "tuser"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tauxiliar_vault_account_id_fkey"
+      columns: ["vault_account_id"]
+isOneToOne: false
+      referencedRelation: "taccount"
       referencedColumns: ["id"]
     }
                   ]
@@ -1253,14 +1353,14 @@ isOneToOne: false
                   ]
                 },"ttransaction": {
                   Row: {
-                    "amount": number,"concept": string | null,"created_at": string,"created_by": string | null,"currency": string,"deleted_at": string | null,"deleted_by": string | null,"external_reference": string | null,"household_id": string | null,"id": string,"input_data": NonNullable<Json>,"ledger_book": string,"ledger_version": number,"operation_code": string | null,"recorded_via": string | null,"reversal_of": string | null,"source_text": string | null,"status": string | null,"template_transaction_id": string | null,"transaction_date": string,"type": string | null,"updated_at": string | null,"updated_by": string | null
+                    "amount": number,"concept": string | null,"created_at": string,"created_by": string | null,"currency": string,"deleted_at": string | null,"deleted_by": string | null,"external_reference": string | null,"household_currency_at_posting": string | null,"household_fx_rate": number | null,"household_id": string | null,"id": string,"input_data": NonNullable<Json>,"ledger_book": string,"ledger_version": number,"operation_code": string | null,"recorded_via": string | null,"reversal_of": string | null,"source_text": string | null,"status": string | null,"template_transaction_id": string | null,"transaction_date": string,"type": string | null,"updated_at": string | null,"updated_by": string | null,"vault_leg": number | null,"vault_request_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount": number,"concept"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency": string,"deleted_at"?: string | null,"deleted_by"?: string | null,"external_reference"?: string | null,"household_id"?: string | null,"id"?: string,"input_data"?: NonNullable<Json>,"ledger_book"?: string,"ledger_version"?: number,"operation_code"?: string | null,"recorded_via"?: string | null,"reversal_of"?: string | null,"source_text"?: string | null,"status"?: string | null,"template_transaction_id"?: string | null,"transaction_date"?: string,"type"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null
+                    "amount": number,"concept"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency": string,"deleted_at"?: string | null,"deleted_by"?: string | null,"external_reference"?: string | null,"household_currency_at_posting"?: string | null,"household_fx_rate"?: number | null,"household_id"?: string | null,"id"?: string,"input_data"?: NonNullable<Json>,"ledger_book"?: string,"ledger_version"?: number,"operation_code"?: string | null,"recorded_via"?: string | null,"reversal_of"?: string | null,"source_text"?: string | null,"status"?: string | null,"template_transaction_id"?: string | null,"transaction_date"?: string,"type"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"vault_leg"?: number | null,"vault_request_id"?: string | null
                   }
                   Update: {
-                    "amount"?: number,"concept"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"deleted_at"?: string | null,"deleted_by"?: string | null,"external_reference"?: string | null,"household_id"?: string | null,"id"?: string,"input_data"?: NonNullable<Json>,"ledger_book"?: string,"ledger_version"?: number,"operation_code"?: string | null,"recorded_via"?: string | null,"reversal_of"?: string | null,"source_text"?: string | null,"status"?: string | null,"template_transaction_id"?: string | null,"transaction_date"?: string,"type"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null
+                    "amount"?: number,"concept"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"deleted_at"?: string | null,"deleted_by"?: string | null,"external_reference"?: string | null,"household_currency_at_posting"?: string | null,"household_fx_rate"?: number | null,"household_id"?: string | null,"id"?: string,"input_data"?: NonNullable<Json>,"ledger_book"?: string,"ledger_version"?: number,"operation_code"?: string | null,"recorded_via"?: string | null,"reversal_of"?: string | null,"source_text"?: string | null,"status"?: string | null,"template_transaction_id"?: string | null,"transaction_date"?: string,"type"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"vault_leg"?: number | null,"vault_request_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -1297,14 +1397,14 @@ isOneToOne: false
                   ]
                 },"ttransaction_detail": {
                   Row: {
-                    "account_id": string,"auxiliar_id": string,"budget_type_id": string | null,"created_at": string,"created_by": string | null,"credit_base": number | null,"debit_base": number | null,"deleted_at": string | null,"deleted_by": string | null,"description": string,"id": string,"item_code": string | null,"quantity": number | null,"status": string | null,"transaction_id": string,"unit_measure_code": string | null,"unit_price": number | null,"updated_at": string | null,"updated_by": string | null
+                    "account_id": string,"asset_position_id": string | null,"asset_quantity_delta": number | null,"auxiliar_id": string,"budget_type_id": string | null,"created_at": string,"created_by": string | null,"credit_base": number | null,"debit_base": number | null,"deleted_at": string | null,"deleted_by": string | null,"description": string,"id": string,"item_code": string | null,"quantity": number | null,"status": string | null,"transaction_id": string,"unit_measure_code": string | null,"unit_price": number | null,"updated_at": string | null,"updated_by": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "account_id": string,"auxiliar_id": string,"budget_type_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"credit_base"?: number | null,"debit_base"?: number | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"description": string,"id"?: string,"item_code"?: string | null,"quantity"?: number | null,"status"?: string | null,"transaction_id": string,"unit_measure_code"?: string | null,"unit_price"?: number | null,"updated_at"?: string | null,"updated_by"?: string | null
+                    "account_id": string,"asset_position_id"?: string | null,"asset_quantity_delta"?: number | null,"auxiliar_id": string,"budget_type_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"credit_base"?: number | null,"debit_base"?: number | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"description": string,"id"?: string,"item_code"?: string | null,"quantity"?: number | null,"status"?: string | null,"transaction_id": string,"unit_measure_code"?: string | null,"unit_price"?: number | null,"updated_at"?: string | null,"updated_by"?: string | null
                   }
                   Update: {
-                    "account_id"?: string,"auxiliar_id"?: string,"budget_type_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"credit_base"?: number | null,"debit_base"?: number | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"description"?: string,"id"?: string,"item_code"?: string | null,"quantity"?: number | null,"status"?: string | null,"transaction_id"?: string,"unit_measure_code"?: string | null,"unit_price"?: number | null,"updated_at"?: string | null,"updated_by"?: string | null
+                    "account_id"?: string,"asset_position_id"?: string | null,"asset_quantity_delta"?: number | null,"auxiliar_id"?: string,"budget_type_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"credit_base"?: number | null,"debit_base"?: number | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"description"?: string,"id"?: string,"item_code"?: string | null,"quantity"?: number | null,"status"?: string | null,"transaction_id"?: string,"unit_measure_code"?: string | null,"unit_price"?: number | null,"updated_at"?: string | null,"updated_by"?: string | null
                   }
                   Relationships: [
                     {
@@ -1312,6 +1412,18 @@ isOneToOne: false
       columns: ["account_id"]
 isOneToOne: false
       referencedRelation: "taccount"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "ttransaction_detail_asset_position_id_fkey"
+      columns: ["asset_position_id"]
+isOneToOne: false
+      referencedRelation: "tasset_position"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "ttransaction_detail_asset_position_id_fkey"
+      columns: ["asset_position_id"]
+isOneToOne: false
+      referencedRelation: "vasset_current_value"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "ttransaction_detail_auxiliar_id_fkey"
@@ -1462,6 +1574,26 @@ isOneToOne: true
       referencedColumns: ["id"]
     }
                   ]
+                },"vasset_quantity_balance": {
+                  Row: {
+                    "asset_position_id": string | null,"quantity": number | null
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "ttransaction_detail_asset_position_id_fkey"
+      columns: ["asset_position_id"]
+isOneToOne: false
+      referencedRelation: "tasset_position"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "ttransaction_detail_asset_position_id_fkey"
+      columns: ["asset_position_id"]
+isOneToOne: false
+      referencedRelation: "vasset_current_value"
+      referencedColumns: ["id"]
+    }
+                  ]
                 }
           }
           Functions: {
@@ -1511,6 +1643,14 @@ isOneToOne: true
 "f_norm_text":
 { Args: { "p": string }; Returns: string
                            },
+"f_operating_available":
+{ Args: { "p_account": string,"p_household": string }; Returns: number
+                           },
+"f_period_income_expenses":
+{ Args: { "p_end": string,"p_home": string,"p_start": string }; Returns: {
+              "expenses": number,"income": number
+            }[]
+                           },
 "f_provision_household":
 { Args: { "p_household_id": string }; Returns: Json
                            },
@@ -1522,6 +1662,9 @@ isOneToOne: true
                            },
 "f_text_mentions":
 { Args: { "p_exclusions": (string)[],"p_keywords": (string)[],"p_text": string }; Returns: string
+                           },
+"f_vault_balance":
+{ Args: { "p_auxiliar": string }; Returns: number
                            }
           }
           Enums: {
@@ -1553,6 +1696,9 @@ isOneToOne: true
 "f_create_report_link":
 { Args: { "p_household_id": string,"p_month"?: string,"p_ttl_minutes"?: number,"p_user_id"?: string }; Returns: Json
                            },
+"f_create_saving_vault":
+{ Args: { "p_currency": string,"p_goal"?: number | string,"p_household_id": string,"p_name": string,"p_request_id": string }; Returns: string
+                           },
 "f_food_budget_suggestion":
 { Args: { "p_household_id": string,"p_share"?: number }; Returns: Json
                            },
@@ -1568,11 +1714,17 @@ isOneToOne: true
 "f_household_wealth_report":
 { Args: { "p_household_id": string }; Returns: Json
                            },
+"f_investment_overview":
+{ Args: { "p_household_id": string }; Returns: Json
+                           },
 "f_member_expenses_report":
 { Args: { "p_household_id": string,"p_timezone"?: string }; Returns: Json
                            },
 "f_monthly_pyramid_dashboard":
 { Args: { "p_household_id": string,"p_timezone"?: string }; Returns: Json
+                           },
+"f_move_investment":
+{ Args: { "p_destination": Json,"p_destination_quantity": number | string,"p_household_id": string,"p_note"?: string,"p_request_id": string,"p_settlement_usd"?: number | string,"p_source": Json,"p_source_quantity": number | string,"p_usd_per_household_unit"?: number | string }; Returns: string
                            },
 "f_post_asset_valuation":
 { Args: { "p_valuation_id": string }; Returns: string
@@ -1595,6 +1747,9 @@ isOneToOne: true
 "f_save_meal_plan":
 { Args: { "p_budget"?: number,"p_household_id": string,"p_model"?: string,"p_plan": Json,"p_source"?: string,"p_user_request"?: string,"p_week_start": string }; Returns: Json
                            },
+"f_saving_vaults":
+{ Args: { "p_household_id": string }; Returns: Json
+                           },
 "f_select_household_pyramid":
 { Args: { "p_customized"?: boolean,"p_household_id": string,"p_percentages": Json,"p_template_id": string }; Returns: string
                            },
@@ -1603,6 +1758,12 @@ isOneToOne: true
                            },
 "f_set_household_preference":
 { Args: { "p_household_id": string,"p_key": string,"p_value": Json }; Returns: Json
+                           },
+"f_transfer_saving_vault":
+{ Args: { "p_destination": Json,"p_destination_amount": number | string,"p_household_id": string,"p_household_per_usd"?: number | string,"p_note"?: string,"p_rate_as_of"?: string,"p_request_id": string,"p_source": Json,"p_source_amount": number | string }; Returns: string
+                           },
+"f_upsert_asset_quote":
+{ Args: { "p_exchange": string,"p_kind": string,"p_price": number,"p_quoted_at": string,"p_source"?: string,"p_symbol": string }; Returns: string
                            },
 "f_upsert_member_health_profile":
 { Args: { "p_member_id": string,"p_profile": Json }; Returns: Json

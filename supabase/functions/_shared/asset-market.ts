@@ -76,7 +76,11 @@ export async function marketData(input: { action: string; query?: string; kind?:
   if (input.action === 'quote') {
     if (!input.symbol || input.symbol.length > 50 || (input.exchange?.length ?? 0) > 100) throw new MarketError('invalid_symbol', 400);
     const data = await api('quote', { symbol: input.symbol, exchange: input.exchange ?? '' }, 30000);
-    if (data.currency !== 'USD') throw new MarketError('usd_only', 400);
+    // Twelve Data omits currency on crypto quotes; the returned pair identifies
+    // the quote currency. Never infer it from the client's requested symbol.
+    const pairCurrency = typeof data.symbol === 'string' && /^[^/\s]+\/USD$/.test(data.symbol) ? 'USD' : undefined;
+    const currency = data.currency || data.currency_quote || pairCurrency;
+    if (currency !== 'USD') throw new MarketError('usd_only', 400);
     if (data.symbol !== input.symbol) throw new MarketError('invalid_quote');
     const price = Number(data.close);
     if (!Number.isFinite(price) || price <= 0) throw new MarketError('invalid_quote');

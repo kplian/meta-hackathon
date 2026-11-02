@@ -4,9 +4,9 @@
 
 `budget.ttransaction` es la cabecera del asiento y `budget.ttransaction_detail` contiene sus líneas. Todos los nuevos activos usan este diario. La tabla provisional `tasset_entry` fue eliminada después de verificar la migración de sus asientos al diario común.
 
-Cada asiento tiene `currency` y `ledger_book`: `operating` usa la moneda del hogar al registrar la operación; `patrimony` exige USD. `debit_base` y `credit_base` están expresados en la moneda de su cabecera. No hay conversión implícita ni total consolidado entre monedas. Una futura operación que conecte dinero local con inversiones USD necesitará una tasa y un diseño explícito de conversión; no está implementada aquí.
+Cada asiento tiene `currency` y `ledger_book`: `operating` usa la moneda del hogar al registrar la operación; `patrimony` exige USD. `debit_base` y `credit_base` están expresados en la moneda de su cabecera. No hay conversión implícita ni total consolidado entre monedas. Los movimientos que conectan dinero local con inversiones USD usan una tasa explícita y dos asientos vinculados; ver «Administración de ahorros e inversiones».
 
-El plan existente tiene una rama USD con grupos no imputables (`PATR-ASSETS`, `PATR-INVESTMENTS`, `PATR-PHYSICAL`, `PATR-EQUITY`) y cuentas imputables por tipo. `tasset_type.account_code` identifica la cuenta de cada categoría. Las inversiones de mercado usan auxiliares `investment`; los demás bienes usan `asset`. Cada registro conserva su auxiliar individual. No se implementan todavía agrupación de posiciones por broker, lotes de compras ni ventas.
+El plan existente tiene una rama USD con grupos no imputables (`PATR-ASSETS`, `PATR-INVESTMENTS`, `PATR-PHYSICAL`, `PATR-EQUITY`) y cuentas imputables por tipo. `tasset_type.account_code` identifica la cuenta de cada categoría. Las inversiones de mercado usan auxiliares `investment`; los demás bienes usan `asset`. Cada registro conserva su auxiliar individual. Una posición identifica una tenencia o ubicación; no se implementan lotes fiscales ni agrupaciones automáticas por broker.
 
 `vaccount_balance` agrupa por hogar, libro, moneda, cuenta y auxiliar. Su `debit_balance` es debe menos haber; en cuentas de naturaleza acreedora debe interpretarse con el signo correspondiente.
 
@@ -83,7 +83,7 @@ Las transacciones anteriores a la ampliación conservan `ledger_version=0`: no s
 - `npm run mobile:typecheck`.
 - `tests/assets-ledger.sql`: pruebas SQL reversibles del diario, valoraciones, ajustes, reversos, permisos y monedas BOB/BRL/CNY.
 
-No se implementan en esta entrega pantallas de gestión posterior al onboarding, cron de precios, conversión cambiaria, depreciación automática, compras/ventas ni cálculo de ganancias realizadas.
+No se implementan cron de precios, depreciación automática, ejecución en brokers ni lotes fiscales. La administración posterior al onboarding y sus movimientos se describen abajo.
 
 ## Moneda original y preferencias de rendimientos
 
@@ -104,3 +104,62 @@ El futuro servicio de alertas deberá respetar la zona horaria, ajustar días 29
 Prueba adicional reversible: `tests/asset-units-yields.sql` verifica monedas BOB/BRL/CNY/EUR, SOL, depósitos USD, procedencia del cambio, preferencias, permisos, reintentos y ausencia de movimientos automáticos.
 
 La consulta inicial de cambio valida moneda, sentido del par, tasa positiva y fecha. El botón online conserva `initial_rate_source=twelve_data` y `initial_rate_as_of`; al editar el importe se vuelve a procedencia manual. USD usa factor 1 sin consultar al proveedor. La referencia puede diferir de la tasa de conversión ofrecida por un banco y no se presenta como una operación de cambio ejecutada. No se agregan actualizaciones periódicas de monedas en este flujo.
+
+## Unidades explícitas y cotizaciones compartidas
+
+Migración `20261101010000_asset_units_and_shared_quotes.sql`:
+- `ttransaction_detail.asset_position_id` enlaza la posición; `asset_quantity_delta NUMERIC(30,12)` registra entradas/salidas firmadas de unidades originales. `quantity` mantiene su significado genérico. Aperturas y reversos históricos se enriquecen sin modificar importes USD; revalorizaciones llevan cero unidades. `vasset_quantity_balance` suma movimientos activos.
+- `tasset_quote` mantiene la última cotización USD por clase de instrumento, símbolo y mercado, compartida entre hogares. `tasset_position.instrument_quote_id` enlaza esa identidad. Cripto y divisas no se separan por plataforma de custodia; las acciones/ETF mantienen su mercado. El precio tiene fecha y fuente; los registros sin precio verificado quedan pendientes. Solo `service_role` publica precios mediante `f_upsert_asset_quote`. Los clientes autenticados tienen únicamente lectura.
+- Al guardar un activo cotizado o monetario desde el onboarding, `asset-market` obtiene y publica la cotización actual con `sync_quote` antes del alta contable. El costo ingresado por el usuario permanece en la apertura y nunca se publica como precio actual compartido. Si falla el proveedor o el guardado del precio, no se crea el activo. El usuario puede reintentar con el mismo request ID. Las cotizaciones son datos independientes: pueden haberse refrescado aun si una validación posterior del alta falla.
+- Casas, autos y otros bienes individuales conservan sus valoraciones por posición; no publican precios compartidos entre hogares.
+- Este cambio no agrega compras/ventas posteriores, lotes ni job periódico. La adaptación del dashboard se completa en la migración `20261101020000`. Las operaciones futuras deberán guardar movimientos explícitos y controlar disponibilidad de unidades.
+
+Despliegue: aplicar la migración y desplegar `asset-market` junto con sus módulos compartidos. En cloud ambos cambios deben desplegarse antes del frontend actualizado.
+
+## Reporte por unidades actuales
+
+`20261101020000_wealth_current_units_and_quotes.sql` actualiza `f_household_wealth_report`: suma unidades activas de la posición y las multiplica por la cotización compartida USD. Usa valoración individual o referencia inicial si no hay cotización, exponiendo origen y fecha. No vuelve a añadir los importes de movimientos que ya tienen unidades explícitas. Para movimientos antiguos sin unidades, conserva su neto USD como componente separado y marca `has_untracked_movements`; no inventa unidades para esos importes. El dashboard identifica esas referencias y cantidades, y conserva el historial de ahorro al final. No modifica asientos ni programa un job.
+
+
+## Administración de ahorros e inversiones
+
+Migración `20261101030000_investment_movements.sql` y frontend en `apps/mobile/src/features/investments/`.
+
+- `f_investment_overview` consulta el saldo operativo acumulado (cuentas 110/111/112 en la moneda del hogar), el patrimonio actual y los últimos 30 movimientos. Incluye el mes actual, entradas/salidas reales, préstamos, aperturas y transferencias; no es una suma de ingresos estimados ni una medida de rentabilidad. Reconoce los movimientos antiguos en cuentas globales equivalentes para evitar perderlos al clonar el plan del hogar. No suma efectivo operativo a USD sin una conversión.
+- `f_move_investment` registra atómicamente compras/aportes, ventas/retiros y transferencias. Origen y destino son cuentas operativas del hogar o posiciones; también se puede comprar una posición nueva. Requiere administrador del hogar, serializa movimientos por hogar, comprueba dinero/unidades disponibles y mantiene un `request_id` idempotente. No ejecuta órdenes ni mueve dinero real en bancos o brokers.
+- `tasset_movement` conserva los extremos, cantidades, importe USD, cambio aplicado, costo contable retirado, resultado realizado y los IDs de los asientos. **No reemplaza el diario**: las unidades y los importes siguen en `ttransaction_detail`. Tanto los asientos patrimoniales como los operativos vinculados son inmutables. El historial es de consulta; no hay botón de anulación de movimientos en esta entrega.
+- Compra desde disponible: libro operativo **Debe INV-BRIDGE / Haber disponible** en moneda del hogar; libro patrimonial **Debe posición / Haber PATR-BRIDGE** en USD. Retiro hacia disponible: el sentido se invierte y se reconoce el resultado de la venta. La operación guarda USD por unidad de moneda del hogar y exige que coincida con el importe real. Estas cuentas puente se convierten y eliminan entre sí en cualquier consolidación futura; nunca deben sumarse nominales BOB y USD ni contarse como posiciones de patrimonio.
+- Entre posiciones se usa un asiento USD. La salida se valora al **promedio del saldo contable por unidad**; la entrada toma el importe de liquidación. La diferencia va a `PATR-REALIZED-GAIN` o `PATR-REALIZED-LOSS`. Es una política de gestión sobre valor contable (que puede incluir revalorizaciones), no un cálculo fiscal por lotes ni una rentabilidad total realizada bajo NIIF. Una transferencia del mismo instrumento entre ubicaciones conserva unidades y valor contable, sin resultado. No admite comisiones en unidades dentro de esa transferencia; requieren un tratamiento separado.
+- «Ya la tenía» reutiliza el alta de apertura del onboarding sin descontar disponible. «Comprar una nueva» crea posición, auxiliar y movimiento en una sola transacción, **sin abonar patrimonio inicial**: `registration_kind=purchase`, sin `opening_transaction_id`. Su importe inicial y referencia provienen de la primera compra; la cantidad actual siempre sale del diario. Las monedas originales permitidas en nuevas inversiones monetarias son la moneda del hogar y USD.
+- La pantalla permite cambio manual u online, muestra referencias con fecha, revisión previa y errores de saldo; está traducida ES/EN/PT y usa formularios y tarjetas adaptables a móvil/escritorio. El cambio online es solo referencia: se confirma el cambio realmente aplicado. Un precio de compra manual nunca actualiza una cotización pública compartida. Si falla el proveedor, una compra manual todavía puede registrarse y el activo muestra su referencia inicial hasta obtener cotización.
+- Las observaciones de valoración toman las unidades a su fecha; contabilizarlas exige que la cantidad no haya cambiado desde la observación. Las referencias anteriores al alta de un activo ya poseído conservan la cantidad declarada de apertura y no sustituyen una valoración actual. No se puede eliminar una posición con movimientos posteriores: se retiran o transfieren sus unidades. Las posiciones con movimientos antiguos sin unidades requieren conciliación antes de retirarse.
+
+Prueba reversible: `tests/investment-movements.sql` cubre acumulación de disponible, compras, ventas con ganancia/pérdida, transferencias entre cuentas y entre custodios, altas compradas sin apertura ficticia, USD/BOB, permisos, duplicados, saldo insuficiente, cambio inconsistente y valoración tras cambios de unidades.
+
+
+## Bóvedas de ahorro en moneda nativa
+
+Migración `20261101040000_saving_vaults.sql`; interfaz `VaultsPanel.tsx` dentro de la gestión de ahorros e inversiones.
+
+- Tipo de auxiliar `vault`, cuenta de activo `VAULT-<moneda>` por hogar y moneda. Una bóveda es un `tauxiliar` vinculado por `vault_account_id`, con `vault_goal_amount` opcional y solicitud de creación idempotente. Solo admite moneda del hogar o USD; si el hogar ya usa USD se utiliza una sola cuenta. Las identidades y monedas quedan fijas.
+- **No hay tabla de saldos ni tabla de movimientos de bóvedas.** `f_vault_balance` calcula el mayor de cuenta + auxiliar en su moneda, con asientos activos hasta hoy. `f_saving_vaults` devuelve saldos, totales separados por moneda e historial obtenido del propio diario. No crea posiciones en `tasset_position` ni convierte las bóvedas BOB a USD para mostrar su saldo.
+- `f_create_saving_vault` crea una bóveda vacía sin asiento ni dinero ficticio. `f_transfer_saving_vault` permite aportar desde disponible, liberar dinero al disponible y transferir entre bóvedas; todos los saldos se comprueban en el servidor bajo el mismo bloqueo del hogar usado por inversiones y efectivo operativo. Creación y movimientos requieren administrador; los miembros pueden consultar.
+- Misma moneda: **Debe bóveda destino / Haber disponible origen** o su inverso. Distinta moneda: dos asientos operativos balanceados, vinculados por `ttransaction.vault_request_id` y `vault_leg`, con cuentas puente `VAULT-FX-<moneda>`. La tasa se introduce como **moneda del hogar por 1 USD**; se conserva el importe de ambas monedas, la tasa aplicada y la fecha de referencia si se consultó online. La RPC valida que ambos importes coincidan con la tasa, permitiendo solo el redondeo de 8 decimales. No se suman nominales de distintas monedas.
+- `household_currency_at_posting` y `household_fx_rate` preparan el equivalente histórico en la moneda del hogar: unidades del hogar por una unidad de la moneda del asiento. Una transferencia USD→USD no exige cambio si no pasa por moneda local. Son transferencias, no ingresos/gastos; no modifican el consumo de la pirámide ni generan rendimiento.
+- El disponible libre baja al acreditar 110/111/112; la reserva sube en VAULT. Las reservas se muestran aparte de las inversiones y no vuelven a añadirse a un saldo disponible. El total de posiciones USD que ya mostraba el dashboard sigue siendo el de posiciones; las bóvedas tienen totales nativos separados, sin una consolidación de patrimonio/caja multimoneda automática.
+- Cuentas y auxiliares de bóvedas tienen aislamiento por hogar, validación de asociación fija y protección de historial. Los asientos de transferencia son inmutables. No se puede borrar una bóveda con historial ni archivar una con saldo. Los saldos no son editables desde la configuración.
+- Esta entrega cubre creación, aportes, liberaciones y transferencias. El pago de gastos desde una bóveda, las conversiones de esos gastos para los reportes del hogar, reembolsos y anulación de movimientos son flujos posteriores; no se simulan mediante un retiro ni se registra un gasto por reservar dinero. La consulta de cambio es una referencia y el usuario confirma la tasa aplicada; no se ejecutan operaciones en bancos.
+
+Validación reversible: `tests/saving-vaults.sql` cubre saldo inicial cero, aportes, retiros, transferencias nativas y BOB/USD, conservación de fondos, snapshots, reintentos, sobreuso, monedas USD/BRL/CNY, asociación fija, inmutabilidad y aislamiento de datos.
+
+
+## Ahorro generado y transferencias mensuales
+
+Migración `20261101060000_monthly_savings_and_allocations.sql`. Dashboard y gestión de inversiones usan el mismo resumen mensual, en la zona horaria del dispositivo y moneda del hogar. `f_period_income_expenses` suma cuentas de ingreso/gasto del libro operativo; saldos iniciales, patrimonio, cotizaciones y transferencias de activos no generan ahorro. Se conserva compatibilidad con cabeceras antiguas `ledger_version=0` sin detalle clasificado. La antigua categoría `savings_investments` lleva a la cuenta de activo 130 y tampoco es consumo.
+
+- Meta: estimación mensual del onboarding × porcentaje `saving`. Progreso: ingresos reales recibidos menos gastos reales del mes, incluso si el dinero sigue en disponible. Puede ser negativo; el estado es provisional hasta el cierre.
+- Aportes y retornos se muestran aparte: movimientos reales de efectivo 110/111/112 hacia/desde posiciones o bóvedas. Se cuentan los nominales en moneda del hogar; las patas USD de la misma operación y los cambios internos entre posiciones/bóvedas no se duplican. Son flujos brutos, no rendimiento ni ahorro nuevo; volver a aportar un retiro no cumple otra vez la meta.
+- El disponible sigue siendo acumulado de todos los meses. Invertir en febrero un sobrante de enero no aumenta el ahorro generado en febrero. No se intenta asignar una procedencia mensual a cada billete ni se exige otro saldo/tablas.
+- El mes anterior y el histograma de diez meses cerrados usan la misma definición de ahorro. La torta por integrante también excluye transferencias, incluso las antiguas con cabecera de gasto.
+
+`tests/monthly-savings-allocations.sql` prueba ocho escenarios reversibles: invertir antes/después de gastar, invertir ahorro anterior, ahorro sin mover, retiros, bóvedas BOB/USD y movimientos internos, déficit pese a aportes, cero meta, categoría antigua, reintentos, fechas futuras, cierres y permisos. La interfaz compartida está en `features/savings`, traducida ES/EN/PT.

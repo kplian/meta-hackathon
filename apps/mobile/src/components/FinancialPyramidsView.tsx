@@ -99,6 +99,7 @@ export default function FinancialPyramidsView({ currentUserId }: FinancialPyrami
           .from('tfinancial_pyramid')
           .select('*')
           .is('deleted_at', null)
+          .is('household_id', null)
           .order('created_at', { ascending: false }),
         supabase
           .schema('budget')
@@ -166,11 +167,15 @@ export default function FinancialPyramidsView({ currentUserId }: FinancialPyrami
     [businessTypes],
   );
 
-  // Filtered pyramids
+  // Filtered pyramids (excluding any household-specific pyramids)
   const filteredPyramids = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return pyramids;
-    return pyramids.filter((p) => {
+    // Exclude records where household_id is not null
+    const basePyramids = pyramids.filter(
+      (p) => p.household_id === null || p.household_id === undefined,
+    );
+    if (!q) return basePyramids;
+    return basePyramids.filter((p) => {
       const bizName =
         (p.business_type_id && businessTypeMap.get(p.business_type_id)?.name) || '';
       return (

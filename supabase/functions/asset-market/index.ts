@@ -1,4 +1,5 @@
 import { marketData, MarketError } from '../_shared/asset-market.ts';
+import { syncAssetQuote } from '../_shared/asset-quotes.ts';
 import { refreshAsset } from '../_shared/asset-refresh.ts';
 
 const cors = {
@@ -30,6 +31,10 @@ Deno.serve(async (request) => {
     let input;
     try { input = JSON.parse(text); } catch { return json({ error: 'invalid_request' }, 400); }
     if (!input || typeof input !== 'object' || ['action','query','kind','symbol','exchange','positionId','currency'].some((key) => input[key] !== undefined && typeof input[key] !== 'string')) return json({ error: 'invalid_request' }, 400);
+    if (input.action === 'sync_quote') {
+      return json(await syncAssetQuote(input, { url: Deno.env.get('SUPABASE_URL') ?? '',
+        serviceKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', apiKey: Deno.env.get('TWELVE_DATA_KEY') ?? '' }));
+    }
     if (input.action === 'refresh') {
       return json(await refreshAsset(input.positionId ?? '', {
         url: Deno.env.get('SUPABASE_URL') ?? '', anonKey: Deno.env.get('SUPABASE_ANON_KEY') ?? '',

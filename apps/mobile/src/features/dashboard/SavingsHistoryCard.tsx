@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { G, Line, Rect, Text as SvgText } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 
@@ -28,8 +28,8 @@ export default function SavingsHistoryCard({ householdId, refresh }: { household
   const date = (month: string) => new Date(`${month}-01T12:00:00`);
   const monthLabel = (month: string) => date(month).toLocaleDateString(i18n.language, { month: 'short', year: '2-digit' });
   const current = data?.months.find(month => month.month === selected);
-  const maxPositive = Math.max(0, ...data?.months.map(month => month.saving) ?? []);
-  const minNegative = Math.min(0, ...data?.months.map(month => month.saving) ?? []);
+  const maxPositive = Math.max(0, ...data?.months.map(month => Number(month.saving) || 0) ?? []);
+  const minNegative = Math.min(0, ...data?.months.map(month => Number(month.saving) || 0) ?? []);
   const range = maxPositive - minNegative || 1;
   const baseline = 16 + 150 * maxPositive / range;
   return <View className="rounded-3xl bg-white p-5" testID="savings-history">
@@ -41,9 +41,36 @@ export default function SavingsHistoryCard({ householdId, refresh }: { household
       <Svg width="100%" height={220} viewBox="0 0 500 220" accessibilityLabel={t('historyTitle')}>
         <Line x1={5} x2={495} y1={baseline} y2={baseline} stroke="#A8BCAF" strokeWidth={1} />
         {data.months.map((month, index) => {
-          const height = Math.abs(month.saving) / range * 150;
+          const savingVal = Number(month.saving) || 0;
+          const height = Math.abs(savingVal) / range * 150;
           const x = index * 49 + 10;
-          return <ViewlessBar key={month.month} x={x} y={month.saving >= 0 ? baseline - height : baseline} height={height} selected={selected === month.month} negative={month.saving < 0} label={`${monthLabel(month.month)}: ${money(month.saving)}`} onPress={() => setSelected(month.month)} month={date(month.month).toLocaleDateString(i18n.language, { month: 'short' })} year={date(month.month).getFullYear().toString().slice(-2)} />;
+          const y = savingVal >= 0 ? baseline - height : baseline;
+          const isSelected = selected === month.month;
+          const isNegative = savingVal < 0;
+          const label = `${monthLabel(month.month)}: ${money(savingVal)}`;
+          const monthText = date(month.month).toLocaleDateString(i18n.language, { month: 'short' });
+          const yearText = date(month.month).getFullYear().toString().slice(-2);
+
+          return (
+            <G key={month.month}>
+              <Rect
+                x={x}
+                y={y}
+                width={30}
+                height={Math.max(height, 1)}
+                fill={isNegative ? '#B53D35' : '#21815E'}
+                opacity={isSelected ? 1 : 0.65}
+                onPress={() => setSelected(month.month)}
+                accessibilityLabel={label}
+              />
+              <SvgText x={x + 15} y={190} textAnchor="middle" fontSize={12} fill="#52695E">
+                {monthText}
+              </SvgText>
+              <SvgText x={x + 15} y={207} textAnchor="middle" fontSize={11} fill="#52695E">
+                {yearText}
+              </SvgText>
+            </G>
+          );
         })}
       </Svg>
       {current ? <View className="rounded-2xl bg-[#F4FAF6] p-4">
@@ -54,11 +81,4 @@ export default function SavingsHistoryCard({ householdId, refresh }: { household
       <Text className="mt-4 text-xs leading-5 text-sage">{t('historyNote')}</Text>
     </> : null}
   </View>;
-}
-function ViewlessBar({ x, y, height, selected, negative, label, onPress, month, year }: { x: number; y: number; height: number; selected: boolean; negative: boolean; label: string; onPress: () => void; month: string; year: string }) {
-  return <>
-    <Rect x={x} y={y} width={30} height={Math.max(height, 1)} fill={negative ? '#B53D35' : '#21815E'} opacity={selected ? 1 : 0.65} onPress={onPress} accessibilityLabel={label} />
-    <SvgText x={x + 15} y={190} textAnchor="middle" fontSize={12} fill="#52695E">{month}</SvgText>
-    <SvgText x={x + 15} y={207} textAnchor="middle" fontSize={11} fill="#52695E">{year}</SvgText>
-  </>;
 }

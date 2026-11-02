@@ -19,7 +19,7 @@ interface UsersViewProps {
   onUsersChanged?: (count: number) => void;
 }
 
-const ROLE_OPTIONS = ['admin', 'member'] as const;
+const ROLE_OPTIONS = ['admin', 'advanced', 'member'] as const;
 const LOCALE_OPTIONS = ['es', 'en', 'pt'] as const;
 const TIMEZONE_OPTIONS = ['UTC', 'America/La_Paz', 'America/Santiago', 'America/Lima'] as const;
 const CHANNEL_TYPE_OPTIONS = ['whatsapp', 'telegram'] as const;
@@ -836,10 +836,12 @@ export default function UsersView({ currentUserId, onUsersChanged }: UsersViewPr
         ) : (
           <View className="gap-2.5">
             {filteredUsers.map((user) => {
-              const isAdmin = user.role === 'admin';
-              const badgeStyle = isAdmin
-                ? 'bg-[#DFF5E8] text-[#0B3D2E]'
-                : 'bg-[#E3ECE7] text-[#3B4F46]';
+              const badgeStyle =
+                user.role === 'admin'
+                  ? 'bg-[#DFF5E8] text-[#0B3D2E]'
+                  : user.role === 'advanced'
+                    ? 'bg-[#E0EEFA] text-[#0D47A1]'
+                    : 'bg-[#E3ECE7] text-[#3B4F46]';
               const userChannelCount = channelCounts[user.id] ?? 0;
 
               return (

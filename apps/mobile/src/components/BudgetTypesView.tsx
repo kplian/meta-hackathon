@@ -71,6 +71,7 @@ export default function BudgetTypesView({ currentUserId }: BudgetTypesViewProps)
           .from('tbudget_type')
           .select('*')
           .is('deleted_at', null)
+          .is('household_id', null)
           .order('name', { ascending: true }),
         supabase
           .schema('budget')
@@ -98,8 +99,12 @@ export default function BudgetTypesView({ currentUserId }: BudgetTypesViewProps)
 
   const filteredItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((item) => {
+    // Exclude records where household_id is not null
+    const baseItems = items.filter(
+      (item) => item.household_id === null || item.household_id === undefined,
+    );
+    if (!q) return baseItems;
+    return baseItems.filter((item) => {
       const bizName =
         (item.business_type_id && businessTypeMap.get(item.business_type_id)?.name) || '';
       return (

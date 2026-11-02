@@ -4,6 +4,8 @@ Asistente inteligente de finanzas familiares impulsado por **Agentes de IA en n8
 
 ---
 
+Selected **AI conversational architecture** (AWS Lambda + SQS FIFO + a LangGraph worker + LiteLLM), with a simple Mermaid overview, component responsibilities and examples: [docs/ai-attention-architecture.md](docs/ai-attention-architecture.md).
+
 ## 🏗️ Estructura del Proyecto
 
 El repositorio está estructurado siguiendo las mejores prácticas para el versionamiento independiente de la base de datos (Supabase) y la lógica de orquestación del agente de IA (n8n):
