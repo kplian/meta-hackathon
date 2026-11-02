@@ -40,7 +40,7 @@ if(childId){
  const toolNames=[];
  for(const [i,def] of catalog.entries()){
    const variable=`area${i}`;toolNames.push(variable);
-   const operation=`$fromAI('operation',${q(def.description)},'string')`;
+   const operation=`$fromAI('operation',${q(def.name+' operation; see the tool description for allowed operations and fields.')},'string')`;
    const payload="JSON.parse($fromAI('payload','Business arguments serialized as a JSON string. Use the string {} when empty. No identity or channel fields.','string'))";
    const requestKey="String($json.headers?.['mcp-session-id']||'')+':'+String($json.body?.id||$json.mcpMessageId||'')";
    const values={channel_type:"={{ $json.headers?.['x-family-channel'] || '' }}",channel_code:"={{ $json.headers?.['x-family-sender'] || '' }}",operation:`={{ ${operation} }}`,payload:`={{ ${payload} }}`,request_key:`={{ ${requestKey} }}`};

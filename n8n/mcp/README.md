@@ -67,3 +67,7 @@ Validation evidence: 67 local tests passed; remote SQL tests passed before and a
 - The first schema test rejected empty JSON objects; switching the tool payload argument to a JSON string fixed this. A subsequent run using the old test conversation produced a malformed operation; the backend rejected it without writes. A fresh conversation completed successfully. MCP conversations now use the versioned memory key `messaging:mcp-v1:<user.id>` to avoid stale tool-call formats, while still sharing memory across linked channels.
 - Both delivery nodes were disabled throughout the probes. No real messages were sent. Probe nodes and both disposable profiles/channels were removed, then delivery nodes restored in the **unpublished** laboratory draft. The original published workflow version is still `57e0fde3-ebb9-4f1d-9cc9-560b39d0186a`.
 - 67 local tests pass. The public MCP endpoint is active; the messaging laboratory is not activated and provider callbacks have not been switched.
+
+## Configured-user acceptance follow-up
+
+See `docs/ai-mcp-acceptance.md` for the 19-scenario acceptance run, the WhatsApp-format migration, language and expression fixes, active private health subworkflow and localized agent-error route. Current local messaging/MCP checks total 70 tests. The laboratory remains unpublished, with temporary QA restrictions removed.

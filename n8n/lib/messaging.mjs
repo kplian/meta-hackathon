@@ -51,9 +51,9 @@ export function detectTextLocale(text) {
   if (explicit) return explicit[1];
   const words = input.match(/[\p{L}]+/gu) || [];
   const dictionaries = {
-    es: ['hola', 'buenas', 'quiero', 'necesito', 'gasté', 'gasto', 'cuánto', 'hogar', 'ingresos', 'ayuda', 'registrarme', 'gracias', 'español'],
-    en: ['hello', 'hi', 'please', 'spent', 'spend', 'income', 'expense', 'register', 'account', 'help', 'thanks', 'balance', 'english'],
-    pt: ['oi', 'olá', 'bom', 'obrigado', 'obrigada', 'quero', 'preciso', 'gastei', 'despesa', 'receita', 'família', 'cadastro', 'ajuda', 'português'],
+    es: ['hola', 'buenas', 'quiero', 'necesito', 'gasté', 'gasto', 'cuánto', 'hogar', 'ingresos', 'ayuda', 'registrarme', 'gracias', 'español', 'muéstrame', 'ahorro', 'ahorros', 'bóveda', 'bóvedas', 'gastos', 'integrantes', 'recibí', 'disponible', 'salud'],
+    en: ['hello', 'hi', 'please', 'spent', 'spend', 'income', 'expense', 'register', 'account', 'help', 'thanks', 'balance', 'english', 'list', 'show', 'savings', 'vault', 'vaults', 'balances', 'available', 'cash', 'household', 'households', 'members', 'current', 'price', 'assets', 'my', 'their', 'only'],
+    pt: ['oi', 'olá', 'bom', 'obrigado', 'obrigada', 'quero', 'preciso', 'gastei', 'despesa', 'receita', 'família', 'cadastro', 'ajuda', 'português', 'quanto', 'minha', 'meu', 'poupança', 'poupanca', 'cofre', 'cofres', 'saúde', 'saude', 'tenho', 'apenas', 'gerado', 'mostre', 'alcançar'],
   };
   const scores = Object.entries(dictionaries).map(([locale, dictionary]) => ({ locale, score: words.filter(word => dictionary.includes(word)).length }));
   scores.sort((a, b) => b.score - a.score);
@@ -111,6 +111,15 @@ export function assistantInput(context, content) {
     user: { name: context.user.name, households: context.user.households || [] },
     locale: context.locale,
   };
+}
+
+export function assistantFailureReply(context) {
+  const messages = {
+    es: 'No pude completar la solicitud. Si pediste registrar o mover dinero, revisa el historial antes de volver a intentarlo para evitar duplicados.',
+    en: 'I could not complete the request. If you asked to record or move money, check the history before trying again to avoid duplicates.',
+    pt: 'Não consegui concluir a solicitação. Se pediu para registrar ou movimentar dinheiro, consulte o histórico antes de tentar novamente para evitar duplicações.',
+  };
+  return { text: messages[supportedLocale(context.locale) || 'es'] };
 }
 
 export function standardReply(output) {

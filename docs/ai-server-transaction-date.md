@@ -5,7 +5,7 @@ The model no longer provides a transaction date. `register_transaction` sends
 even if a caller supplies a date. The legacy RPC argument remains for signature
 compatibility but is ignored. No session claims or timezone settings are changed.
 
-Migration: `20261102130000_ai_lab_server_transaction_date.sql`, applied and recorded
+Migration: `20261102131000_ai_lab_server_transaction_date.sql`, applied and recorded
 in the remote Supabase migration history. Only `f_register_transaction_ai_lab`
 is changed. The active workflow and original RPC remain unchanged.
 

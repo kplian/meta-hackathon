@@ -1,0 +1,63 @@
+-- Run with psql -v user_email=...; never commits or sends chat messages.
+\set ON_ERROR_STOP on
+BEGIN;
+SELECT set_config('qa.user_email', :'user_email',true);
+CREATE FUNCTION pg_temp.call_mcp(c text,a text,o text,p jsonb DEFAULT '{}',k text DEFAULT NULL) RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE r jsonb;
+BEGIN r:=budget.f_family_mcp('whatsapp',c,a,o,p,k); IF r->>'success' IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'MCP %.% failed: %',a,o,r; END IF; RETURN r->'data'; END $$;
+DO $$
+DECLARE u uuid; baseline_balance numeric; member_count integer; outsider uuid:=gen_random_uuid(); c text:='mcp-test-'||gen_random_uuid(); h uuid; foreignhome uuid; member uuid; inc uuid; v uuid; pos uuid; cash uuid; r jsonb; plan jsonb;
+BEGIN
+ SELECT id INTO STRICT u FROM budget.tuser WHERE lower(email_user)=lower(current_setting('qa.user_email')) AND status='active' AND deleted_at IS NULL;
+ INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES(outsider,outsider||'@test.invalid','{"full_name":"MCP rollback outsider"}');
+ SELECT household_id INTO STRICT h FROM budget.thousehold_member WHERE user_id=u;
+ SELECT household_id INTO STRICT foreignhome FROM budget.thousehold_member WHERE user_id=outsider;
+ SELECT ltrim(channel_code,'+') INTO STRICT c FROM budget.tchannel WHERE user_id=u AND channel_type='whatsapp' AND status='active' AND deleted_at IS NULL;
+ SELECT count(*) INTO member_count FROM budget.thousehold_member WHERE household_id=h AND status='active' AND deleted_at IS NULL;
+ PERFORM set_config('request.jwt.claim.sub','',true); PERFORM set_config('request.jwt.claims','{}',true); PERFORM set_config('request.jwt.claim.role','service_role',true);
+ IF has_function_privilege('anon','budget.f_family_mcp(text,text,text,text,jsonb,text)','EXECUTE') OR has_function_privilege('authenticated','budget.f_family_mcp(text,text,text,text,jsonb,text)','EXECUTE') THEN RAISE EXCEPTION 'Public MCP access'; END IF;
+ r:=budget.f_family_mcp('whatsapp',c||'-unknown','household','list'); IF r->>'error'<>'REGISTRATION_REQUIRED' THEN RAISE EXCEPTION 'Unknown identity accepted: %',r; END IF;
+ r:=budget.f_family_mcp('whatsapp',c,'household','get',jsonb_build_object('household_id',foreignhome)); IF r->>'success' IS DISTINCT FROM 'false' THEN RAISE EXCEPTION 'Cross household leak'; END IF;
+ baseline_balance:=(pg_temp.call_mcp(c,'reports','available')->>'available')::numeric;
+ r:=pg_temp.call_mcp(c,'household','list'); IF jsonb_array_length(r)<>1 THEN RAISE EXCEPTION 'Wrong households'; END IF;
+ PERFORM pg_temp.call_mcp(c,'household','update','{"name":"MCP Family"}');
+ r:=pg_temp.call_mcp(c,'household','add_member','{"name":"Lucas","member_type":"son"}'); member:=(r#>>'{}')::uuid;
+ PERFORM pg_temp.call_mcp(c,'household','update_member',jsonb_build_object('member_id',member,'member_type','other'));
+ r:=pg_temp.call_mcp(c,'household','get'); IF jsonb_array_length(r->'members')<>member_count+1 THEN RAISE EXCEPTION 'Member not created'; END IF;
+ r:=pg_temp.call_mcp(c,'income','save',jsonb_build_object('name','Salary','estimated_amount',10000,'household_member_id',member)); inc:=(r->>'id')::uuid;
+ PERFORM pg_temp.call_mcp(c,'income','save',jsonb_build_object('id',inc,'name','Salary','estimated_amount',11000));
+ PERFORM pg_temp.call_mcp(c,'income','list');
+ PERFORM pg_temp.call_mcp(c,'transactions','register','{"type":"income","concept":"Salary","amount":10000,"category_key":"income_general"}');
+ PERFORM pg_temp.call_mcp(c,'transactions','register',jsonb_build_object('type','expense','concept','Clothing','amount',1000,'category_key','clothing_personal_care','member_id',member));
+ PERFORM pg_temp.call_mcp(c,'transactions','list'); PERFORM pg_temp.call_mcp(c,'transactions','categories');
+ IF EXISTS(SELECT 1 FROM budget.ttransaction WHERE household_id=h AND created_by IS DISTINCT FROM u) THEN RAISE EXCEPTION 'Wrong accounting actor'; END IF;
+ SELECT id INTO STRICT cash FROM budget.taccount WHERE household_id=h AND code='110';
+ r:=pg_temp.call_mcp(c,'reports','available'); IF (r->>'available')::numeric<>baseline_balance+9000 THEN RAISE EXCEPTION 'Available incorrect: %',r; END IF;
+ PERFORM pg_temp.call_mcp(c,'assets','types');
+ r:=pg_temp.call_mcp(c,'assets','register_initial','{"asset_type_code":"crypto","name":"Test BTC","quantity":1,"unit_price_usd":100,"price_basis":"purchase_price","symbol":"MCP-TEST-BTC/USD"}','opening'); pos:=(r#>>'{}')::uuid;
+ PERFORM pg_temp.call_mcp(c,'assets','move',jsonb_build_object('source',jsonb_build_object('kind','operating','id',cash),'destination',jsonb_build_object('kind','position','id',pos),'source_quantity',1000,'destination_quantity',1,'settlement_usd',200,'usd_per_household_unit',0.2),'buy');
+ PERFORM pg_temp.call_mcp(c,'assets','move',jsonb_build_object('source',jsonb_build_object('kind','operating','id',cash),'destination',jsonb_build_object('kind','position','id',pos),'source_quantity',1000,'destination_quantity',1,'settlement_usd',200,'usd_per_household_unit',0.2),'buy');
+ IF (SELECT quantity FROM budget.vasset_quantity_balance WHERE asset_position_id=pos)<>2 THEN RAISE EXCEPTION 'Movement retry duplicated'; END IF;
+ PERFORM pg_temp.call_mcp(c,'assets','move',jsonb_build_object('source',jsonb_build_object('kind','position','id',pos),'destination',jsonb_build_object('kind','operating','id',cash),'source_quantity',0.5,'destination_quantity',500,'settlement_usd',100,'usd_per_household_unit',0.2),'sell');
+ r:=pg_temp.call_mcp(c,'vaults','create','{"name":"Trip USD","currency":"USD","goal":2000}','vault'); v:=(r#>>'{}')::uuid;
+ PERFORM pg_temp.call_mcp(c,'vaults','transfer',jsonb_build_object('source',jsonb_build_object('kind','operating','id',cash),'destination',jsonb_build_object('kind','vault','id',v),'source_amount',700,'destination_amount',100,'household_per_usd',7),'deposit');
+ IF budget.f_vault_balance(v)<>100 THEN RAISE EXCEPTION 'Wrong vault balance'; END IF;
+ PERFORM pg_temp.call_mcp(c,'vaults','list'); PERFORM pg_temp.call_mcp(c,'assets','list');
+ PERFORM pg_temp.call_mcp(c,'reports','wealth'); PERFORM pg_temp.call_mcp(c,'reports','monthly_savings'); PERFORM pg_temp.call_mcp(c,'reports','savings_history'); PERFORM pg_temp.call_mcp(c,'reports','member_expenses');
+ r:=budget.f_family_mcp('whatsapp',c,'health','get'); IF r->>'success' IS DISTINCT FROM 'false' THEN RAISE EXCEPTION 'Health consent bypass'; END IF;
+ PERFORM pg_temp.call_mcp(c,'health','preferences','{"key":"health_opt_in","value":true}');
+ PERFORM pg_temp.call_mcp(c,'health','catalog');
+ PERFORM pg_temp.call_mcp(c,'health','update_profile',jsonb_build_object('member_id',member,'profile','{"allergies":["peanuts"],"likes":["rice"]}'::jsonb));
+ PERFORM pg_temp.call_mcp(c,'health','get');
+ plan:='{"summary":"Rice","days":[{"day":"Monday","meals":[{"type":"lunch","name":"Rice","ingredients":["rice"],"cost":1}]}],"shopping_list":[{"item":"Rice","quantity":"1 kg","cost":1}],"activities":[]}';
+ PERFORM pg_temp.call_mcp(c,'health','save_meal_plan',jsonb_build_object('week_start',date_trunc('week',now())::date,'plan',plan,'budget',100,'user_request','simple','source','ai','model','test'));
+ PERFORM pg_temp.call_mcp(c,'health','get_meal_plan');
+ r:=budget.f_family_mcp('whatsapp',c,'health','save_meal_plan',jsonb_build_object('week_start',date_trunc('week',now())::date,'plan',jsonb_set(plan,'{shopping_list,0,item}','"Peanuts"'))); IF r->>'success' IS DISTINCT FROM 'false' THEN RAISE EXCEPTION 'Allergen allowed'; END IF;
+ PERFORM pg_temp.call_mcp(c,'income','delete',jsonb_build_object('id',inc));
+ UPDATE budget.thousehold_member SET role='member' WHERE household_id=h AND user_id=u;
+ r:=budget.f_family_mcp('whatsapp',c,'household','update','{"name":"Denied"}'); IF r->>'success' IS DISTINCT FROM 'false' THEN RAISE EXCEPTION 'Member escalated'; END IF;
+ PERFORM pg_temp.call_mcp(c,'reports','available');
+ IF nullif(current_setting('family_mcp.actor',true),'') IS NOT NULL THEN RAISE EXCEPTION 'Actor context leaked'; END IF;
+ RAISE NOTICE 'Existing user: seven MCP areas, CRUD, postings, quantities, vaults, consent and isolation passed; all changes will roll back';
+END $$;
+ROLLBACK;

@@ -70,6 +70,8 @@ add('AI Agent', '@n8n/n8n-nodes-langchain.agent', 3.1, {
   promptType: 'define', text: '={{ JSON.stringify($json.assistant) }}', hasOutputParser: true,
   options: { systemMessage: policy + '\n\n' + purpose, maxIterations: 4, enableStreaming: false, passthroughBinaryImages: true },
 }, [3250, 0], undefined, 'AI Agent');
+nodes.find(n => n.name === 'AI Agent').settings = { onError: 'continueErrorOutput' };
+code('Assistant failure reply', "return { json: { reply: assistantFailureReply($('Authorized context').item.json) } };", [3500, 500]);
 add('DeepSeek Chat Model', '@n8n/n8n-nodes-langchain.lmChatDeepSeek', 1, { model: 'deepseek-v4-pro', options: {} }, [3000, -400], undefined, 'DeepSeek Chat Model');
 add('Simple Memory', '@n8n/n8n-nodes-langchain.memoryBufferWindow', 1.4, { sessionIdType: 'customKey', sessionKey: "={{ 'messaging:mcp-v1:' + $('Authorized context').item.json.user.id }}", contextWindowLength: 5 }, [3250, -400], undefined, 'Simple Memory');
 add('Standard response schema', '@n8n/n8n-nodes-langchain.outputParserStructured', 1.3, { schemaType: 'manual', inputSchema: JSON.stringify({ type: 'object', properties: { text: { type: 'string', minLength: 1 } }, required: ['text'], additionalProperties: false }), autoFix: false }, [3500, -400]);
@@ -103,6 +105,7 @@ edge('Media channel', 'WhatsApp media metadata', 0); edge('Media channel', 'Tele
 edge('WhatsApp media metadata', 'WhatsApp media download'); edge('WhatsApp media download', 'Audio or attachment'); edge('Telegram media download', 'Audio or attachment');
 edge('Audio or attachment', 'Transcribe audio', 0); edge('Audio or attachment', 'Assistant input', 1); edge('Transcribe audio', 'Assistant input');
 edge('Assistant input', 'AI Agent'); edge('AI Agent', 'Standard reply');
+edge('AI Agent', 'Assistant failure reply', 1); edge('Assistant failure reply', 'Standard reply');
 edge('DeepSeek Chat Model', 'AI Agent', 0, 'ai_languageModel'); edge('Simple Memory', 'AI Agent', 0, 'ai_memory'); edge('Standard response schema', 'AI Agent', 0, 'ai_outputParser');
 edge('Standard reply', 'Reply channel'); edge('Reply channel', 'Format WhatsApp reply', 0); edge('Reply channel', 'Format Telegram reply', 1);
 edge('Format WhatsApp reply', 'Send WhatsApp'); edge('Format Telegram reply', 'Send Telegram');
