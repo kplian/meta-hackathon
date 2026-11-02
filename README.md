@@ -4,6 +4,8 @@ Asistente inteligente de finanzas familiares impulsado por **Agentes de IA en n8
 
 ---
 
+Propuesta de **atención mediante IA** (n8n + LangGraph + LangChain), con diagramas Mermaid y ejemplos del bot: [docs/ai-attention-architecture.md](docs/ai-attention-architecture.md).
+
 ## 🏗️ Estructura del Proyecto
 
 El repositorio está estructurado siguiendo las mejores prácticas para el versionamiento independiente de la base de datos (Supabase) y la lógica de orquestación del agente de IA (n8n):
