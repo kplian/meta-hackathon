@@ -33,7 +33,7 @@ if (login.error) {
   if (profile.error) throw new Error('Demo profile missing. Load supabase/seed.demo.sql in your local database first.');
   const created = await admin.auth.admin.createUser({
     id: profile.data.id, email, password, email_confirm: true,
-    user_metadata: { full_name: 'Valentina Morales' },
+    user_metadata: { full_name: 'Valentina Smith' },
   });
   if (created.error) throw created.error;
   login = await client.auth.signInWithPassword({ email, password });

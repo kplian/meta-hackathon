@@ -5,6 +5,7 @@
 .env.*.local
 .env.cloud
 .env.*.cloud
+.env*.config
 *.env
 
 # Dependencies

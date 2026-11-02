@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 
 type Level = { code: string; name: string; color: string | null; percentage: number; allocated: number; spent: number };
-type Summary = { month: string; currency: string; income: number; estimated_income: number; excluded_estimates: number; expenses: number; unclassified: number; excluded_currency_count: number; levels: Level[]; savings: Savings };
+type Summary = { month: string; currency: string; income: number; estimated_income: number; excluded_estimates: number; expenses: number; unclassified: number; excluded_currency_count: number; levels: Level[]; savings?: Savings };
 
 export default function MonthlyDashboard({ householdId, householdName }: { householdId: string; householdName: string }) {
   const { t, i18n } = useTranslation('monthlyDashboard');
@@ -58,12 +58,14 @@ export default function MonthlyDashboard({ householdId, householdName }: { house
         {!data.levels.length ? <Text className="rounded-2xl bg-white p-5 text-pine">{t('noPlan')}</Text> : <View className="rounded-3xl bg-white p-4" onLayout={event => setChartWidth(Math.max(80, Math.min(300, event.nativeEvent.layout.width * 0.4 - 16)))}>
           {[...visibleLevels].reverse().map((level, index) => {
             const saving = level.code === 'saving';
-            const amount = saving ? data.savings.generated : level.spent;
+            const amount = saving ? (data.savings?.generated ?? (data.income - data.expenses)) : level.spent;
             const used = level.allocated > 0 ? Math.max(0, amount) / level.allocated * 100 : null;
             const over = !saving && amount > level.allocated;
             const color = over ? '#B53D35' : level.color?.trim() || '#5797BA';
             const shapeWidth = chartWidth * (0.45 + 0.55 * index / Math.max(1, visibleLevels.length - 1));
             const inset = chartWidth * 0.55 / (2 * Math.max(1, visibleLevels.length - 1));
+            const savingAchieved = data.savings?.achieved ?? (level.allocated > 0 && amount >= level.allocated);
+            const savingGap = data.savings?.gap ?? Math.max(0, level.allocated - amount);
             return <View key={level.code} className="flex-row items-center gap-3 py-1">
               <View style={{ width: chartWidth, alignItems: 'center', alignSelf: 'stretch', justifyContent: 'center', minHeight: 146 }}>
                 <View style={{ width: shapeWidth, height: 138, overflow: 'hidden' }}>
@@ -74,7 +76,7 @@ export default function MonthlyDashboard({ householdId, householdName }: { house
                   <View style={{ position: 'absolute', top: 52, left: 0, right: 0, alignItems: 'center' }}><Text style={{ color: (used !== null && used >= 65) || (used === null && over) ? '#FFFFFF' : '#0B3D2E', fontWeight: '800', fontSize: 18 }}>{used === null ? '—' : `${percent(used)}%`}</Text></View>
                 </View>
               </View>
-              <View className="flex-1 py-3"><Text className="font-bold text-pine">{t(level.code, { defaultValue: level.name })}</Text><Text className="mt-1 text-xs leading-5 text-sage">{t('allocation', { percent: percent(level.percentage), amount: money(level.allocated) })}</Text><Text className="mt-2 text-lg font-extrabold text-pine">{money(amount)}</Text><Text className="mt-1 text-xs font-semibold" style={{ color: over ? '#B53D35' : '#52695E' }}>{used === null ? '—' : saving ? savingsText('progress', { percent: percent(used) }) : t('used', { percent: percent(used) })}</Text><Text className="mt-1 text-xs leading-5" style={{ color: over ? '#B53D35' : '#52695E' }}>{saving ? (data.savings.achieved ? savingsText('achieved') : savingsText('gap', { amount: money(data.savings.gap) })) : t(over ? 'over' : 'remaining', { amount: money(Math.abs(level.allocated - level.spent)) })}</Text></View>
+              <View className="flex-1 py-3"><Text className="font-bold text-pine">{t(level.code, { defaultValue: level.name })}</Text><Text className="mt-1 text-xs leading-5 text-sage">{t('allocation', { percent: percent(level.percentage), amount: money(level.allocated) })}</Text><Text className="mt-2 text-lg font-extrabold text-pine">{money(amount)}</Text><Text className="mt-1 text-xs font-semibold" style={{ color: over ? '#B53D35' : '#52695E' }}>{used === null ? '—' : saving ? savingsText('progress', { percent: percent(used) }) : t('used', { percent: percent(used) })}</Text><Text className="mt-1 text-xs leading-5" style={{ color: over ? '#B53D35' : '#52695E' }}>{saving ? (savingAchieved ? savingsText('achieved') : savingsText('gap', { amount: money(savingGap) })) : t(over ? 'over' : 'remaining', { amount: money(Math.abs(level.allocated - level.spent)) })}</Text></View>
             </View>;
           })}
         </View>}

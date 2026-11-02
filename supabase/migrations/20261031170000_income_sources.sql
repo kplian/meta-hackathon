@@ -21,8 +21,8 @@ CREATE TABLE budget.tincome_source (
     deleted_by UUID REFERENCES budget.tuser(id),
     -- An optional recipient must belong to this exact household.
     CONSTRAINT tincome_source_household_member_fkey
-        FOREIGN KEY (household_id, household_member_id)
-        REFERENCES budget.thousehold_member(household_id, id)
+        FOREIGN KEY (household_member_id)
+        REFERENCES budget.thousehold_member(id)
 );
 COMMENT ON TABLE budget.tincome_source IS
     'Estimated household income sources; never represents money already received.';

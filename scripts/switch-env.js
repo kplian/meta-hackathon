@@ -21,15 +21,37 @@ if (!validTargets.includes(target)) {
 
 const rootDir = path.resolve(__dirname, '..');
 const mobileDir = path.join(rootDir, 'apps', 'mobile');
-const sourceFile = path.join(mobileDir, `.env.${target}`);
-const exampleFile = path.join(mobileDir, `.env.${target}.example`);
 const destFile = path.join(mobileDir, '.env');
+const localOverrideFile = path.join(mobileDir, '.env.local');
 
-// Auto-create source file from example if missing (for cloud)
-if (!fs.existsSync(sourceFile) && fs.existsSync(exampleFile)) {
-  fs.copyFileSync(exampleFile, sourceFile);
-  console.log(`Initialized ${sourceFile} from template.`);
+// Source files
+const localSourceFile = path.join(mobileDir, '.env.local.config');
+const cloudSourceFile = path.join(mobileDir, '.env.cloud');
+const cloudExampleFile = path.join(mobileDir, '.env.cloud.example');
+
+// Migrate existing .env.local to .env.local.config so it doesn't conflict with Expo's .env.local override mechanism
+if (fs.existsSync(localOverrideFile) && !fs.existsSync(localSourceFile)) {
+  const localContent = fs.readFileSync(localOverrideFile, 'utf8');
+  if (localContent.includes('localhost') || localContent.includes('127.0.0.1')) {
+    fs.writeFileSync(localSourceFile, localContent, 'utf8');
+  }
 }
+
+// Fallback to .env.example if localSourceFile does not exist
+if (!fs.existsSync(localSourceFile)) {
+  const exampleLocal = path.join(mobileDir, '.env.example');
+  if (fs.existsSync(exampleLocal)) {
+    fs.copyFileSync(exampleLocal, localSourceFile);
+  }
+}
+
+// Auto-create cloud source file from example if missing
+if (!fs.existsSync(cloudSourceFile) && fs.existsSync(cloudExampleFile)) {
+  fs.copyFileSync(cloudExampleFile, cloudSourceFile);
+  console.log(`Initialized ${cloudSourceFile} from template.`);
+}
+
+const sourceFile = target === 'local' ? localSourceFile : cloudSourceFile;
 
 if (!fs.existsSync(sourceFile)) {
   console.error(`Source configuration file not found: ${sourceFile}`);
@@ -40,9 +62,17 @@ try {
   const content = fs.readFileSync(sourceFile, 'utf8');
   fs.writeFileSync(destFile, content, 'utf8');
 
+  // CRITICAL: Remove apps/mobile/.env.local because Expo CLI (@expo/env)
+  // treats .env.local as an override with higher priority than .env.
+  // Having a stale .env.local pointing to localhost causes Expo to ignore .env in cloud mode.
+  if (fs.existsSync(localOverrideFile)) {
+    fs.unlinkSync(localOverrideFile);
+  }
+
   console.log(`\n======================================================`);
   console.log(` Environment switched to: ${target.toUpperCase()}`);
   console.log(` Target file: apps/mobile/.env updated successfully.`);
+  console.log(` Cleaned up conflicting .env.local overrides.`);
   console.log(`======================================================\n`);
 
   // Parse and display current EXPO_PUBLIC_SUPABASE_URL

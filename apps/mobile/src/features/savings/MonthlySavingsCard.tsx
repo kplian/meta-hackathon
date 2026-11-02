@@ -10,37 +10,64 @@ export type Savings = {
   investment_returns: number; vault_returns: number;
   previous_month: string; previous_generated: number;
 };
-export type SavingsMonth = { currency: string; month: string; savings: Savings };
+export type SavingsMonth = {
+  currency: string;
+  month: string;
+  income?: number;
+  expenses?: number;
+  savings?: Savings;
+};
 
 export function MonthlySavingsSummary({ data }: { data: SavingsMonth }) {
   const { t, i18n } = useTranslation('monthlySavings');
-  const money = (amount: number) => new Intl.NumberFormat(i18n.language, { style: 'currency', currency: data.currency }).format(amount);
-  const s = data.savings;
-  const month = (value: string) => new Date(`${value}-01T12:00:00`).toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' });
-  const progress = s.target > 0 ? Math.max(0, Math.min(100, s.generated / s.target * 100)) : 0;
+  const s = data?.savings ?? {
+    generated: (data?.income ?? 0) - (data?.expenses ?? 0),
+    target: 0,
+    gap: 0,
+    achieved: false,
+    investment_contributions: 0,
+    vault_contributions: 0,
+    investment_returns: 0,
+    vault_returns: 0,
+    previous_month: data?.month ?? '',
+    previous_generated: 0,
+  };
+  const money = (amount: number) => new Intl.NumberFormat(i18n.language, { style: 'currency', currency: data?.currency || 'USD' }).format(amount);
+  const month = (value: string) => {
+    if (!value) return '';
+    try {
+      const d = new Date(`${value}-01T12:00:00`);
+      return isNaN(d.getTime()) ? value : d.toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' });
+    } catch {
+      return value;
+    }
+  };
+  const target = s.target ?? 0;
+  const generated = s.generated ?? 0;
+  const progress = target > 0 ? Math.max(0, Math.min(100, ((generated || 0) / target) * 100)) : 0;
   return <View className="rounded-3xl border border-[#D3E8DC] bg-white p-5" testID="monthly-savings-summary">
     <Text accessibilityRole="header" className="text-lg font-bold text-pine">{t('title')} · {month(data.month)}</Text>
     <View className="mt-4 flex-row flex-wrap gap-5">
       <View className="min-w-[220px] flex-1">
         <Text className="text-sm text-sage">{t('generated')}</Text>
-        <Text className={`mt-2 text-3xl font-extrabold ${s.generated < 0 ? 'text-red-700' : 'text-pine'}`}>{money(s.generated)}</Text>
+        <Text className={`mt-2 text-3xl font-extrabold ${generated < 0 ? 'text-red-700' : 'text-pine'}`}>{money(generated)}</Text>
         <Text className="mt-2 text-xs leading-5 text-sage">{t('formula')}</Text>
-        <Text className="mt-3 font-semibold text-pine">{s.target > 0 ? t('target', { amount: money(s.target) }) : t('noTarget')}</Text>
-        {s.target > 0 ? <>
+        <Text className="mt-3 font-semibold text-pine">{target > 0 ? t('target', { amount: money(target) }) : t('noTarget')}</Text>
+        {target > 0 ? <>
           <View className="mt-3 h-2 overflow-hidden rounded-full bg-[#E2EFE8]"><View style={{ width: `${progress}%`, height: 8, backgroundColor: s.achieved ? '#23785B' : '#5797BA' }} /></View>
-          <Text className="mt-2 text-sm font-semibold text-pine">{s.achieved ? t('achieved') : t('gap', { amount: money(s.gap) })}</Text>
+          <Text className="mt-2 text-sm font-semibold text-pine">{s.achieved ? t('achieved') : t('gap', { amount: money(s.gap ?? 0) })}</Text>
         </> : null}
         <Text className="mt-2 text-xs leading-5 text-sage">{t('provisional')}</Text>
       </View>
       <View className="min-w-[220px] flex-1 rounded-2xl bg-[#F4FAF6] p-4">
         <Text className="font-bold text-pine">{t('allocated')}</Text>
-        <Text className="mt-3 text-sm text-sage">{t('investments')}</Text><Text className="mt-1 text-lg font-bold text-pine">{money(s.investment_contributions)}</Text>
-        <Text className="mt-3 text-sm text-sage">{t('vaults')}</Text><Text className="mt-1 text-lg font-bold text-pine">{money(s.vault_contributions)}</Text>
-        <Text className="mt-3 text-xs leading-5 text-sage">{t('returns', { amount: money(s.investment_returns + s.vault_returns) })}</Text>
+        <Text className="mt-3 text-sm text-sage">{t('investments')}</Text><Text className="mt-1 text-lg font-bold text-pine">{money(s.investment_contributions ?? 0)}</Text>
+        <Text className="mt-3 text-sm text-sage">{t('vaults')}</Text><Text className="mt-1 text-lg font-bold text-pine">{money(s.vault_contributions ?? 0)}</Text>
+        <Text className="mt-3 text-xs leading-5 text-sage">{t('returns', { amount: money((s.investment_returns ?? 0) + (s.vault_returns ?? 0)) })}</Text>
         <Text className="mt-3 text-xs leading-5 text-sage">{t('transferNote')}</Text>
       </View>
     </View>
-    <Text className="mt-4 border-t border-[#E2EFE8] pt-4 text-sm leading-5 text-sage">{t('prior', { month: month(s.previous_month), amount: money(s.previous_generated) })}</Text>
+    {s.previous_month ? <Text className="mt-4 border-t border-[#E2EFE8] pt-4 text-sm leading-5 text-sage">{t('prior', { month: month(s.previous_month), amount: money(s.previous_generated ?? 0) })}</Text> : null}
   </View>;
 }
 

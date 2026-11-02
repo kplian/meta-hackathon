@@ -11,7 +11,7 @@ BEGIN;
 INSERT INTO budget.thousehold (
     id, business_type_id, name, currency, created_at, created_by, status
 ) VALUES
-    ('22222222-2222-4222-8222-222222222201', 'e1d42022-fca8-43f2-a37d-7823372fddb0', 'Familia Morales', 'BOB', '2026-10-30 05:00:00+00', '6f521862-f9dd-450a-ab69-79de338e2269', 'active'),
+    ('22222222-2222-4222-8222-222222222201', 'e1d42022-fca8-43f2-a37d-7823372fddb0', 'Familia Smith', 'BOB', '2026-10-30 05:00:00+00', '6f521862-f9dd-450a-ab69-79de338e2269', 'active'),
     ('22222222-2222-4222-8222-222222222202', 'e1d42022-fca8-43f2-a37d-7823372fddb0', 'Hogar Chumacero', 'BOB', '2026-10-30 05:00:00+00', '6f521862-f9dd-450a-ab69-79de338e2269', 'active')
 ON CONFLICT (id) DO UPDATE SET business_type_id = EXCLUDED.business_type_id;
 
@@ -19,8 +19,8 @@ ON CONFLICT (id) DO UPDATE SET business_type_id = EXCLUDED.business_type_id;
 INSERT INTO budget.tuser (
     id, full_name, email_user, locale, timezone, created_at, created_by, status, role
 ) VALUES
-    ('18598847-ee9d-4638-aee8-ed4d30770664', 'Valentina Morales', 'valentina@demo.local', 'es', 'UTC', '2026-10-30 05:00:00+00', '6f521862-f9dd-450a-ab69-79de338e2269', 'active', 'member'),
-    ('88888888-8888-4888-8888-888888888801', 'Carlos Morales', 'carlos@demo.local', 'es', 'UTC', '2026-10-30 05:00:00+00', '6f521862-f9dd-450a-ab69-79de338e2269', 'active', 'member')
+    ('18598847-ee9d-4638-aee8-ed4d30770664', 'Valentina Smith', 'valentina@demo.local', 'es', 'UTC', '2026-10-30 05:00:00+00', '6f521862-f9dd-450a-ab69-79de338e2269', 'active', 'member'),
+    ('88888888-8888-4888-8888-888888888801', 'Carlos Jhonson', 'carlos@demo.local', 'es', 'UTC', '2026-10-30 05:00:00+00', '6f521862-f9dd-450a-ab69-79de338e2269', 'active', 'member')
 ON CONFLICT (email_user) DO UPDATE SET full_name = EXCLUDED.full_name;
 
 -- Auxiliars linked to your tauxiliar_type IDs
