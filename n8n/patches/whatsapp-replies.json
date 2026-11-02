@@ -1,0 +1,52 @@
+[
+  {
+    "nodeName": "Code in JavaScript1",
+    "parameters": {
+      "jsCode": "// Accedemos correctamente al cuerpo del Webhook\nconst body = $input.item.json.body;\nconst changeValue = body?.entry?.[0]?.changes?.[0]?.value;\n\n// 1. Si es un estado (entregado/leído), marcamos para ignorar sin romper n8n\nif (changeValue && changeValue.statuses) {\n    return null;\n}\n\n// 2. Si no es un mensaje válido, también marcamos para ignorar\nif (!changeValue || !changeValue.messages || !changeValue.messages[0]) {\n    return null;\n}\n\nconst msg = changeValue.messages[0];\n\n// 3. Estructura directa requerida por n8n en este modo\nreturn {\n    json: {\n        ignore: false,\n        type: msg.type, // 'text', 'voice', 'image', 'document', etc.\n        from: msg.from,\n        wamid: msg.id,\n        text: msg.text?.body || null,\n        media_id: msg.voice?.id || msg.audio?.id || msg.image?.id || msg.document?.id || null\n    }\n};\n"
+    }
+  },
+  {
+    "nodeName": "Code in JavaScript",
+    "parameters": {
+      "jsCode": "const outputText = $input.item.json.output;\nconst message = $('Webhook').first().json.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];\nif (!message?.from || !/^\\d+$/.test(String(message.from))) {\n  throw new Error('INVALID_WHATSAPP_RECIPIENT: missing sender metadata.');\n}\nif (typeof outputText !== 'string' || !outputText.trim()) {\n  throw new Error('EMPTY_WHATSAPP_REPLY: no response text was generated.');\n}\nreturn [{ json: {\n  messaging_product: 'whatsapp',\n  recipient_type: 'individual',\n  to: String(message.from),\n  type: 'text',\n  text: { body: outputText }\n} }];"
+    }
+  },
+  {
+    "nodeName": "Response to Whatsapp1",
+    "parameters": {
+      "jsonBody": "={{ ({\n  messaging_product: 'whatsapp',\n  recipient_type: 'individual',\n  to: $('Webhook').first().json.body.entry[0].changes[0].value.messages[0].from.toString(),\n  type: 'text',\n  text: { body: 'Por ahora puedo procesar texto, audio, imágenes y documentos. Envíame tu consulta en uno de esos formatos.' }\n}) }}"
+    }
+  },
+  {
+    "nodeName": "Response to Whatsapp",
+    "parameters": {
+      "contentType": "json",
+      "options": {
+        "timeout": 15000,
+        "response": {
+          "response": {
+            "fullResponse": true,
+            "neverError": false,
+            "responseFormat": "json"
+          }
+        }
+      }
+    }
+  },
+  {
+    "nodeName": "Response to Whatsapp1",
+    "parameters": {
+      "contentType": "json",
+      "options": {
+        "timeout": 15000,
+        "response": {
+          "response": {
+            "fullResponse": true,
+            "neverError": false,
+            "responseFormat": "json"
+          }
+        }
+      }
+    }
+  }
+]

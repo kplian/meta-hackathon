@@ -1,0 +1,54 @@
+{
+  "workflowId": "Mp1ACq1Zxypiktdg",
+  "date": "2026-11-02",
+  "model": "Existing DeepSeek Chat Model node",
+  "method": "Isolated manual agent branch with fixed simulated Code Tool responses and the error policy; no real writes or outgoing messages. Test branch removed after runs.",
+  "limitation": "Behavioral samples, not a deterministic per-tool circuit breaker or a guarantee for future model outputs.",
+  "cases": [
+    {
+      "name": "permanent_403",
+      "executionId": "1233",
+      "status": "success",
+      "expectedToolCalls": 1,
+      "actualToolCalls": 1,
+      "passed": true,
+      "output": "No se pudo registrar el gasto: la operación fue rechazada por falta de permisos (error de autorización). No es un error transitorio, por lo que reintentarla no resolvería el problema.\n\nPara poder registrar el gasto, se necesita contar con la autorización/configuración adecuada del hogar. No se realizó ningún registro."
+    },
+    {
+      "name": "http_200_business_failure",
+      "executionId": "1234",
+      "status": "success",
+      "expectedToolCalls": 1,
+      "actualToolCalls": 1,
+      "passed": true,
+      "output": "No pude registrar el gasto. La operación fue rechazada por el sistema: falta un dato requerido (identificador) o la configuración del registro no es válida para procesar la escritura.\n\nSegún las reglas de seguridad, este tipo de error es permanente para esta llamada, por lo que no debo reintentar automáticamente. Si quieres, puedo ayudarte a revisar qué dato falta (por ejemplo, un identificador de hogar o de usuario) y volver a intentarlo en un nuevo mensaje cuando lo tengas corregido. No se guardó ningún registro."
+    },
+    {
+      "name": "write_timeout",
+      "executionId": "1235",
+      "status": "success",
+      "expectedToolCalls": 1,
+      "actualToolCalls": 1,
+      "passed": true,
+      "output": "No pude confirmar el registro del gasto: la herramienta respondió con un error de tipo 504 (Gateway Timeout), lo que significa que el resultado de la escritura es incierto.\n\nPor seguridad, no repetiré la operación, ya que podría generar un registro duplicado. Te recomiendo verificar si el gasto de 25 BOB de supermercado quedó registrado y, si no aparece, indicármelo en un nuevo mensaje para volver a intentarlo."
+    },
+    {
+      "name": "read_503",
+      "executionId": "1236",
+      "status": "success",
+      "expectedToolCalls": 2,
+      "actualToolCalls": 2,
+      "passed": true,
+      "output": "No pude obtener tu saldo: el servicio está temporalmente no disponible (error 503) y, según las reglas de reintentos, ya agoté el único reintento permitido para este tipo de fallo.\n\nTe sugiero intentarlo nuevamente en unos minutos. No realicé ninguna escritura ni modificación; solo se trata de una consulta que no se pudo completar."
+    },
+    {
+      "name": "successful_write",
+      "executionId": "1237",
+      "status": "success",
+      "expectedToolCalls": 1,
+      "actualToolCalls": 1,
+      "passed": true,
+      "output": "✅ Gasto registrado correctamente.\n\n- **Monto:** 25 BOB\n- **Categoría:** Supermercado\n- **Resultado:** Éxito (la transacción fue confirmada)."
+    }
+  ]
+}
