@@ -276,12 +276,12 @@ export default function HomeScreen({ session }: { session: Session }) {
             className="ml-2 flex-row items-center"
           >
             <Image
-              source={require('../../assets/logo.png')}
-              style={{ width: 28, height: 28, borderRadius: 6 }}
+              source={require('../../assets/logo-mark.png')}
+              style={{ width: 28, height: 28 }}
               resizeMode="contain"
             />
             <Text className="ml-2 text-[20px] font-extrabold tracking-tight text-pine">
-              ArkIA
+              ArkAI
             </Text>
           </Pressable>
         </View>

@@ -110,7 +110,7 @@ export default function LoginScreen() {
           <View className="items-center">
             <Image
               source={require('../../assets/logo.png')}
-              style={{ width: 160, height: 152 }}
+              style={{ width: 140, height: 184 }}
               resizeMode="contain"
               accessibilityLabel={t(AUTH_CONSTANTS.BRAND_TITLE)}
             />
