@@ -124,8 +124,8 @@ export async function convertOggOpusToWav16k(
     DecoderClass = decoderFactory();
   } else {
     // Dynamic import to allow running in environments without npm specifier support during unit tests
-    const module = await import('npm:ogg-opus-decoder@0.4.11');
-    DecoderClass = module.OggOpusDecoder;
+    const module = await import('npm:ogg-opus-decoder');
+    DecoderClass = module.OggOpusDecoder || module.default?.OggOpusDecoder || module.default;
   }
 
   const decoder = new DecoderClass();

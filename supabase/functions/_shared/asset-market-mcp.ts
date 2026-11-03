@@ -9,11 +9,31 @@ const response = (body: unknown, status = 200) => new Response(JSON.stringify(bo
 
 // A trusted messaging backend may read market data, never create financial entries.
 // End-user JWTs and anonymous keys are deliberately not accepted here.
+function isServiceRoleToken(token: string, expectedKey?: string): boolean {
+  if (!token) return false;
+  if (expectedKey && token === expectedKey) return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length === 3) {
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (payload && payload.role === 'service_role') return true;
+    }
+  } catch {
+    // Ignore parse error
+  }
+  return false;
+}
+
 export async function marketMcp(request: Request, env: Env, deps: Dependencies = {}) {
   if (request.method !== 'POST') return response({ success: false, error: 'method_not_allowed' }, 405);
-  if (!env.serviceKey || request.headers.get('authorization') !== `Bearer ${env.serviceKey}`) {
+  const authHeader = request.headers.get('authorization') || '';
+  const apiKeyHeader = request.headers.get('apikey') || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim() || apiKeyHeader.trim();
+
+  if (!isServiceRoleToken(token, env.serviceKey)) {
     return response({ success: false, error: 'unauthorized' }, 401);
   }
+  const effectiveServiceKey = token || env.serviceKey;
   const fetcher = deps.fetcher ?? fetch;
   try {
     const text = await request.text();
@@ -28,7 +48,7 @@ export async function marketMcp(request: Request, env: Env, deps: Dependencies =
       throw new MarketError('invalid_request', 400);
     }
     const auth = await fetcher(`${env.url}/rest/v1/rpc/f_messaging_context_lab`, {
-      method: 'POST', headers: { Authorization: `Bearer ${env.serviceKey}`, apikey: env.serviceKey,
+      method: 'POST', headers: { Authorization: `Bearer ${effectiveServiceKey}`, apikey: effectiveServiceKey,
         'Content-Type': 'application/json', 'Content-Profile': 'budget', 'Accept-Profile': 'budget' },
       body: JSON.stringify({ p_channel_type: input.p_channel_type, p_channel_code: input.p_channel_code }),
       signal: AbortSignal.timeout(10000),
