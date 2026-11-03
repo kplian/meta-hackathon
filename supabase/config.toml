@@ -55,3 +55,8 @@ skip_nonce_check = true
 # the memory available in a small Colima VM.
 [analytics]
 enabled = false
+
+# Trusted n8n backend only; the handler checks the service-role key and resolves
+# the registered messaging identity before any provider request. No user JWTs.
+[functions.asset-market-mcp]
+verify_jwt = false

@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 
 const sdk=readFileSync(new URL('../n8n/mcp/server.sdk.ts',import.meta.url),'utf8');
 const httpTools=sdk.split('\n').filter(line=>line.includes('n8n-nodes-base.httpRequestTool'))
-  .map(line=>JSON.parse(line.match(/parameters:(\{.*\}),credentials:/)[1]));
+  .map(line=>JSON.parse(line.match(/parameters:(\{.*\}),credentials:/)[1])).filter(params=>params.url.endsWith('/rpc/f_family_mcp'));
 function body(params,payload='{}',headers={'x-family-channel':'telegram','x-family-sender':'fixture-a'}) {
   return vm.runInNewContext(params.jsonBody.slice(3,-2),{
     $json:{headers,mcpMessageId:'request-1'},
@@ -48,4 +48,17 @@ test('health workflow mapping also parses string payloads rather than rejecting 
   const expression=params.workflowInputs.value.payload;
   const value=vm.runInNewContext(expression.slice(3,-2),{$fromAI:()=> '{}'});
   assert.equal(JSON.stringify(value),'{}');
+});
+
+test('market reads keep channel identity outside AI payload and use the dedicated endpoint',()=>{
+  const line=sdk.split('\n').find(line=>line.includes('name:"market"'));
+  const params=JSON.parse(line.match(/parameters:(\{.*\}),credentials:/)[1]);
+  assert.ok(params.url.endsWith('/functions/v1/asset-market-mcp'));
+  const b=body(params,JSON.stringify({symbol:'BTC/USD',p_channel_code:'attacker'}));
+  assert.equal(b.p_channel_type,'telegram');
+  assert.equal(b.p_channel_code,'fixture-a');
+  assert.equal(b.payload.symbol,'BTC/USD');
+  assert.equal(b.operation,'list'); // The backend rejects unsupported operations.
+  assert.equal(params.authentication,'predefinedCredentialType');
+  assert.equal(params.nodeCredentialType,'supabaseApi');
 });

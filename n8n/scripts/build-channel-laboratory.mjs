@@ -69,7 +69,7 @@ add('Transcribe audio', 'n8n-nodes-base.httpRequest', 4.5, {
 code('Assistant input', "const context = $('Authorized context').item.json; const current = $input.item; return { json: { assistant: assistantInput(context, current.json.text) }, ...(current.binary ? { binary: current.binary } : {}) };", [3000, 0]);
 add('AI Agent', '@n8n/n8n-nodes-langchain.agent', 3.1, {
   promptType: 'define', text: '={{ JSON.stringify($json.assistant) }}', hasOutputParser: true,
-  options: { systemMessage: policy + '\n\n' + purpose, maxIterations: 4, enableStreaming: false, passthroughBinaryImages: true },
+  options: { systemMessage: policy + '\n\n' + purpose, maxIterations: 6, enableStreaming: false, passthroughBinaryImages: true },
 }, [3250, 0], undefined, 'AI Agent');
 nodes.find(n => n.name === 'AI Agent').settings = { onError: 'continueErrorOutput' };
 code('Assistant failure reply', "return { json: { reply: assistantFailureReply($('Authorized context').item.json) } };", [3500, 500]);

@@ -6,6 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const target=process.argv.includes('--mcp')?'asset-market-mcp':'asset-market';
 function envFile(name) {
   const path=join(root,name);
   if(!existsSync(path)) return {};
@@ -27,18 +28,18 @@ try {
   if(!project) throw new Error('Configure a hosted Supabase URL in .env.cloud.');
   const key=process.env.TWELVE_DATA_KEY||envFile('.env.cloud').TWELVE_DATA_KEY||envFile('.env').TWELVE_DATA_KEY;
   if(!key || !/^[a-zA-Z0-9_-]+$/.test(key) || /your_|placeholder/i.test(key)) throw new Error('Set TWELVE_DATA_KEY in the backend .env first.');
-  console.log(`Deploying asset-market to ${project}. No database reset or migrations will run.`);
+  console.log(`Deploying ${target} to ${project}. No database reset or migrations will run.`);
   cli(['functions','list','--project-ref',project]);
   const temp=mkdtempSync(join(tmpdir(),'asset-market-secret-'));
   try {
     const file=join(temp,'.env');
     writeFileSync(file,`TWELVE_DATA_KEY=${key}\n`,{mode:0o600});
     cli(['secrets','set','--project-ref',project,'--env-file',file]);
-    cli(['functions','deploy','asset-market','--project-ref',project,'--use-api']);
+    cli(['functions','deploy',target,'--project-ref',project,'--use-api']);
   } finally {rmSync(temp,{recursive:true,force:true});}
-  const response=await fetch(`${url.origin}/functions/v1/asset-market`,{method:'OPTIONS',headers:{Origin:'http://localhost:8090','Access-Control-Request-Method':'POST'},signal:AbortSignal.timeout(15000)});
-  if(!response.ok) throw new Error(`Deployment completed, but the preflight check returned HTTP ${response.status}.`);
-  console.log(`asset-market is deployed; CORS preflight returned HTTP ${response.status}. Sign in to the app to test searches and quotes.`);
+  const response=await fetch(`${url.origin}/functions/v1/${target}`,target==='asset-market-mcp'?{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(15000)}:{method:'OPTIONS',headers:{Origin:'http://localhost:8090','Access-Control-Request-Method':'POST'},signal:AbortSignal.timeout(15000)});
+  if(target==='asset-market-mcp'?response.status!==401:!response.ok) throw new Error(`Deployment completed, but the endpoint check returned HTTP ${response.status}.`);
+  console.log(`${target} is deployed; endpoint check returned HTTP ${response.status}. ${target==='asset-market-mcp'?'Unauthenticated access is rejected. Test through the authorized MCP.':'Sign in to the app to test searches and quotes.'}`);
 } catch(error) {
   console.error(error.message);
   process.exitCode=1;

@@ -8,7 +8,7 @@ BEGIN
  SELECT household_id,auxiliar_id INTO STRICT home,aux FROM budget.thousehold_member WHERE user_id=actor;
  PERFORM set_config('request.jwt.claim.sub',actor::text,true);
  SELECT id INTO STRICT cash FROM budget.taccount WHERE household_id=home AND code='110';
- INSERT INTO budget.taccount(household_id,account_type_id,code,name,currency) SELECT home,account_type_id,'111','Bank','BOB' FROM budget.taccount WHERE id=cash RETURNING id INTO bank;
+ INSERT INTO budget.taccount(household_id,account_type_id,code,name,currency) SELECT home,account_type_id,'111','Bank','BOB' FROM budget.taccount WHERE id=cash ON CONFLICT (household_id,code) DO UPDATE SET name=EXCLUDED.name RETURNING id INTO bank;
  SELECT id INTO STRICT income FROM budget.taccount WHERE household_id=home AND code='410';
  SELECT id INTO STRICT expense FROM budget.taccount WHERE household_id=home AND code='510';
  -- Two months: 20,000 received, 15,000 spent. Today's fixture avoids fixed dates.

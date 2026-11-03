@@ -47,6 +47,9 @@ if(childId){
    if(def.area==='health'){
      const params={description:def.description,source:'database',workflowId:{__rl:true,mode:'id',value:childId},workflowInputs:{mappingMode:'defineBelow',value:values,schema:fields.map(id=>({id,displayName:id,type:id==='payload'?'object':'string',required:true,display:true,canBeUsedToMatch:false})),matchingColumns:[]}};
      server+=nodeCode(variable,'@n8n/n8n-nodes-langchain.toolWorkflow',2.2,def.name,q(params),null,'tool');
+   }else if(def.area==='market'){
+     const params={...rpcParams(`={{ ({p_channel_type:$json.headers?.['x-family-channel']||'',p_channel_code:$json.headers?.['x-family-sender']||'',operation:${operation},payload:${payload}}) }}`,def.description),url:'https://ywibmualqaipmygmrojz.supabase.co/functions/v1/asset-market-mcp',options:{timeout:45000}};
+     server+=nodeCode(variable,'n8n-nodes-base.httpRequestTool',4.5,def.name,q(params),db,'tool');
    }else{
      const body=`={{ ({p_channel_type:$json.headers?.['x-family-channel']||'',p_channel_code:$json.headers?.['x-family-sender']||'',p_area:${q(def.area)},p_operation:${operation},p_payload:${payload},p_request_key:${requestKey}}) }}`;
      server+=nodeCode(variable,'n8n-nodes-base.httpRequestTool',4.5,def.name,q(rpcParams(body,def.description)),db,'tool');

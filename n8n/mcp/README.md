@@ -1,8 +1,10 @@
+> **Market update (2026-11-02):** The existing messaging laboratory is now published. The new eighth MCP tool and revised market prompt are prepared in code, but are not yet published: deployment of `asset-market-mcp` requires CLI login. The current live server still has its original seven tools. See [market validation](../../docs/ai-market-mcp.md). Historical unpublished status below describes earlier testing.
+
 # Family MCP — hackathon laboratory
 
 Saved in n8n:
 
-- [MCP server](https://dev-n8n.kplian.com/workflow/T10NektvCIWMoozy): seven area tools, authenticated with Bearer Auth.
+- [MCP server](https://dev-n8n.kplian.com/workflow/T10NektvCIWMoozy): eight area tools including read-only market data, authenticated with Bearer Auth.
 - [Private health subworkflow](https://dev-n8n.kplian.com/workflow/rMiWu16s5hrsLEIs): callable only by the MCP workflow; generates, validates and saves meal plans.
 - [Messaging laboratory](https://dev-n8n.kplian.com/workflow/Mp1ACq1Zxypiktdg): one MCP Client Tool replaces all seven individual HTTP tools. WhatsApp/Telegram routing is unchanged.
 
@@ -43,7 +45,11 @@ Opening assets and investment/vault movements use their existing request UUID id
 
 Each tool takes `operation` and `payload` as strings. `payload` contains serialized JSON (`"{}"` for no fields), parsed before calling Supabase. This avoids n8n’s JSON-tool schema rejecting empty objects. The exact operation/payload catalog lives in `catalog.mjs`: household/member administration, estimated income, actual movements, investments, vaults, reports and health. No household creation, invitations, arbitrary SQL, accounting reversals, or standalone budget administration is exposed. Health requires explicit opt-in. Meal generation reuses the app's pure prompt/validation helpers and the existing Groq credential. The configured model (`qwen/qwen3.8-27b`) was verified by a real models query and JSON completion, using synthetic input only. Allergen conflicts block saves; an over-budget plan remains flagged by the saved plan's `within_budget` value. No automatic correction loop is included.
 
-This version does not fetch market quotes/exchange rates from MCP. It asks for a missing price/rate rather than inventing one. The existing app market integration is separate.
+Market support is implemented through `supabase/functions/asset-market-mcp`, reusing the app's shared Twelve Data code. Only the trusted service-role credential is accepted; the handler resolves the active WhatsApp/Telegram identity before provider calls. The model can choose search/quote/fx/estimate_purchase and business arguments, never the transport identity, URL, secret or a write action. No database migration or asset/valuation write is performed by market lookup.
+
+Deploy with `npm run market:mcp:deploy` after `npx supabase login`. This uploads only the Twelve Data key and the versioned backend function. The app's existing authenticated `asset-market` endpoint is unchanged. Publish the new MCP server draft and the updated messaging prompt only after endpoint and authorized MCP checks pass. Until deployment, the previously published server/prompt remain operational.
+
+`fx` returns USD per one original currency unit. `estimate_purchase` calculates quantity and household cost, preserves an explicit user rate in household units per USD, or fetches/inverts reference FX when absent. It returns both rate directions and quote timestamps. Estimates are indicative and never execute trades or post accounting entries. Provider reference rates are not promised local cash rates. The model must present the proposal and obtain confirmation before moving money.
 
 ## Rebuild and checks
 
