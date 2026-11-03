@@ -68,21 +68,24 @@ export function authorizeContext(envelope, httpResponse) {
   const status = httpResponse?.statusCode ?? 200;
   const body = httpResponse?.body ?? httpResponse;
   const healthy = status >= 200 && status < 300 && body?.success === true;
-  const registered = healthy && body.registered === true && typeof body.user?.id === 'string';
+  const verification = healthy && body.verification?.handled === true ? body.verification : null;
+  const registered = !verification && healthy && body.registered === true && typeof body.user?.id === 'string';
   return {
     ...envelope,
-    state: registered ? 'registered' : healthy && body.registered === false ? 'unregistered' : 'unavailable',
-    locale: selectLocale(envelope, registered ? body.user.locale : null),
+    verification,
+    state: verification ? 'verification' : registered ? 'registered' : healthy && body.registered === false ? 'unregistered' : 'unavailable',
+    locale: supportedLocale(verification?.locale) || selectLocale(envelope, registered ? body.user.locale : null),
     user: registered ? body.user : null,
   };
 }
 
 export function genericReply(context, reason = context.state) {
+  if (reason === 'verification') return verificationReply(context);
   const catalog = {
     unregistered: {
-      es: 'Para usar el asistente, crea tu cuenta en la app y vincula este medio de contacto. Si ya tienes cuenta, verifica que este contacto esté vinculado.',
-      en: 'To use the assistant, create an account in the app and link this contact method. If you already have an account, make sure this contact is linked.',
-      pt: 'Para usar o assistente, crie sua conta no app e vincule este meio de contato. Se já tem uma conta, verifique se este contato está vinculado.',
+      es: 'Para usar el asistente, crea tu cuenta en la app y vincula este medio de contacto. Si ya tienes cuenta, verifica tu número desde Perfil o el onboarding.',
+      en: 'To use the assistant, create an account in the app and link this contact method. If you already have an account, verify your number in Profile or onboarding.',
+      pt: 'Para usar o assistente, crie sua conta no app e vincule este meio de contato. Se já tem uma conta, verifique seu número em Perfil ou no onboarding.',
     },
     unavailable: {
       es: 'No pudimos verificar tu cuenta en este momento. Inténtalo más tarde.',
@@ -156,4 +159,19 @@ export function telegramReply(item) {
   // Explicit HTML with escaped text avoids accidental Markdown/HTML parse errors.
   const text = standardReply(item.reply).text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return { chatId, text };
+}
+
+export function verificationReply(context) {
+  const success = context.verification?.verified === true;
+  const messages = success ? {
+    es: 'WhatsApp verificado. Vuelve a la app para continuar. Ya puedes usar el asistente desde este número.',
+    en: 'WhatsApp verified. Return to the app to continue. You can now use the assistant from this number.',
+    pt: 'WhatsApp verificado. Volte ao app para continuar. Você já pode usar o assistente deste número.',
+  } : {
+    es: 'No pudimos verificar este código. Vuelve a la app, genera otro si venció y envíalo desde el número que registraste. No modifiques el mensaje.',
+    en: 'We could not verify this code. Return to the app, generate another if it expired, and send it from the number you registered. Do not change the message.',
+    pt: 'Não foi possível verificar este código. Volte ao app, gere outro se expirou e envie do número cadastrado. Não altere a mensagem.',
+  };
+  const locale = supportedLocale(context.locale);
+  return { text: locale ? messages[locale] : ['es','en','pt'].map(code => messages[code]).join('\n\n') };
 }

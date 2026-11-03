@@ -1,5 +1,9 @@
 import './src/i18n';
-import { ActivityIndicator, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import ResetPasswordScreen from './src/features/auth-session/ResetPasswordScreen';
+import InvitationGate from './src/features/household-access/InvitationGate';
+import { captureInvitation, saveInvitationUrl } from './src/features/household-access/storage';
+import { ActivityIndicator, Linking, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useSession } from './src/hooks/useSession';
@@ -24,18 +28,28 @@ export default function App() {
 }
 
 function MainApp() {
-  const { session, loading } = useSession();
+  const { session, loading, authError, clearAuthError, recovery, finishRecovery } = useSession();
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [inviteReady, setInviteReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    captureInvitation().then(token => { if (!cancelled) setInviteToken(token); }).catch(() => {}).finally(() => { if (!cancelled) setInviteReady(true); });
+    const listener = Linking.addEventListener('url', ({ url }) => { void saveInvitationUrl(url).then(token => { if (!cancelled && token) setInviteToken(token); }); });
+    return () => { cancelled = true; listener.remove(); };
+  }, []);
 
   return (
     <SafeAreaProvider>
-      {loading ? (
+      {loading || !inviteReady ? (
         <View className="flex-1 items-center justify-center bg-mint">
           <ActivityIndicator size="large" color="#0B3D2E" />
         </View>
+      ) : session && recovery ? (
+        <ResetPasswordScreen onDone={finishRecovery} />
       ) : session ? (
-        <HomeScreen session={session} />
+        <InvitationGate key={session.user.id} session={session} token={inviteToken}>{householdId => <HomeScreen session={session} preferredHouseholdId={householdId} />}</InvitationGate>
       ) : (
-        <LoginScreen />
+        <LoginScreen invited={!!inviteToken} callbackError={authError} onClearError={clearAuthError} />
       )}
       <StatusBar style="dark" />
     </SafeAreaProvider>

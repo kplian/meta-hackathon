@@ -35,10 +35,10 @@ code('Normalize WhatsApp', "return $input.all().flatMap((item, index) => normali
 code('Normalize Telegram', "return $input.all().flatMap((item, index) => normalizeTelegram(item.json).map(json => ({ json, pairedItem: { item: index } })));", [250, 250], undefined, true);
 add('One message at a time', 'n8n-nodes-base.splitInBatches', 3, { batchSize: 1, options: {} }, [500, 100]);
 add('Resolve registration', 'n8n-nodes-base.httpRequest', 4.5, {
-  method: 'POST', url: base + 'f_messaging_context_lab', authentication: 'predefinedCredentialType', nodeCredentialType: 'supabaseApi',
+  method: 'POST', url: base + 'f_messaging_ingress_lab', authentication: 'predefinedCredentialType', nodeCredentialType: 'supabaseApi',
   sendHeaders: true, headerParameters: { parameters: [{ name: 'Content-Profile', value: 'budget' }] },
   sendBody: true, contentType: 'json', specifyBody: 'json',
-  jsonBody: '={{ ({p_channel_type: $json.transport.channel, p_channel_code: $json.transport.senderId}) }}',
+  jsonBody: '={{ ({p_channel_type: $json.transport.channel, p_channel_code: $json.transport.senderId, p_message: $json.message.text, p_account_id: $json.transport.accountId || null}) }}',
   options: { timeout: 10000, response },
 }, [750, 100], credentials.database);
 code('Authorized context', "const source = $('One message at a time').item.json; return { json: authorizeContext(source, $input.item.json) };", [1000, 100]);

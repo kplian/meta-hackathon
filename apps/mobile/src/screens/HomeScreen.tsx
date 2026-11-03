@@ -51,7 +51,7 @@ import HealthView from '../features/health/HealthView';
 
 type GenericRow = Record<string, unknown>;
 
-export default function HomeScreen({ session }: { session: Session }) {
+export default function HomeScreen({ session, preferredHouseholdId }: { session: Session; preferredHouseholdId?: string }) {
   const { t, i18n } = useTranslation();
   const { width } = useWindowDimensions();
   const isPermanentDesktop = width >= 960;
@@ -125,6 +125,10 @@ export default function HomeScreen({ session }: { session: Session }) {
             .map((row) => row.thousehold as unknown as HouseholdRow | null)
             .filter((h): h is HouseholdRow => Boolean(h));
           setHouseholds(joinedHouseholds);
+          if (preferredHouseholdId) {
+            const index = joinedHouseholds.findIndex(h => h.id === preferredHouseholdId);
+            if (index >= 0) setActiveHouseholdIndex(index);
+          }
         }
         if (usersRes.count !== null && usersRes.count !== undefined) {
           setUsersCount(usersRes.count);
@@ -160,7 +164,7 @@ export default function HomeScreen({ session }: { session: Session }) {
     return () => {
       cancelled = true;
     };
-  }, [refreshTick, session.user.id]);
+  }, [refreshTick, session.user.id, preferredHouseholdId]);
 
   // Load records whenever activeView changes to a table-backed screen
   useEffect(() => {
@@ -380,6 +384,8 @@ export default function HomeScreen({ session }: { session: Session }) {
           <TemplateTransactionsView currentUserId={session.user.id} />
         ) : activeView === 'household' ? (
           <HouseholdsView
+            key={activeHousehold?.id}
+            activeHousehold={activeHousehold}
             currentUserId={session.user.id}
             onHouseholdsChanged={() => setRefreshTick((t) => t + 1)}
           />
