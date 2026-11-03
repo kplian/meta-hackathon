@@ -15,8 +15,8 @@ function body(params,payload='{}',headers={'x-family-channel':'telegram','x-fami
     },
   });
 }
-test('all six HTTP area tools accept the empty JSON string required by n8n',()=>{
-  assert.equal(httpTools.length,6);
+test('all seven business HTTP area tools accept the empty JSON string required by n8n',()=>{
+  assert.equal(httpTools.length,7);
   for(const params of httpTools) {
     const b=body(params);
     assert.equal(JSON.stringify(b.p_payload),'{}');

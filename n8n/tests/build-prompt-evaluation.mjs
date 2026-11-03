@@ -8,7 +8,8 @@ const selected=cases.find(c=>c.id===process.argv[2])||cases[0];
 const system=readFileSync(new URL('prompts/tool_error_policy.md',base),'utf8')+'\n\n'+readFileSync(new URL('mcp/assistant-prompt.md',base),'utf8');
 const home={id:'00000000-0000-4000-8000-000000000001',name:'Familia Test',currency:'BOB',role:'admin'};
 export function scenarioCode(c) {
-  const fixture={caseId:c.id,failure:c.failure||null,assistant:{message:{text:c.text,kind:'text',attachments:[]},user:{name:'Alex',households:[home]},locale:c.locale}};
+  const households=[home,...(c.householdCount===2?[{id:'00000000-0000-4000-8000-000000000006',name:'Trabajo',currency:'BOB',role:'admin'}]:[])];
+  const fixture={caseId:c.id,failure:c.failure||null,assistant:{message:{text:c.text,kind:'text',attachments:[]},user:{name:'Alex',households},locale:c.locale}};
   return 'return [{json:'+JSON.stringify(fixture)+'}];';
 }
 const stub=`const args=typeof query==='string'?JSON.parse(query):query;
@@ -17,8 +18,14 @@ const wealth={total:107,currency:'USD',assets:[{id:'00000000-0000-4000-8000-0000
 const overview={available:fixture.failure==='zero_funds'?0:fixture.failure==='fx_validation'?9900:500,currency:'BOB',wealth,accounts:[{id:'00000000-0000-4000-8000-000000000002',name:'Cash',currency:'BOB',balance:fixture.failure==='zero_funds'?0:fixture.failure==='fx_validation'?9900:500}],can_manage:true};
 if(fixture.failure==='permission' && area==='reports') return JSON.stringify({success:false,error:'P0001',message:'Household access denied'});
 if(fixture.failure==='write_timeout' && area==='transactions' && op==='register') return JSON.stringify({statusCode:504,body:{error:'gateway_timeout'}});
+if(fixture.assistant.user.households.length>1&&((area==='transactions'&&op==='register')||area==='budgets')&&!payload.household_id) return JSON.stringify({success:false,error:'SELECT_HOUSEHOLD'});
+const budgetCap=8000;const budgetExisting=fixture.failure==='budget_cap'?7900:fixture.failure==='budget_update'?7900:0;const educationExisting=fixture.failure==='budget_update'?200:0;
+const budgetRows=[{category_key:'children_education',name:'Education and School',monthly_limit:educationExisting},{category_key:'supermarket_groceries',name:'Supermarket and Groceries',monthly_limit:budgetExisting-educationExisting}];
+const budgetData={currency:'BOB',pyramid_defined:true,estimated_monthly_income:10000,saving_percentage:20,saving_reserved:2000,spending_limit:budgetCap,budgeted_total:budgetExisting,remaining:budgetCap-budgetExisting,over_limit:false,budgets:budgetRows};
+if(area==='budgets'&&op==='set') {const proposed=budgetExisting-(budgetRows.find(r=>r.category_key===payload.category_key)?.monthly_limit??0)+payload.monthly_limit;if(proposed>budgetCap) return JSON.stringify({success:false,error:'P0001',message:'Budget total exceeds pyramid spending limit of 8000 BOB'});return JSON.stringify({success:true,data:{...budgetData,budgeted_total:proposed,remaining:budgetCap-proposed,budgets:budgetRows.map(r=>r.category_key===payload.category_key?{...r,monthly_limit:payload.monthly_limit}:r)}});}
 const responses={
- household:{list:fixture.assistant.user.households,get:{...fixture.assistant.user.households[0],members:[{id:'00000000-0000-4000-8000-000000000004',name:'Alex',member_type:'dad',role:'admin'}]}},
+ budgets:{summary:budgetData,categories:budgetRows.map(r=>({category_key:r.category_key,name:r.name}))},
+ household:{list:fixture.assistant.user.households,create:{household:{id:'00000000-0000-4000-8000-000000000006',name:payload.name,currency:payload.currency,role:'admin',setup_completed_at:null},created:true,households:[...fixture.assistant.user.households,{id:'00000000-0000-4000-8000-000000000006',name:payload.name,currency:payload.currency,role:'admin'}]},get:{...fixture.assistant.user.households[0],members:[{id:'00000000-0000-4000-8000-000000000004',name:'Alex',member_type:'dad',role:'admin'}]}},
  income:{list:[{name:'Salary',estimated_amount:10000,currency:'BOB',frequency:'monthly'}]},
  transactions:{categories:{income:[{category_key:'income_general',name:'Income'}],expense:[{category_key:'supermarket_groceries',name:'Supermercado'}]},list:[],register:{success:true,transaction:{id:'00000000-0000-4000-8000-000000000005',type:payload.type,concept:payload.concept,amount:payload.amount,currency:'BOB',transaction_date:'2026-11-02T12:00:00Z'}}},
  assets:{list:overview,types:[{code:'crypto',name:'Criptomonedas',market_priced:true}]},
