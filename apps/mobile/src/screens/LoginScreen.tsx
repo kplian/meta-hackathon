@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -107,13 +108,13 @@ export default function LoginScreen() {
 
           {/* Brand header */}
           <View className="items-center">
-            <View className="h-16 w-16 items-center justify-center rounded-full bg-mint-deep">
-              <MaterialCommunityIcons name="home-heart" size={30} color="#0B3D2E" />
-            </View>
-            <Text className="mt-4 text-center text-[30px] font-extrabold tracking-tight text-pine">
-              {t(AUTH_CONSTANTS.BRAND_TITLE)}
-            </Text>
-            <Text className="mt-1 px-6 text-center text-[15px] leading-5 text-sage">
+            <Image
+              source={require('../../assets/logo.png')}
+              style={{ width: 160, height: 152 }}
+              resizeMode="contain"
+              accessibilityLabel={t(AUTH_CONSTANTS.BRAND_TITLE)}
+            />
+            <Text className="mt-2 px-6 text-center text-[15px] leading-5 text-sage">
               {t(AUTH_CONSTANTS.SUBTITLE)}
             </Text>
           </View>

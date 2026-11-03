@@ -34,7 +34,7 @@ export const en = {
     language: 'Language',
   },
   auth: {
-    brandTitle: 'Our Budget',
+    brandTitle: 'ArkIA',
     subtitle: 'Planning and peace of mind for your family home',
     signInTitle: 'Sign in',
     signUpTitle: 'Create family account',

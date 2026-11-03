@@ -3,6 +3,7 @@ import InvestmentsScreen from '../features/investments/InvestmentsScreen';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   Text,
@@ -274,9 +275,13 @@ export default function HomeScreen({ session }: { session: Session }) {
             onPress={() => handleSelectView('dashboard')}
             className="ml-2 flex-row items-center"
           >
-            <View className="h-3 w-3 rounded-full bg-[#FF6B00]" />
-            <Text className="ml-1.5 text-[20px] font-extrabold tracking-tight text-pine">
-              Budget
+            <Image
+              source={require('../../assets/logo.png')}
+              style={{ width: 28, height: 28, borderRadius: 6 }}
+              resizeMode="contain"
+            />
+            <Text className="ml-2 text-[20px] font-extrabold tracking-tight text-pine">
+              ArkIA
             </Text>
           </Pressable>
         </View>
