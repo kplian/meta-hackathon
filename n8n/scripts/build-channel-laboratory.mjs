@@ -61,11 +61,12 @@ add('WhatsApp media download', 'n8n-nodes-base.httpRequest', 4.5, {
 add('Telegram media download', 'n8n-nodes-base.telegram', 1.2, { resource: 'file', operation: 'get', fileId: "={{ $('Authorized context').item.json.message.attachments[0].id }}", download: true, additionalFields: {} }, [2250, 300], credentials.telegram);
 route('Audio or attachment', "={{ $('Authorized context').item.json.message.kind === 'audio' ? 0 : 1 }}", 2, [2500, 200]);
 add('Transcribe audio', 'n8n-nodes-base.httpRequest', 4.5, {
-  method: 'POST', url: 'https://api.groq.com/openai/v1/audio/transcriptions', authentication: 'predefinedCredentialType', nodeCredentialType: 'groqApi',
+  method: 'POST', url: 'https://ywibmualqaipmygmrojz.supabase.co/functions/v1/audio-transcribe',
+  authentication: 'predefinedCredentialType', nodeCredentialType: 'supabaseApi',
   sendBody: true, contentType: 'multipart-form-data', bodyParameters: { parameters: [
-    { name: 'model', value: 'whisper-large-v3-turbo' }, { parameterType: 'formBinaryData', name: 'file', inputDataFieldName: 'data' },
-  ] }, options: { timeout: 30000 },
-}, [2750, 100], credentials.groq, 'Groq Whisper');
+    { parameterType: 'formBinaryData', name: 'file', inputDataFieldName: 'data' },
+  ] }, options: { timeout: 45000 },
+}, [2750, 100], credentials.database, 'Meta Muse Transcribe');
 code('Assistant input', "const context = $('Authorized context').item.json; const current = $input.item; return { json: { assistant: assistantInput(context, current.json.text) }, ...(current.binary ? { binary: current.binary } : {}) };", [3000, 0]);
 add('AI Agent', '@n8n/n8n-nodes-langchain.agent', 3.1, {
   promptType: 'define', text: '={{ JSON.stringify($json.assistant) }}', hasOutputParser: true,

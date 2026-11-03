@@ -322,17 +322,13 @@
       "typeVersion": 4.5,
       "parameters": {
         "method": "POST",
-        "url": "https://api.groq.com/openai/v1/audio/transcriptions",
+        "url": "https://ywibmualqaipmygmrojz.supabase.co/functions/v1/audio-transcribe",
         "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "groqApi",
+        "nodeCredentialType": "supabaseApi",
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {
           "parameters": [
-            {
-              "name": "model",
-              "value": "whisper-large-v3-turbo"
-            },
             {
               "parameterType": "formBinaryData",
               "name": "file",
@@ -341,7 +337,7 @@
           ]
         },
         "options": {
-          "timeout": 30000
+          "timeout": 45000
         }
       },
       "position": [
@@ -349,11 +345,11 @@
         100
       ],
       "credential": {
-        "key": "groqApi",
-        "id": "3j3emt2oYaVfvbZA",
-        "name": "Groq account"
+        "key": "supabaseApi",
+        "id": "D7CKuo645oY8I6Dc",
+        "name": "Supabase account 2"
       },
-      "keep": "Groq Whisper"
+      "keep": "Meta Muse Transcribe"
     },
     {
       "name": "Assistant input",

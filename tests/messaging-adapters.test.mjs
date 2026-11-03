@@ -156,7 +156,7 @@ test('memory follows canonical user identity across linked channels', () => {
 });
 test('transcription no longer forces Spanish', () => {
   assert.ok(!node('Transcribe audio').parameters.bodyParameters.parameters.some(p => p.name === 'language'));
-  assert.equal(node('Transcribe audio').credential.name, 'Groq account');
+  assert.equal(node('Transcribe audio').credential.name, 'Supabase account 2');
 });
 test('MCP server binds identity from headers, never from model arguments', () => {
   const server = readFileSync(new URL('../n8n/mcp/server.sdk.ts', import.meta.url), 'utf8');
