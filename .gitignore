@@ -44,3 +44,4 @@ web-build/
 *.mobileprovision
 *.orig.*
 tmp_images/
+.codex-attachments/

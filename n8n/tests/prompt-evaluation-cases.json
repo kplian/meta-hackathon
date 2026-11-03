@@ -83,5 +83,65 @@
     "locale": "es",
     "failure": "fx_validation",
     "text": "Confirmo registrar la compra de 100 USD de Bitcoin desde efectivo a mi posición Bitcoin existente: 1200 BOB, cambio 12 BOB/USD y precio ejecutado 78000 USD/BTC. No compres en ningún exchange: registra lo que ya compré. Si el sistema rechaza la operación, detente sin volver a intentar ni cambiar los decimales."
+  },
+  {
+    "id": "sole_household_es",
+    "locale": "es",
+    "text": "Registra un ingreso de 200 BOB por sueldo."
+  },
+  {
+    "id": "two_households_missing_es",
+    "locale": "es",
+    "householdCount": 2,
+    "text": "Registra un ingreso de 200 BOB por sueldo."
+  },
+  {
+    "id": "two_households_explicit_es",
+    "locale": "es",
+    "householdCount": 2,
+    "text": "Registra un ingreso de 200 BOB por sueldo en el hogar Trabajo."
+  },
+  {
+    "id": "create_household_es",
+    "locale": "es",
+    "text": "Crea otro hogar llamado Trabajo en BOB."
+  },
+  {
+    "id": "create_then_ambiguous_es",
+    "locale": "es",
+    "text": "Crea otro hogar llamado Trabajo en BOB. También recibí 200 BOB de sueldo; quiero registrarlo pero aún no te indiqué a cuál hogar corresponde."
+  },
+  {
+    "id": "budget_set_es",
+    "locale": "es",
+    "text": "Configura mi presupuesto mensual de educación en 250 BOB."
+  },
+  {
+    "id": "budget_cap_es",
+    "locale": "es",
+    "failure": "budget_cap",
+    "text": "Configura mi presupuesto mensual de educación en 250 BOB. No cambies mis ingresos ni mi pirámide."
+  },
+  {
+    "id": "budget_replace_es",
+    "locale": "es",
+    "failure": "budget_update",
+    "text": "Cambia mi presupuesto mensual de educación de 200 a 250 BOB."
+  },
+  {
+    "id": "budget_multiple_es",
+    "locale": "es",
+    "householdCount": 2,
+    "text": "Configura mi presupuesto mensual de educación en 250 BOB."
+  },
+  {
+    "id": "budget_set_en",
+    "locale": "en",
+    "text": "Set my monthly education budget to 250 BOB."
+  },
+  {
+    "id": "budget_set_pt",
+    "locale": "pt",
+    "text": "Defina meu orçamento mensal de educação em 250 BOB."
   }
 ]

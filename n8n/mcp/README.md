@@ -1,10 +1,10 @@
-> **Market update (2026-11-02):** The existing messaging laboratory is now published. The new eighth MCP tool and revised market prompt are prepared in code, but are not yet published: deployment of `asset-market-mcp` requires CLI login. The current live server still has its original seven tools. See [market validation](../../docs/ai-market-mcp.md). Historical unpublished status below describes earlier testing.
+> **Current status (2026-11-02):** The messaging laboratory and MCP are published. Nine area tools are exposed, including household creation and monthly budgets with a database-enforced pyramid spending cap. Market is published separately; its backend authentication remains under review. Historical unpublished/staged notes below describe earlier rollout stages. See [budget behavior](../../docs/ai-budgets.md).
 
 # Family MCP — hackathon laboratory
 
 Saved in n8n:
 
-- [MCP server](https://dev-n8n.kplian.com/workflow/T10NektvCIWMoozy): eight area tools including read-only market data, authenticated with Bearer Auth.
+- [MCP server](https://dev-n8n.kplian.com/workflow/T10NektvCIWMoozy): nine area tools including monthly budgets and read-only market data, authenticated with Bearer Auth.
 - [Private health subworkflow](https://dev-n8n.kplian.com/workflow/rMiWu16s5hrsLEIs): callable only by the MCP workflow; generates, validates and saves meal plans.
 - [Messaging laboratory](https://dev-n8n.kplian.com/workflow/Mp1ACq1Zxypiktdg): one MCP Client Tool replaces all seven individual HTTP tools. WhatsApp/Telegram routing is unchanged.
 
@@ -43,7 +43,7 @@ Opening assets and investment/vault movements use their existing request UUID id
 
 ## Areas and boundaries
 
-Each tool takes `operation` and `payload` as strings. `payload` contains serialized JSON (`"{}"` for no fields), parsed before calling Supabase. This avoids n8n’s JSON-tool schema rejecting empty objects. The exact operation/payload catalog lives in `catalog.mjs`: household/member administration, estimated income, actual movements, investments, vaults, reports and health. No household creation, invitations, arbitrary SQL, accounting reversals, or standalone budget administration is exposed. Health requires explicit opt-in. Meal generation reuses the app's pure prompt/validation helpers and the existing Groq credential. The configured model (`qwen/qwen3.8-27b`) was verified by a real models query and JSON completion, using synthetic input only. Allergen conflicts block saves; an over-budget plan remains flagged by the saved plan's `within_budget` value. No automatic correction loop is included.
+Each tool takes `operation` and `payload` as strings. `payload` contains serialized JSON (`"{}"` for no fields), parsed before calling Supabase. This avoids n8n’s JSON-tool schema rejecting empty objects. The exact operation/payload catalog lives in `catalog.mjs`: household/member administration, estimated income, actual movements, investments, vaults, reports and health. household/create provisions an additional household for the authenticated administrator; monthly budgets are exposed through budgets/summary, budgets/categories and budgets/set; invitations, arbitrary SQL and accounting reversals remain unavailable. See `docs/ai-household-creation.md`. Health requires explicit opt-in. Meal generation reuses the app's pure prompt/validation helpers and the existing Groq credential. The configured model (`qwen/qwen3.8-27b`) was verified by a real models query and JSON completion, using synthetic input only. Allergen conflicts block saves; an over-budget plan remains flagged by the saved plan's `within_budget` value. No automatic correction loop is included.
 
 Market support is implemented through `supabase/functions/asset-market-mcp`, reusing the app's shared Twelve Data code. Only the trusted service-role credential is accepted; the handler resolves the active WhatsApp/Telegram identity before provider calls. The model can choose search/quote/fx/estimate_purchase and business arguments, never the transport identity, URL, secret or a write action. No database migration or asset/valuation write is performed by market lookup.
 
