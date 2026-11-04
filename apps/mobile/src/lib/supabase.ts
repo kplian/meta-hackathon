@@ -5,8 +5,14 @@ import 'react-native-url-polyfill/auto';
 
 export type { Database };
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+// Fallback public credentials for hosted cloud instance if not provided at build-time.
+// Public anon key is safe for web client exposure and protected by PostgreSQL RLS.
+const CLOUD_FALLBACK_URL = 'https://ywibmualqaipmygmrojz.supabase.co';
+const CLOUD_FALLBACK_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3aWJtdWFscWFpcG15Z21yb2p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MTEwOTMsImV4cCI6MjA5MTM4NzA5M30.DZrl3KT5Db6Iw0bs_UwzOb3qdot15THhinISrBbh86U';
+
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || CLOUD_FALLBACK_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || CLOUD_FALLBACK_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
