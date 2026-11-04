@@ -1,6 +1,10 @@
 # 🚀 Meta Hackathon: AI Family Budget Assistant
 
-Asistente inteligente de finanzas familiares impulsado por **Agentes de IA en n8n**, con base de datos en tiempo real en **Supabase** e interfaces conversacionales directas en **WhatsApp** y **Telegram**.
+Temporal URL for test:
+
+[ArkAI](https://test-arkai.kplian.com/)
+
+Asistente inteligente de finanzas familiares impulsado por **Agentes de IA en n8n**, con base de datos en tiempo real en **Supabase** e interfaces conversacionales directas en **WhatsApp**.
 
 ---
 
