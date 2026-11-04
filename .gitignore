@@ -45,3 +45,4 @@ web-build/
 *.orig.*
 tmp_images/
 .codex-attachments/
+~$*
