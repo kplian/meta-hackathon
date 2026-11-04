@@ -30,7 +30,7 @@
     "mobile:use-cloud": "node scripts/switch-env.js cloud",
     "mobile:start": "npm run start --workspace apps/mobile",
     "mobile:web": "npm run web --workspace apps/mobile",
-    "mobile:export:web": "npm run build:web --workspace apps/mobile",
+    "mobile:export:web": "npm run build:web --workspace apps/mobile && cp -r apps/mobile/dist ./dist",
     "mobile:android": "npm run android --workspace apps/mobile",
     "mobile:ios": "npm run ios --workspace apps/mobile",
     "mobile:typecheck": "npm run typecheck --workspace apps/mobile",
