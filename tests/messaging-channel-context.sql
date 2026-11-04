@@ -26,6 +26,7 @@ BEGIN
  PERFORM public.f_select_household_pyramid(home_b,'f8505c97-2cac-4184-ad23-72c9d5086e02','{"needs":50,"debts":15,"personal":15,"saving":20}');
  PERFORM set_config('request.jwt.claim.sub','',true);
  INSERT INTO budget.tchannel(user_id,channel_type,channel_code) VALUES(a,'whatsapp',code),(b,'telegram',code);
+ UPDATE budget.tchannel SET verified_at=now() WHERE user_id=a AND channel_type='whatsapp';
  r:=budget.f_messaging_context_lab('whatsapp',code);
  IF r->'user'->>'id' IS DISTINCT FROM a::text THEN RAISE EXCEPTION 'WhatsApp actor mismatch'; END IF;
  r:=budget.f_messaging_context_lab('telegram',code);

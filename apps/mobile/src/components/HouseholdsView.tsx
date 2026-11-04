@@ -1,3 +1,7 @@
+import WhatsAppCard from '../features/whatsapp/WhatsAppCard';
+import AddMemberForm from '../features/household-access/AddMemberForm';
+import MemberInvitationForm, { type MemberInvitation } from '../features/household-access/MemberInvitationForm';
+import MemberActionModal from '../features/household-access/MemberActionModal';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,6 +25,7 @@ import type {
 } from '../lib/budget-schema';
 
 interface HouseholdsViewProps {
+  activeHousehold?: HouseholdRow | null;
   currentUserId: string;
   onHouseholdsChanged?: () => void;
 }
@@ -31,9 +36,15 @@ const MEMBER_TYPE_OPTIONS = ['dad', 'mom', 'son', 'other'] as const;
 
 export default function HouseholdsView({
   currentUserId,
+  activeHousehold,
   onHouseholdsChanged,
 }: HouseholdsViewProps) {
   const { t } = useTranslation();
+  const { t: accessT } = useTranslation('householdAccess');
+  const [memberAccess, setMemberAccess] = useState<{ admin: boolean; members: { id: string; name: string; registered: boolean }[]; invitations: MemberInvitation[] } | null>(null);
+  const [invitingMember, setInvitingMember] = useState<HouseholdMemberRow | null>(null);
+  const [addingMember, setAddingMember] = useState(false);
+  const [myWhatsAppOpen, setMyWhatsAppOpen] = useState(false);
   const [households, setHouseholds] = useState<HouseholdRow[]>([]);
   const [businessTypes, setBusinessTypes] = useState<BusinessTypeRow[]>([]);
   const [auxiliars, setAuxiliars] = useState<AuxiliarRow[]>([]);
@@ -61,9 +72,10 @@ export default function HouseholdsView({
 
   // Members Sub-View state (budget.thousehold_member)
   const [selectedHouseholdForMembers, setSelectedHouseholdForMembers] =
-    useState<HouseholdRow | null>(null);
+    useState<HouseholdRow | null>(activeHousehold ?? null);
   const [members, setMembers] = useState<HouseholdMemberRow[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [membersError, setMembersError] = useState('');
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
 
   // Create / Edit Member modal state
@@ -107,11 +119,18 @@ export default function HouseholdsView({
   const loadHouseholdsData = async () => {
     setLoadingHouseholds(true);
     try {
+      const { data: ownMemberships, error: membershipError } = await supabase.schema('budget').from('thousehold_member').select('household_id').eq('user_id', currentUserId).eq('status', 'active').is('deleted_at', null);
+      if (membershipError) throw membershipError;
+      const householdIds = (ownMemberships ?? []).map(m => m.household_id);
+      const { data: scopedMembers, error: scopedError } = await supabase.schema('budget').from('thousehold_member').select('user_id').in('household_id', householdIds).is('deleted_at', null);
+      if (scopedError) throw scopedError;
+      const userIds = [...new Set((scopedMembers ?? []).map(m => m.user_id))];
       const [hhRes, bizRes, auxRes, usrRes, memRes] = await Promise.all([
         supabase
           .schema('budget')
           .from('thousehold')
           .select('*')
+          .in('id', householdIds)
           .is('deleted_at', null)
           .order('created_at', { ascending: false }),
         supabase
@@ -124,18 +143,21 @@ export default function HouseholdsView({
           .schema('budget')
           .from('tauxiliar')
           .select('*')
+          .in('household_id', householdIds)
           .is('deleted_at', null)
           .order('name', { ascending: true }),
         supabase
           .schema('budget')
           .from('tuser')
           .select('*')
+          .in('id', userIds)
           .is('deleted_at', null)
           .order('full_name', { ascending: true }),
         supabase
           .schema('budget')
           .from('thousehold_member')
           .select('id, household_id')
+          .in('household_id', householdIds)
           .is('deleted_at', null),
       ]);
 
@@ -159,8 +181,9 @@ export default function HouseholdsView({
   // Load active non-deleted members for a specific household
   const loadHouseholdMembers = async (householdId: string) => {
     setLoadingMembers(true);
+    setMembersError('');
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .schema('budget')
         .from('thousehold_member')
         .select('*')
@@ -168,12 +191,19 @@ export default function HouseholdsView({
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
+      if (error) throw error;
+      const access = await supabase.rpc('f_household_access', { p_household_id: householdId });
+      if (access.error) throw access.error;
+      setMemberAccess(access.data as unknown as NonNullable<typeof memberAccess>);
       const list = data ?? [];
       setMembers(list);
       setMemberCounts((prev) => ({
         ...prev,
         [householdId]: list.length,
       }));
+    } catch {
+      setMembersError(accessT('error'));
+      setMemberAccess(null);
     } finally {
       setLoadingMembers(false);
     }
@@ -362,17 +392,7 @@ export default function HouseholdsView({
   };
 
   // Open Create Member modal
-  const handleOpenCreateMember = () => {
-    setEditingMember(null);
-    setMemberUserId(users[0]?.id ?? '');
-    setMemberRole('member');
-    setMemberType('other');
-    setMemberAuxiliarId(null);
-    setMemberPreferencesText('{}');
-    setOpenMemberDropdown(null);
-    setMemberFormError(null);
-    setIsMemberModalOpen(true);
-  };
+  const handleOpenCreateMember = () => { setAddingMember(true); };
 
   // Open Edit Member modal
   const handleOpenEditMember = (mem: HouseholdMemberRow) => {
@@ -555,7 +575,7 @@ export default function HouseholdsView({
 
             <View className="rounded-full bg-[#E6F4EC] px-3 py-1">
               <Text className="text-[11px] font-extrabold text-pine">
-                budget.thousehold_member • {members.length}{' '}
+                {members.length}{' '}
                 {members.length === 1
                   ? t(HOUSEHOLDS_CONSTANTS.MEMBER_SINGULAR)
                   : t(HOUSEHOLDS_CONSTANTS.MEMBER_PLURAL)}
@@ -621,6 +641,8 @@ export default function HouseholdsView({
             </Pressable>
           </View>
 
+          {memberAccess?.admin ? <Pressable accessibilityRole="button" onPress={handleOpenCreateMember} className="mb-4 rounded-xl bg-pine p-3"><Text className="text-center font-bold text-white">{accessT('addMember')}</Text></Pressable> : null}
+          {membersError ? <Text accessibilityRole="alert" className="mb-3 text-red-700">{membersError}</Text> : null}
           {/* Members Cards List */}
           {loadingMembers ? (
             <View className="py-10 items-center">
@@ -642,7 +664,10 @@ export default function HouseholdsView({
             <View className="gap-2.5">
               {filteredMembers.map((mem) => {
                 const usr = userMap.get(mem.user_id);
-                const aux = mem.auxiliar_id ? auxiliarMap.get(mem.auxiliar_id) : undefined;
+                const accessMember = memberAccess?.members.find(member => member.id === mem.id);
+                const memberName = usr?.full_name || accessMember?.name || '';
+                const registered = accessMember?.registered === true;
+                const pendingInvitation = memberAccess?.invitations.some(invite => invite.member_id === mem.id) === true;
                 const isAdmin = mem.role === 'admin';
                 const roleBadgeStyle = isAdmin
                   ? 'bg-[#DFF5E8] text-[#0B3D2E]'
@@ -651,10 +676,10 @@ export default function HouseholdsView({
                 return (
                   <View
                     key={mem.id}
-                    className="flex-row items-center justify-between rounded-3xl bg-white px-4 py-3.5 shadow-sm border border-[#E7F1EC]"
+                    className="rounded-3xl bg-white px-4 py-3.5 shadow-sm border border-[#E7F1EC] md:flex-row md:items-center md:justify-between"
                   >
                     {/* Left Avatar + Member Info */}
-                    <View className="flex-row items-center flex-1 mr-2">
+                    <View className="flex-row items-center self-stretch md:flex-1 md:mr-2">
                       <View
                         className="h-12 w-12 items-center justify-center rounded-full"
                         style={{ backgroundColor: '#E6F4EC' }}
@@ -668,7 +693,7 @@ export default function HouseholdsView({
                             className="text-[15px] font-extrabold text-[#12211B]"
                             numberOfLines={1}
                           >
-                            {usr ? usr.full_name : mem.user_id}
+                            {memberName}
                           </Text>
 
                           <View className={`rounded-full px-2.5 py-0.5 ${roleBadgeStyle}`}>
@@ -679,38 +704,33 @@ export default function HouseholdsView({
 
                           <View className="rounded-full bg-[#FFF1E6] px-2.5 py-0.5">
                             <Text className="text-[10px] font-extrabold uppercase text-[#9A4B1A]">
-                              {mem.member_type}
+                              {accessT(mem.member_type || 'other')}
                             </Text>
                           </View>
 
-                          {aux ? (
-                            <View className="rounded-full bg-[#E8F4ED] px-2.5 py-0.5">
-                              <Text className="text-[10px] font-bold text-pine">
-                                Aux: {aux.code}
-                              </Text>
-                            </View>
-                          ) : null}
+
                         </View>
 
                         <View className="mt-1 flex-row items-center">
                           <View className="h-4 w-4 items-center justify-center rounded-full bg-[#D9EBE0]">
                             <Text className="text-[8px] font-extrabold text-pine">
-                              {((usr?.full_name ?? 'M')[0] ?? 'M').toUpperCase()}
+                              {(memberName[0] || 'M').toUpperCase()}
                             </Text>
                           </View>
                           <Text
                             className="ml-1.5 text-[12px] font-medium text-[#5A6D64] flex-1"
                             numberOfLines={1}
                           >
-                            {usr?.email_user ?? mem.user_id}
-                            {aux ? ` • ${aux.name}` : ''}
+                            {registered ? accessT('registered') : pendingInvitation ? accessT('pendingMember') : accessT('notRegistered')}
                           </Text>
                         </View>
+                        {mem.user_id === currentUserId ? <Pressable accessibilityRole="button" onPress={() => setMyWhatsAppOpen(true)} className="mt-2 self-start rounded-xl bg-[#E8F4ED] px-3 py-2"><Text className="text-sm font-semibold text-pine">{accessT('myWhatsApp')}</Text></Pressable> : null}
+                        {memberAccess?.admin && !registered ? <Pressable accessibilityRole="button" onPress={() => setInvitingMember(mem)} className="mt-2 self-start rounded-xl bg-pine px-3 py-2"><Text className="text-sm font-semibold text-white">{accessT(pendingInvitation ? 'manageInvite' : 'inviteAction')}</Text></Pressable> : null}
                       </View>
                     </View>
 
                     {/* Right Flat Action Icons: Edit & Delete */}
-                    <View className="flex-row items-center gap-1.5">
+                    {memberAccess?.admin ? <View className="mt-2 flex-row items-center self-end gap-1.5 md:mt-0 md:self-center">
                       <Pressable
                         onPress={() => handleOpenEditMember(mem)}
                         className="h-9 w-9 items-center justify-center rounded-full bg-[#F2F8F4] active:bg-[#DCECE3]"
@@ -729,7 +749,7 @@ export default function HouseholdsView({
                       >
                         <Feather name="trash-2" size={16} color="#C53030" />
                       </Pressable>
-                    </View>
+                    </View> : null}
                   </View>
                 );
               })}
@@ -737,14 +757,15 @@ export default function HouseholdsView({
           )}
         </ScrollView>
 
-        {/* Fixed Floating Action Button (+) for New Member */}
-        <Pressable
-          onPress={handleOpenCreateMember}
-          className="absolute bottom-5 right-5 h-16 w-16 items-center justify-center rounded-full bg-pine shadow-lg active:bg-pine-dark"
-          accessibilityLabel={t(HOUSEHOLDS_CONSTANTS.NEW_MEMBER_TITLE)}
-        >
-          <Ionicons name="add" size={32} color="#FFFFFF" />
-        </Pressable>
+        <MemberActionModal visible={addingMember} onClose={() => setAddingMember(false)}>
+          {addingMember ? <AddMemberForm householdId={selectedHouseholdForMembers.id} onCreated={async () => { await loadHouseholdsData(); await loadHouseholdMembers(selectedHouseholdForMembers.id); setAddingMember(false); onHouseholdsChanged?.(); }} /> : null}
+        </MemberActionModal>
+        <MemberActionModal visible={!!invitingMember} onClose={() => setInvitingMember(null)}>
+          {invitingMember ? <MemberInvitationForm key={invitingMember.id} householdId={selectedHouseholdForMembers.id} memberId={invitingMember.id} memberName={userMap.get(invitingMember.user_id)?.full_name ?? ''} invitations={memberAccess?.invitations.filter(invite => invite.member_id === invitingMember.id) ?? []} onChanged={async () => { await loadHouseholdMembers(selectedHouseholdForMembers.id); }} /> : null}
+        </MemberActionModal>
+        <MemberActionModal visible={myWhatsAppOpen} onClose={() => setMyWhatsAppOpen(false)}>
+          {myWhatsAppOpen ? <WhatsAppCard userId={currentUserId} householdCountry={selectedHouseholdForMembers.country_code} /> : null}
+        </MemberActionModal>
 
         {/* Create / Edit Member Modal */}
         <Modal

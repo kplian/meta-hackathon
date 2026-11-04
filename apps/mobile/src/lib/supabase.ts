@@ -23,6 +23,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
+    // Email and OAuth callbacks are handled centrally by useSession/completeAuthCallback.
     detectSessionInUrl: false,
   },
 });

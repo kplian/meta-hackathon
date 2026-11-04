@@ -605,14 +605,14 @@ isOneToOne: false
                   ]
                 },"tchannel": {
                   Row: {
-                    "channel_code": string,"channel_type": string | null,"config_json": string | null,"created_at": string,"created_by": string | null,"deleted_at": string | null,"deleted_by": string | null,"id": string,"status": string | null,"updated_at": string | null,"updated_by": string | null,"user_id": string | null
+                    "verified_at": string | null,"channel_code": string,"channel_type": string | null,"config_json": string | null,"created_at": string,"created_by": string | null,"deleted_at": string | null,"deleted_by": string | null,"id": string,"status": string | null,"updated_at": string | null,"updated_by": string | null,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "channel_code": string,"channel_type"?: string | null,"config_json"?: string | null,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"id"?: string,"status"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null
+                    "verified_at"?: string | null,"channel_code": string,"channel_type"?: string | null,"config_json"?: string | null,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"id"?: string,"status"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null
                   }
                   Update: {
-                    "channel_code"?: string,"channel_type"?: string | null,"config_json"?: string | null,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"id"?: string,"status"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null
+                    "verified_at"?: string | null,"channel_code"?: string,"channel_type"?: string | null,"config_json"?: string | null,"created_at"?: string,"created_by"?: string | null,"deleted_at"?: string | null,"deleted_by"?: string | null,"id"?: string,"status"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -1759,6 +1759,17 @@ isOneToOne: false
 "f_set_household_preference":
 { Args: { "p_household_id": string,"p_key": string,"p_value": Json }; Returns: Json
                            },
+"f_get_household_invitation_link": { Args: { p_invitation_id: string }; Returns: Json },
+"f_household_access": { Args: { p_household_id: string }; Returns: Json },
+"f_create_household_invitation": { Args: { p_household_id: string; p_email: string; p_member_id?: string; p_member_type?: string }; Returns: Json },
+"f_revoke_household_invitation": { Args: { p_invitation_id: string }; Returns: undefined },
+"f_my_household_invitations": { Args: Record<PropertyKey, never>; Returns: Json },
+"f_accept_household_invitation": { Args: { p_invitation_id: string }; Returns: string },
+"f_decline_household_invitation": { Args: { p_invitation_id: string }; Returns: undefined },
+"f_ensure_my_household": { Args: Record<PropertyKey, never>; Returns: string },
+"f_inspect_household_invitation": { Args: { p_token: string }; Returns: Json },
+"f_begin_whatsapp_verification": { Args: { p_phone: string; p_locale?: string }; Returns: Json },
+"f_my_whatsapp_verification": { Args: Record<PropertyKey, never>; Returns: Json },
 "f_set_my_whatsapp":
 { Args: { "p_phone": string }; Returns: undefined
                            },

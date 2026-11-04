@@ -24,7 +24,7 @@ BEGIN
  SELECT household_id,auxiliar_id INTO STRICT home,aux
  FROM budget.thousehold_member WHERE user_id=actor;
  SELECT auxiliar_id INTO STRICT foreign_aux FROM budget.thousehold_member WHERE user_id=outsider;
- INSERT INTO budget.tchannel(user_id,channel_type,channel_code) VALUES(actor,'whatsapp',channel);
+ INSERT INTO budget.tchannel(user_id,channel_type,channel_code,verified_at) VALUES(actor,'whatsapp',channel,now());
 
  PERFORM set_config('request.jwt.claim.sub','',true);
  PERFORM set_config('request.jwt.claims','{}',true);
