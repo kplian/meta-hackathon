@@ -38,6 +38,7 @@
     "android": "source .env 2>/dev/null; expo start --android --port ${PORT:-8090}",
     "ios": "source .env 2>/dev/null; expo start --ios --port ${PORT:-8090}",
     "web": "source .env 2>/dev/null; expo start --web --port ${PORT:-8090}",
+    "build:web": "expo export --platform web",
     "typecheck": "tsc --noEmit"
   },
   "private": true
