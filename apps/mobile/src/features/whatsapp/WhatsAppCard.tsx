@@ -3,10 +3,11 @@ import { detectCountry, supportedCountry, splitPhone, internationalPhone, type C
 import './i18n';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import VerificationQr from './VerificationQr';
-import { linkExpired, whatsappLink, type VerificationLink } from './verification';
+import { linkExpired, whatsappLink, getWhatsAppChatUrl, type VerificationLink } from './verification';
 
 interface Props { userId: string; householdCountry?: string | null; onboarding?: boolean; onContinue?: () => void }
 type Status = { phone?: string | null; verified?: boolean };
@@ -98,6 +99,13 @@ export default function WhatsAppCard({ userId, householdCountry, onboarding = fa
   return <View className="rounded-2xl bg-white p-5 gap-3">
     <Text className="text-lg font-bold text-pine">{t(onboarding ? 'question' : 'title')}</Text>
     {onboarding ? <Text className="text-sm text-sage">{t('help')}</Text> : null}
+    {!verified && !onboarding ? (
+      <View className="rounded-xl bg-[#F4FAF6] border border-[#D3E8DC] p-3">
+        <Text className="text-xs text-[#355245] leading-relaxed">
+          {t('chatPromptUnverified')}
+        </Text>
+      </View>
+    ) : null}
     {loading || loadedUser !== userId ? <ActivityIndicator color="#0B3D2E" /> : editing ? <>
       <Text className="font-semibold text-pine">{t('label')}</Text>
       <View className="flex-row items-start gap-2">
@@ -109,9 +117,41 @@ export default function WhatsAppCard({ userId, householdCountry, onboarding = fa
         </View>
       </View>
       <Text className="text-sm text-sage">{t('hint')}</Text>
-      {verified ? <View className="rounded-xl bg-[#EAF5EF] p-4 gap-2">
-        <Text accessibilityRole="alert" className="font-bold text-pine">{t('verified')}</Text>
+      {verified ? <View className="rounded-xl bg-[#EAF5EF] p-4 gap-3">
+        <View className="flex-row items-center gap-2">
+          <Ionicons name="checkmark-circle" size={20} color="#0B3D2E" />
+          <Text accessibilityRole="alert" className="font-bold text-pine">{t('verified')}</Text>
+        </View>
         <Text className="text-sm text-pine">{t('verifiedHelp')}</Text>
+
+        {/* Direct WhatsApp Chat Action Banner */}
+        <View className="mt-2 rounded-xl bg-white border border-[#C6DFD1] p-4 gap-3">
+          <View className="flex-row items-center gap-2">
+            <View className="h-8 w-8 rounded-full bg-[#25D366] items-center justify-center">
+              <Ionicons name="logo-whatsapp" size={18} color="#FFFFFF" />
+            </View>
+            <Text className="font-bold text-pine text-sm flex-1">
+              {t('chatPromptTitle')}
+            </Text>
+          </View>
+          <Text className="text-xs text-[#355245] leading-relaxed">
+            {t('chatPrompt')}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              const url = getWhatsAppChatUrl(t('chatGreeting'), undefined, desktop);
+              void Linking.openURL(url);
+            }}
+            className="rounded-xl bg-[#25D366] active:opacity-90 p-3 flex-row items-center justify-center gap-2"
+          >
+            <Ionicons name="logo-whatsapp" size={18} color="#FFFFFF" />
+            <Text className="font-bold text-white text-sm">
+              {t('openChat')}
+            </Text>
+          </Pressable>
+        </View>
+
         {onboarding ? <Pressable accessibilityRole="button" onPress={onContinue} className="rounded-xl bg-pine p-3"><Text className="text-center font-bold text-white">{t('continue')}</Text></Pressable> : null}
       </View> : pending && !expired ? <View className="rounded-xl border border-[#D3E8DC] bg-[#F4FAF6] p-4 gap-3">
         <Text className="font-bold text-pine">{t('instructionsTitle')}</Text>

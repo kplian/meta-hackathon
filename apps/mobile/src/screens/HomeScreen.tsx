@@ -1,9 +1,11 @@
 import WhatsAppCard from '../features/whatsapp/WhatsAppCard';
+import { getWhatsAppChatUrl } from '../features/whatsapp/verification';
 import InvestmentsScreen from '../features/investments/InvestmentsScreen';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   Text,
@@ -237,6 +239,16 @@ export default function HomeScreen({ session, preferredHouseholdId }: { session:
     }
   };
 
+  const handleOpenWhatsApp = () => {
+    const greeting = currentLang === 'es'
+      ? 'Hola ArkAI, quiero consultar mi presupuesto'
+      : currentLang === 'pt'
+        ? 'Olá ArkAI, quero consultar meu orçamento'
+        : 'Hello ArkAI, I would like to check my budget';
+    const url = getWhatsAppChatUrl(greeting);
+    void Linking.openURL(url);
+  };
+
   const handleSwitchHousehold = () => {
     if (households.length > 1) {
       setActiveHouseholdIndex((prev) => (prev + 1) % households.length);
@@ -315,6 +327,17 @@ export default function HomeScreen({ session, preferredHouseholdId }: { session:
           {activeView !== 'investments' || isPermanentDesktop ? <Text numberOfLines={1} className="mr-3 max-w-[340px] text-[14px] font-semibold text-[#263C33]">
             {t(currentMeta.titleKey)}
           </Text> : null}
+
+          {/* Quick WhatsApp Bot Chat Button */}
+          <Pressable
+            onPress={handleOpenWhatsApp}
+            className="mr-2.5 h-9 w-9 items-center justify-center rounded-full bg-[#25D366] active:opacity-85 shadow-xs"
+            accessibilityLabel="Chat with ArkAI on WhatsApp"
+            accessibilityRole="button"
+          >
+            <Ionicons name="logo-whatsapp" size={19} color="#FFFFFF" />
+          </Pressable>
+
           <Pressable
             onPress={() => handleSelectView('profile')}
             className="h-9 w-9 items-center justify-center rounded-full bg-pine active:opacity-85"
