@@ -38,11 +38,13 @@
     "market:deploy": "node scripts/deploy-asset-market.mjs",
     "market:mcp:deploy": "node scripts/deploy-asset-market.mjs --mcp",
     "audio:deploy": "node scripts/deploy-audio-transcribe.mjs",
+    "journal:deploy": "node scripts/deploy-journal-ai.mjs",
     "test:market": "node --experimental-strip-types --test tests/asset-market.test.mjs tests/asset-refresh.test.mjs tests/asset-quotes.test.mjs",
     "assets:refresh": "node scripts/refresh-asset-valuations.mjs",
     "test:pyramid": "node --experimental-strip-types --test tests/pyramid-calculations.test.mjs",
     "test:health": "node --experimental-strip-types --test tests/meal-plan.test.mjs",
-    "test:audio": "node --experimental-strip-types --test tests/audio-transcribe.test.mjs"
+    "test:audio": "node --experimental-strip-types --test tests/audio-transcribe.test.mjs",
+    "test:journal": "node --experimental-strip-types --test tests/journal-ai.test.mjs"
   },
   "keywords": [
     "supabase",

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -267,19 +269,44 @@ export default function JournalView({
 
   // Speed Dial and Attach modal states
   const [isSpeedDialOpen, setIsSpeedDialOpen] = useState(false);
+
+  // Text AI state
+  const [isTextAiModalOpen, setIsTextAiModalOpen] = useState(false);
+  const [textAiInput, setTextAiInput] = useState('');
+  const [isAnalyzingText, setIsAnalyzingText] = useState(false);
+  const [textAiError, setTextAiError] = useState<string | null>(null);
+
+  // Photo AI state
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [photoImagePreview, setPhotoImagePreview] = useState<string | null>(null);
+  const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [photoConcept, setPhotoConcept] = useState('Supermercado Líder');
   const [photoAmount, setPhotoAmount] = useState('145.50');
   const [photoCategory, setPhotoCategory] = useState('');
+  const [photoType, setPhotoType] = useState<'expense' | 'income'>('expense');
+  const [photoItems, setPhotoItems] = useState<Array<{ concept: string; amount: string; category?: string }>>([]);
 
+  // Audio AI state
   const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [isAnalyzingAudio, setIsAnalyzingAudio] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const [audioSeconds, setAudioSeconds] = useState(0);
   const [audioTranscript, setAudioTranscript] = useState('Almuerzo de trabajo con cliente por 45');
   const [audioConcept, setAudioConcept] = useState('Almuerzo de trabajo');
   const [audioAmount, setAudioAmount] = useState('45.00');
+  const [audioCategory, setAudioCategory] = useState('');
+  const [audioType, setAudioType] = useState<'expense' | 'income'>('expense');
+  const [audioItems, setAudioItems] = useState<Array<{ concept: string; amount: string; category?: string }>>([]);
 
-  // Audio recording timer simulation
+  // Live audio recording references
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const scriptNodeRef = useRef<ScriptProcessorNode | null>(null);
+  const audioChunksRef = useRef<Float32Array[]>([]);
+
+  // Audio recording timer
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
     if (isRecordingAudio) {
@@ -568,6 +595,7 @@ export default function JournalView({
     category?: string;
     externalReference?: string;
     type?: 'expense' | 'income';
+    items?: Array<{ concept: string; amount: string; category?: string }>;
   }) => {
     setFormError(null);
     setFormSuccess(null);
@@ -581,14 +609,25 @@ export default function JournalView({
       budgetTypes[0]?.category_key ||
       budgetTypes[0]?.id ||
       '';
-    setItems([
-      {
-        id: `draft-${Date.now()}`,
-        concept: params.concept,
-        amount: params.amount,
-        category: defaultCat,
-      },
-    ]);
+    if (params.items && params.items.length > 0) {
+      setItems(
+        params.items.map((it, idx) => ({
+          id: `draft-${Date.now()}-${idx}`,
+          concept: it.concept || params.concept,
+          amount: it.amount || params.amount,
+          category: it.category || defaultCat,
+        }))
+      );
+    } else {
+      setItems([
+        {
+          id: `draft-${Date.now()}`,
+          concept: params.concept,
+          amount: params.amount,
+          category: defaultCat,
+        },
+      ]);
+    }
     setIsModalOpen(true);
   };
 
@@ -607,35 +646,318 @@ export default function JournalView({
 
   const handleSelectText = () => {
     setIsSpeedDialOpen(false);
-    handleOpenCreateModal();
+    setTextAiError(null);
+    setIsTextAiModalOpen(true);
+  };
+
+  const handleAnalyzeText = async () => {
+    if (!textAiInput.trim()) {
+      setTextAiError('Por favor escribe el detalle de la transacción.');
+      return;
+    }
+    setIsAnalyzingText(true);
+    setTextAiError(null);
+    try {
+      const { data: res, error: fnErr } = await supabase.functions.invoke('journal-ai', {
+        body: {
+          type: 'text',
+          text: textAiInput.trim(),
+          currency: activeHousehold?.currency || 'BOB',
+          categories: budgetTypes.map((b) => ({
+            key: b.category_key || b.id,
+            name: b.name,
+            description: b.description || '',
+          })),
+        },
+      });
+
+      if (fnErr || !res?.success) {
+        setTextAiError(res?.message || fnErr?.message || 'Error al interpretar con IA');
+      } else {
+        setIsTextAiModalOpen(false);
+        handleOpenWithDraft({
+          concept: res.data.concept,
+          amount: res.data.amount,
+          category: res.data.category,
+          type: res.data.type,
+          externalReference: 'IA (Texto Meta)',
+          items: res.data.items,
+        });
+      }
+    } catch (err: any) {
+      setTextAiError(err?.message || 'Error inesperado al conectar con IA');
+    } finally {
+      setIsAnalyzingText(false);
+    }
   };
 
   const handleSelectPhoto = () => {
     setIsSpeedDialOpen(false);
+    setPhotoError(null);
     setIsPhotoModalOpen(true);
   };
 
-  const handleSelectAudio = () => {
-    setIsSpeedDialOpen(false);
-    setIsAudioModalOpen(true);
+  const handleChoosePhoto = () => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      let input = document.getElementById('journal-receipt-file-input') as HTMLInputElement;
+      if (!input) {
+        input = document.createElement('input');
+        input.id = 'journal-receipt-file-input';
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.style.display = 'none';
+        document.body.appendChild(input);
+      }
+      input.onchange = (e: any) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            setPhotoImagePreview(result);
+            setPhotoError(null);
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      input.click();
+    }
+  };
+
+  const handleAnalyzePhoto = async () => {
+    if (!photoImagePreview) {
+      setPhotoError('Por favor selecciona o sube una imagen primero.');
+      return;
+    }
+    setIsAnalyzingPhoto(true);
+    setPhotoError(null);
+    try {
+      const { data: res, error: fnErr } = await supabase.functions.invoke('journal-ai', {
+        body: {
+          type: 'photo',
+          image: photoImagePreview,
+          currency: activeHousehold?.currency || 'BOB',
+          categories: budgetTypes.map((b) => ({
+            key: b.category_key || b.id,
+            name: b.name,
+            description: b.description || '',
+          })),
+        },
+      });
+
+      if (fnErr || !res?.success) {
+        setPhotoError(res?.message || fnErr?.message || 'Error al analizar comprobante con IA');
+      } else {
+        if (res.data.concept) setPhotoConcept(res.data.concept);
+        if (res.data.amount) setPhotoAmount(res.data.amount);
+        if (res.data.category) setPhotoCategory(res.data.category);
+        if (res.data.type) setPhotoType(res.data.type);
+        if (res.data.items) setPhotoItems(res.data.items);
+      }
+    } catch (err: any) {
+      console.error('Photo analysis error:', err);
+      setPhotoError(err?.message || 'Error al conectar con IA');
+    } finally {
+      setIsAnalyzingPhoto(false);
+    }
   };
 
   const handleApplyPhoto = () => {
     setIsPhotoModalOpen(false);
     handleOpenWithDraft({
       concept: photoConcept.trim() || 'Comprobante escaneado',
-      amount: photoAmount.trim() || '0',
+      amount: photoAmount.trim() || '0.00',
       category: photoCategory,
-      externalReference: 'Foto / Comprobante',
+      type: photoType,
+      externalReference: 'IA (Foto Meta Vision)',
+      items: photoItems.length > 0 ? photoItems : undefined,
     });
+  };
+
+  const handleSelectAudio = () => {
+    setIsSpeedDialOpen(false);
+    setAudioError(null);
+    setIsAudioModalOpen(true);
+  };
+
+  // Live Audio Recording: Start
+  const startLiveAudio = async () => {
+    try {
+      setAudioError(null);
+      audioChunksRef.current = [];
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        setAudioError('Micrófono no soportado en este entorno');
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
+
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContextClass({ sampleRate: 16000 });
+      audioCtxRef.current = ctx;
+
+      const source = ctx.createMediaStreamSource(stream);
+      const processor = ctx.createScriptProcessor(4096, 1, 1);
+      scriptNodeRef.current = processor;
+
+      processor.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        audioChunksRef.current.push(new Float32Array(input));
+      };
+
+      source.connect(processor);
+      processor.connect(ctx.destination);
+      setIsRecordingAudio(true);
+    } catch (err: any) {
+      console.error('Audio start error:', err);
+      setAudioError(err?.message || 'No se pudo acceder al micrófono');
+    }
+  };
+
+  // Live Audio Recording: Stop and Send to Edge Function
+  const stopLiveAudio = async () => {
+    setIsRecordingAudio(false);
+    try {
+      if (scriptNodeRef.current) {
+        scriptNodeRef.current.disconnect();
+        scriptNodeRef.current = null;
+      }
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach((t) => t.stop());
+        audioStreamRef.current = null;
+      }
+      if (audioCtxRef.current) {
+        await audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current = null;
+      }
+
+      const chunks = audioChunksRef.current;
+      if (!chunks.length) return;
+
+      const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
+      const merged = new Float32Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      // Encode 16-bit 16kHz mono WAV
+      const numSamples = merged.length;
+      const wavBuffer = new ArrayBuffer(44 + numSamples * 2);
+      const view = new DataView(wavBuffer);
+
+      view.setUint8(0, 0x52); view.setUint8(1, 0x49); view.setUint8(2, 0x46); view.setUint8(3, 0x46); // RIFF
+      view.setUint32(4, 36 + numSamples * 2, true);
+      view.setUint8(8, 0x57); view.setUint8(9, 0x41); view.setUint8(10, 0x56); view.setUint8(11, 0x45); // WAVE
+      view.setUint8(12, 0x66); view.setUint8(13, 0x6d); view.setUint8(14, 0x74); view.setUint8(15, 0x20); // fmt
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true); // PCM
+      view.setUint16(22, 1, true); // Mono
+      view.setUint32(24, 16000, true); // 16kHz
+      view.setUint32(28, 32000, true); // Byte rate
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      view.setUint8(36, 0x64); view.setUint8(37, 0x61); view.setUint8(38, 0x74); view.setUint8(39, 0x61); // data
+      view.setUint32(40, numSamples * 2, true);
+
+      let byteOffset = 44;
+      for (let i = 0; i < numSamples; i++, byteOffset += 2) {
+        const s = Math.max(-1, Math.min(1, merged[i]));
+        view.setInt16(byteOffset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      }
+
+      const wavBytes = new Uint8Array(wavBuffer);
+      let binary = '';
+      const len = wavBytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(wavBytes[i]);
+      }
+      const b64 = btoa(binary);
+
+      setIsAnalyzingAudio(true);
+      setAudioError(null);
+      const { data: res, error: fnErr } = await supabase.functions.invoke('journal-ai', {
+        body: {
+          type: 'audio',
+          audio: b64,
+          currency: activeHousehold?.currency || 'BOB',
+          categories: budgetTypes.map((b) => ({
+            key: b.category_key || b.id,
+            name: b.name,
+            description: b.description || '',
+          })),
+        },
+      });
+
+      if (fnErr || !res?.success) {
+        setAudioError(res?.message || fnErr?.message || 'Error al procesar audio con IA');
+      } else {
+        if (res.data.transcript) setAudioTranscript(res.data.transcript);
+        if (res.data.concept) setAudioConcept(res.data.concept);
+        if (res.data.amount) setAudioAmount(res.data.amount);
+        if (res.data.category) setAudioCategory(res.data.category);
+        if (res.data.type) setAudioType(res.data.type);
+        if (res.data.items) setAudioItems(res.data.items);
+      }
+    } catch (err: any) {
+      console.error('Audio processing error:', err);
+      setAudioError(err?.message || 'Error al procesar el audio');
+    } finally {
+      setIsAnalyzingAudio(false);
+    }
+  };
+
+  const handleToggleAudioRecording = () => {
+    if (isRecordingAudio) {
+      void stopLiveAudio();
+    } else {
+      void startLiveAudio();
+    }
+  };
+
+  const handleAnalyzeAudioTranscript = async () => {
+    if (!audioTranscript.trim()) return;
+    setIsAnalyzingAudio(true);
+    setAudioError(null);
+    try {
+      const { data: res, error: fnErr } = await supabase.functions.invoke('journal-ai', {
+        body: {
+          type: 'text',
+          text: audioTranscript.trim(),
+          currency: activeHousehold?.currency || 'BOB',
+          categories: budgetTypes.map((b) => ({
+            key: b.category_key || b.id,
+            name: b.name,
+            description: b.description || '',
+          })),
+        },
+      });
+      if (fnErr || !res?.success) {
+        setAudioError(res?.message || fnErr?.message || 'Error al interpretar transcripción');
+      } else {
+        if (res.data.concept) setAudioConcept(res.data.concept);
+        if (res.data.amount) setAudioAmount(res.data.amount);
+        if (res.data.category) setAudioCategory(res.data.category);
+        if (res.data.type) setAudioType(res.data.type);
+        if (res.data.items) setAudioItems(res.data.items);
+      }
+    } catch (err: any) {
+      setAudioError(err?.message || 'Error al conectar con IA');
+    } finally {
+      setIsAnalyzingAudio(false);
+    }
   };
 
   const handleApplyAudio = () => {
     setIsAudioModalOpen(false);
     handleOpenWithDraft({
       concept: audioConcept.trim() || 'Nota de voz',
-      amount: audioAmount.trim() || '0',
-      externalReference: 'Nota de Audio',
+      amount: audioAmount.trim() || '0.00',
+      category: audioCategory,
+      type: audioType,
+      externalReference: 'IA (Voz Meta Muse)',
+      items: audioItems.length > 0 ? audioItems : undefined,
     });
   };
 
@@ -1518,6 +1840,142 @@ export default function JournalView({
         </View>
       </Modal>
 
+      {/* AI Text Input Modal */}
+      <Modal
+        visible={isTextAiModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsTextAiModalOpen(false)}
+      >
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="max-h-[90%] rounded-t-3xl bg-[#F4FAF6] pt-4 pb-6 px-5">
+            {/* Header */}
+            <View className="flex-row items-center justify-between pb-3 border-b border-[#DCEBE2]">
+              <View className="flex-row items-center">
+                <View className="h-10 w-10 rounded-full bg-[#134E39] items-center justify-center mr-3 shadow-sm">
+                  <Ionicons name="document-text-outline" size={22} color="#FFFFFF" />
+                </View>
+                <View>
+                  <Text className="text-lg font-extrabold text-pine">
+                    Registrar con Texto (IA)
+                  </Text>
+                  <Text className="text-[11px] text-sage">
+                    Escribe tu movimiento y Meta LLaMA lo interpretará
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => setIsTextAiModalOpen(false)}
+                className="h-9 w-9 items-center justify-center rounded-full bg-[#E3F1E9]"
+              >
+                <Ionicons name="close" size={20} color="#0B3D2E" />
+              </Pressable>
+            </View>
+
+            <ScrollView className="mt-3" showsVerticalScrollIndicator={false} contentContainerClassName="gap-3.5 pb-4">
+              {/* Error banner if any */}
+              {textAiError && (
+                <View className="rounded-xl bg-red-50 p-3 border border-red-200 flex-row items-center">
+                  <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
+                  <Text className="ml-2 text-xs font-semibold text-red-700 flex-1">
+                    {textAiError}
+                  </Text>
+                </View>
+              )}
+
+              {/* Textarea Input */}
+              <View className="rounded-2xl bg-white p-4 border border-[#E2EFE8]">
+                <Text className="text-xs font-bold text-pine uppercase tracking-wider mb-2">
+                  Detalle del movimiento
+                </Text>
+                <TextInput
+                  value={textAiInput}
+                  onChangeText={setTextAiInput}
+                  multiline
+                  numberOfLines={4}
+                  placeholder="Ej: Pagué 120 Bs en el supermercado por frutas, leche y pan para la semana"
+                  placeholderTextColor="#9AA5A1"
+                  className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] p-3 text-xs text-pine min-h-[90px]"
+                  textAlignVertical="top"
+                />
+              </View>
+
+              {/* Quick Prompt Presets */}
+              <View className="rounded-2xl bg-white p-4 border border-[#E2EFE8]">
+                <Text className="text-xs font-bold text-pine uppercase tracking-wider mb-2">
+                  Ejemplos rápidos
+                </Text>
+                <View className="gap-2">
+                  <Pressable
+                    onPress={() => setTextAiInput('Almorcé con un cliente en El Fogón por 65 Bs y pagué en efectivo')}
+                    className="rounded-xl p-3 border border-[#DCEBE2] bg-[#F9FCFA] active:bg-[#E6F4EC] flex-row items-center justify-between"
+                  >
+                    <View className="flex-row items-center flex-1 mr-2">
+                      <Ionicons name="restaurant-outline" size={18} color="#0B3D2E" />
+                      <Text className="ml-2 text-xs font-medium text-pine">
+                        Almuerzo en El Fogón por 65 Bs
+                      </Text>
+                    </View>
+                    <Text className="text-xs font-bold text-[#0B5D3B]">65.00</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setTextAiInput('Compré 145.50 Bs en Supermercado Líder: 45.50 en lácteos y 100 en carne')}
+                    className="rounded-xl p-3 border border-[#DCEBE2] bg-[#F9FCFA] active:bg-[#E6F4EC] flex-row items-center justify-between"
+                  >
+                    <View className="flex-row items-center flex-1 mr-2">
+                      <Ionicons name="cart-outline" size={18} color="#0B3D2E" />
+                      <Text className="ml-2 text-xs font-medium text-pine">
+                        Supermercado Líder por 145.50 Bs
+                      </Text>
+                    </View>
+                    <Text className="text-xs font-bold text-[#0B5D3B]">145.50</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setTextAiInput('Carga de 120 Bs de combustible para el auto en estación YPFB')}
+                    className="rounded-xl p-3 border border-[#DCEBE2] bg-[#F9FCFA] active:bg-[#E6F4EC] flex-row items-center justify-between"
+                  >
+                    <View className="flex-row items-center flex-1 mr-2">
+                      <Ionicons name="car-outline" size={18} color="#0B3D2E" />
+                      <Text className="ml-2 text-xs font-medium text-pine">
+                        Combustible para el auto por 120 Bs
+                      </Text>
+                    </View>
+                    <Text className="text-xs font-bold text-[#0B5D3B]">120.00</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Submit Button */}
+              <Pressable
+                onPress={handleAnalyzeText}
+                disabled={isAnalyzingText}
+                className={`flex-row items-center justify-center rounded-2xl py-4 shadow-sm ${
+                  isAnalyzingText ? 'bg-pine/70' : 'bg-pine active:bg-pine-dark'
+                }`}
+              >
+                {isAnalyzingText ? (
+                  <>
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <Text className="ml-2 text-base font-extrabold text-white">
+                      Interpretando con Meta LLaMA...
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="sparkles-outline" size={20} color="#FFFFFF" />
+                    <Text className="ml-2 text-base font-extrabold text-white">
+                      Interpretar con IA Meta
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* Photo / Receipt Scanner Modal */}
       <Modal
         visible={isPhotoModalOpen}
@@ -1551,7 +2009,73 @@ export default function JournalView({
             </View>
 
             <ScrollView className="mt-3" showsVerticalScrollIndicator={false} contentContainerClassName="gap-3.5 pb-4">
-              {/* Receipt Preview & Quick presets */}
+              {/* Error banner if any */}
+              {photoError && (
+                <View className="rounded-xl bg-red-50 p-3 border border-red-200 flex-row items-center">
+                  <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
+                  <Text className="ml-2 text-xs font-semibold text-red-700 flex-1">
+                    {photoError}
+                  </Text>
+                </View>
+              )}
+
+              {/* Scanned Receipt Upload / Preview Box */}
+              <Pressable
+                onPress={handleChoosePhoto}
+                className="rounded-2xl bg-white p-4 border border-dashed border-pine items-center justify-center py-5 active:bg-[#F9FCFA]"
+              >
+                {photoImagePreview ? (
+                  <View className="w-full items-center">
+                    <Image
+                      source={{ uri: photoImagePreview }}
+                      style={{ width: '100%', height: 160, borderRadius: 12 }}
+                      resizeMode="contain"
+                    />
+                    <Text className="mt-2 text-xs font-bold text-pine underline">
+                      Cambiar comprobante
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <View className="h-14 w-14 rounded-full bg-[#E6F4EC] items-center justify-center mb-2">
+                      <Ionicons name="cloud-upload-outline" size={28} color="#0B3D2E" />
+                    </View>
+                    <Text className="text-sm font-bold text-pine">Subir comprobante o factura</Text>
+                    <Text className="text-xs text-[#5A6D64] text-center mt-1">
+                      Toca aquí para seleccionar una imagen desde tu dispositivo
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+
+              {/* Analyze Photo with Meta Vision Button */}
+              {photoImagePreview && (
+                <Pressable
+                  onPress={handleAnalyzePhoto}
+                  disabled={isAnalyzingPhoto}
+                  className={`flex-row items-center justify-center rounded-2xl py-3.5 shadow-sm ${
+                    isAnalyzingPhoto ? 'bg-[#0B5D3B]/70' : 'bg-[#0B5D3B] active:bg-pine'
+                  }`}
+                >
+                  {isAnalyzingPhoto ? (
+                    <>
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                      <Text className="ml-2 text-sm font-extrabold text-white">
+                        Analizando comprobante con Meta Vision...
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="scan-outline" size={18} color="#FFFFFF" />
+                      <Text className="ml-2 text-sm font-extrabold text-white">
+                        Analizar con IA (Meta Vision)
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+              )}
+
+              {/* Receipt Presets */}
               <View className="rounded-2xl bg-white p-4 border border-[#E2EFE8]">
                 <Text className="text-xs font-bold text-pine uppercase tracking-wider mb-2">
                   Presets de comprobante / recibo
@@ -1562,6 +2086,10 @@ export default function JournalView({
                       setPhotoConcept('Supermercado Líder');
                       setPhotoAmount('145.50');
                       if (budgetTypes.length > 0) setPhotoCategory(budgetTypes[0].category_key || budgetTypes[0].id);
+                      setPhotoItems([
+                        { concept: 'Lácteos y quesos', amount: '45.50', category: budgetTypes[0]?.category_key || budgetTypes[0]?.id },
+                        { concept: 'Carnes y verduras', amount: '100.00', category: budgetTypes[0]?.category_key || budgetTypes[0]?.id },
+                      ]);
                     }}
                     className={`flex-1 rounded-xl p-3 border ${
                       photoConcept.includes('Super')
@@ -1580,7 +2108,11 @@ export default function JournalView({
                     onPress={() => {
                       setPhotoConcept('Farmacia San Rafael');
                       setPhotoAmount('68.00');
-                      if (budgetTypes.length > 1) setPhotoCategory(budgetTypes[1].category_key || budgetTypes[1].id);
+                      const pharmaCat = budgetTypes.find(b => b.category_key?.includes('pharm') || b.name?.toLowerCase().includes('farm') || b.name?.toLowerCase().includes('salud'));
+                      if (pharmaCat) setPhotoCategory(pharmaCat.category_key || pharmaCat.id);
+                      setPhotoItems([
+                        { concept: 'Medicamentos y analgésicos', amount: '68.00', category: pharmaCat?.category_key || pharmaCat?.id },
+                      ]);
                     }}
                     className={`flex-1 rounded-xl p-3 border ${
                       photoConcept.includes('Farmacia')
@@ -1597,18 +2129,7 @@ export default function JournalView({
                 </View>
               </View>
 
-              {/* Scanned Receipt Simulation Box */}
-              <View className="rounded-2xl bg-white p-4 border border-dashed border-pine items-center justify-center py-5">
-                <View className="h-14 w-14 rounded-full bg-[#E6F4EC] items-center justify-center mb-2">
-                  <Ionicons name="scan-outline" size={28} color="#0B3D2E" />
-                </View>
-                <Text className="text-sm font-bold text-pine">Comprobante detectado</Text>
-                <Text className="text-xs text-[#5A6D64] text-center mt-1">
-                  Datos extraídos automáticamente del voucher
-                </Text>
-              </View>
-
-              {/* Editable Scanned Form */}
+              {/* Extracted Scanned Form */}
               <View className="rounded-2xl bg-white p-4 border border-[#E2EFE8] gap-3">
                 <View>
                   <Text className="text-[11px] font-bold text-sage mb-1">
@@ -1623,19 +2144,45 @@ export default function JournalView({
                   />
                 </View>
 
-                <View>
-                  <Text className="text-[11px] font-bold text-sage mb-1">
-                    {t(JOURNAL_CONSTANTS.PHOTO_DETECTED_AMOUNT)}
-                  </Text>
-                  <TextInput
-                    value={photoAmount}
-                    onChangeText={setPhotoAmount}
-                    keyboardType="numeric"
-                    placeholder="0.00"
-                    placeholderTextColor="#9AA5A1"
-                    className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2.5 text-xs text-pine font-bold"
-                  />
+                <View className="flex-row gap-2">
+                  <View className="flex-1">
+                    <Text className="text-[11px] font-bold text-sage mb-1">
+                      {t(JOURNAL_CONSTANTS.PHOTO_DETECTED_AMOUNT)}
+                    </Text>
+                    <TextInput
+                      value={photoAmount}
+                      onChangeText={setPhotoAmount}
+                      keyboardType="numeric"
+                      placeholder="0.00"
+                      placeholderTextColor="#9AA5A1"
+                      className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2.5 text-xs text-pine font-bold"
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-[11px] font-bold text-sage mb-1">
+                      Categoría
+                    </Text>
+                    <View className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3 py-2.5 justify-center">
+                      <Text className="text-xs font-semibold text-pine" numberOfLines={1}>
+                        {budgetTypes.find(b => (b.category_key || b.id) === photoCategory)?.name || photoCategory || 'General'}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
+
+                {photoItems.length > 0 && (
+                  <View className="mt-1">
+                    <Text className="text-[11px] font-bold text-sage mb-1.5">
+                      Ítems desglosados ({photoItems.length})
+                    </Text>
+                    {photoItems.map((it, idx) => (
+                      <View key={idx} className="flex-row justify-between py-1 border-b border-[#F0F8F3]">
+                        <Text className="text-xs text-pine font-medium flex-1 mr-2">{it.concept}</Text>
+                        <Text className="text-xs font-bold text-[#0B5D3B]">{activeHousehold?.currency ?? 'BOB'} {it.amount}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
 
               {/* Apply Action */}
@@ -1686,6 +2233,16 @@ export default function JournalView({
             </View>
 
             <ScrollView className="mt-3" showsVerticalScrollIndicator={false} contentContainerClassName="gap-3.5 pb-4">
+              {/* Error banner if any */}
+              {audioError && (
+                <View className="rounded-xl bg-red-50 p-3 border border-red-200 flex-row items-center">
+                  <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
+                  <Text className="ml-2 text-xs font-semibold text-red-700 flex-1">
+                    {audioError}
+                  </Text>
+                </View>
+              )}
+
               {/* Voice Recording Center Card */}
               <View className="rounded-2xl bg-white p-5 border border-[#E2EFE8] items-center justify-center">
                 {/* Waveform indicator */}
@@ -1697,7 +2254,7 @@ export default function JournalView({
                         height: isRecordingAudio ? Math.max(8, h * (audioSeconds % 2 === 0 ? 1 : 0.6)) : 8,
                         width: 4,
                         borderRadius: 2,
-                        backgroundColor: isRecordingAudio ? '#0B3D2E' : '#DCEBE2',
+                        backgroundColor: isRecordingAudio ? '#DC2626' : '#DCEBE2',
                       }}
                     />
                   ))}
@@ -1705,7 +2262,8 @@ export default function JournalView({
 
                 {/* Big Mic Button */}
                 <Pressable
-                  onPress={() => setIsRecordingAudio((prev) => !prev)}
+                  onPress={handleToggleAudioRecording}
+                  disabled={isAnalyzingAudio}
                   className={`h-20 w-20 rounded-full items-center justify-center shadow-lg active:scale-95 ${
                     isRecordingAudio
                       ? 'bg-red-500 border-4 border-red-200'
@@ -1722,7 +2280,9 @@ export default function JournalView({
                 <Text className="mt-3 text-sm font-extrabold text-pine">
                   {isRecordingAudio
                     ? t(JOURNAL_CONSTANTS.AUDIO_RECORDING_STATUS)
-                    : t(JOURNAL_CONSTANTS.AUDIO_HOLD_OR_TAP)}
+                    : isAnalyzingAudio
+                      ? 'Transcribiendo con Meta Muse y procesando...'
+                      : t(JOURNAL_CONSTANTS.AUDIO_HOLD_OR_TAP)}
                 </Text>
 
                 <Text className="text-xs font-semibold text-[#0B5D3B] mt-1">
@@ -1783,18 +2343,24 @@ export default function JournalView({
               {/* Voice Transcript & Extracted Fields */}
               <View className="rounded-2xl bg-white p-4 border border-[#E2EFE8] gap-3">
                 <View>
-                  <Text className="text-[11px] font-bold text-sage mb-1">
-                    {t(JOURNAL_CONSTANTS.AUDIO_TRANSCRIPT_LABEL)}
-                  </Text>
+                  <View className="flex-row items-center justify-between mb-1">
+                    <Text className="text-[11px] font-bold text-sage">
+                      {t(JOURNAL_CONSTANTS.AUDIO_TRANSCRIPT_LABEL)}
+                    </Text>
+                    <Pressable
+                      onPress={handleAnalyzeAudioTranscript}
+                      disabled={isAnalyzingAudio}
+                      className="flex-row items-center"
+                    >
+                      <Ionicons name="sparkles-outline" size={14} color="#0B5D3B" />
+                      <Text className="ml-1 text-[11px] font-bold text-[#0B5D3B]">
+                        Re-interpretar con IA
+                      </Text>
+                    </Pressable>
+                  </View>
                   <TextInput
                     value={audioTranscript}
-                    onChangeText={(val) => {
-                      setAudioTranscript(val);
-                      const matched = val.match(/\d+(\.\d+)?/);
-                      if (matched) {
-                        setAudioAmount(matched[0]);
-                      }
-                    }}
+                    onChangeText={setAudioTranscript}
                     multiline
                     numberOfLines={2}
                     className="rounded-xl border border-[#DCEBE2] bg-[#F9FCFA] px-3.5 py-2 text-xs text-pine"
@@ -1824,6 +2390,20 @@ export default function JournalView({
                     />
                   </View>
                 </View>
+
+                {audioItems.length > 0 && (
+                  <View className="mt-1">
+                    <Text className="text-[11px] font-bold text-sage mb-1.5">
+                      Ítems desglosados ({audioItems.length})
+                    </Text>
+                    {audioItems.map((it, idx) => (
+                      <View key={idx} className="flex-row justify-between py-1 border-b border-[#F0F8F3]">
+                        <Text className="text-xs text-pine font-medium flex-1 mr-2">{it.concept}</Text>
+                        <Text className="text-xs font-bold text-[#0B5D3B]">{activeHousehold?.currency ?? 'BOB'} {it.amount}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
 
               {/* Apply Action */}
