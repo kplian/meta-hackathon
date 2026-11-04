@@ -249,21 +249,16 @@ export default function OnboardingScreen({ household, userId, onComplete }: Prop
             <View className="mt-8"><WhatsAppCard userId={userId} householdCountry={country} onboarding onContinue={() => go(1)} /></View>
           ) : step === 'healthAsk' ? (
             <View className="mt-8 gap-4">
-              <Pressable disabled={busy} onPress={() => void chooseHealth(true)} accessibilityRole="radio"
-                accessibilityState={{ checked: healthOptIn === true, disabled: busy }}
+              <Pressable disabled={busy} onPress={() => void chooseHealth(true)} accessibilityRole="button"
                 className={`rounded-3xl border bg-white p-5 ${healthOptIn === true ? 'border-pine' : 'border-[#D3E8DC]'} ${busy ? 'opacity-50' : ''}`}>
                 <Ionicons name="nutrition-outline" size={28} color="#0B3D2E" />
                 <Text className="mt-3 text-lg font-bold text-pine">{t('healthAsk.yes')}</Text>
                 <Text className="mt-1 text-sm leading-5 text-sage">{t('healthAsk.yesHelp')}</Text>
               </Pressable>
-              <Pressable disabled={busy} onPress={() => void chooseHealth(false)} accessibilityRole="radio"
-                accessibilityState={{ checked: healthOptIn === false, disabled: busy }}
-                className={`rounded-3xl border bg-white p-5 ${healthOptIn === false ? 'border-pine' : 'border-[#D3E8DC]'} ${busy ? 'opacity-50' : ''}`}>
-                <Ionicons name="arrow-forward-circle-outline" size={28} color="#0B3D2E" />
-                <Text className="mt-3 text-lg font-bold text-pine">{t('healthAsk.no')}</Text>
-                <Text className="mt-1 text-sm leading-5 text-sage">{t('healthAsk.noHelp')}</Text>
-              </Pressable>
               <Text className="text-xs text-sage">{t('healthAsk.later')}</Text>
+              <Pressable disabled={busy} onPress={() => void chooseHealth(false)} accessibilityRole="button" className="p-3 items-center">
+                <Text className="font-semibold text-sage">{t('healthAsk.no')}</Text>
+              </Pressable>
             </View>
           ) : householdId ? (
             step === 'health' ? <HealthStep householdId={householdId} finishing={busy} onFinish={async () => go(1)} onBack={() => go(-1)} />
