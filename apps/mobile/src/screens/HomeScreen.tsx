@@ -1,4 +1,5 @@
 import WhatsAppCard from '../features/whatsapp/WhatsAppCard';
+import WhatsAppConfirmModal from '../features/whatsapp/WhatsAppConfirmModal';
 import { getWhatsAppChatUrl } from '../features/whatsapp/verification';
 import InvestmentsScreen from '../features/investments/InvestmentsScreen';
 import { useEffect, useState } from 'react';
@@ -70,6 +71,7 @@ export default function HomeScreen({ session, preferredHouseholdId }: { session:
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeView, setActiveView] = useState<ViewId>('dashboard');
+  const [isWhatsAppConfirmOpen, setIsWhatsAppConfirmOpen] = useState(false);
 
   const [loadingHouseholds, setLoadingHouseholds] = useState(true);
   const [householdError, setHouseholdError] = useState<string | null>(null);
@@ -240,6 +242,11 @@ export default function HomeScreen({ session, preferredHouseholdId }: { session:
   };
 
   const handleOpenWhatsApp = () => {
+    setIsWhatsAppConfirmOpen(true);
+  };
+
+  const handleConfirmOpenWhatsApp = () => {
+    setIsWhatsAppConfirmOpen(false);
     const greeting = currentLang === 'es'
       ? 'Hola ArkAI, quiero consultar mi presupuesto'
       : currentLang === 'pt'
@@ -648,6 +655,13 @@ export default function HomeScreen({ session, preferredHouseholdId }: { session:
 
       {/* Bottom Navigation Bar (Dashboard | Journal | Profile) */}
       <BottomNavBar activeView={activeView} onSelectTab={handleSelectBottomTab} />
+
+      {/* WhatsApp Bot Confirmation Modal */}
+      <WhatsAppConfirmModal
+        visible={isWhatsAppConfirmOpen}
+        onClose={() => setIsWhatsAppConfirmOpen(false)}
+        onConfirm={handleConfirmOpenWhatsApp}
+      />
     </SafeAreaView>
   );
 }
